@@ -1,0 +1,140 @@
+{
+  "excel_settings": {
+    "file_path": "D:/Python/总氮-华测-20230712-1.xlsx",
+    "sheet_name": "Test",
+    "backup": false
+  },
+  "data_positions": {
+    "report_title": {
+      "cell": "A1",
+      "format": {
+        "alignment": {
+          "horizontal": "center"
+        }
+      }
+    },
+    "sampleType": {
+      "cell": "B2",
+      "format": {
+        "alignment": {
+          "horizontal": "left"
+        }
+      }
+    },
+    "measureName": {
+      "cell": "F2",
+      "format": {
+        "alignment": {
+          "horizontal": "left"
+        }
+      }
+    },
+    "measureDate": {
+      "cell": "J2",
+      "format": {
+        "alignment": {
+          "horizontal": "left"
+        }
+      }
+    },
+    "measureMethod": {
+      "cell": "B3",
+      "format": {
+        "alignment": {
+          "horizontal": "left"
+        }
+      }
+    },
+    "deviceType": {
+      "cell": "B5",
+      "format": {
+        "alignment": {
+          "horizontal": "left"
+        }
+      }
+    },
+    "deviceModel": {
+      "cell": "F5",
+      "format": {
+        "alignment": {
+          "horizontal": "left"
+        }
+      }
+    },
+    "SN": {
+      "cell": "J5",
+      "format": {
+        "alignment": {
+          "horizontal": "left"
+        }
+      }
+    },
+    "measure_datas": {
+      "start_cell": "A15",
+      "orientation": "vertical",
+      "data_format": {
+        "general": {
+          "alignment": {
+            "vertical": "center"
+          }
+        },
+        "columns": {
+          "Revenue": {
+            "number_format": "#,##0"
+          },
+          "Expenses": {
+            "number_format": "#,##0"
+          },
+          "Profit": {
+            "number_format": "#,##0",
+            "font": {
+              "bold": true
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "start_cell": "D2",
+      "orientation": "horizontal",
+      "columns": {
+      "Revenue": {
+        "number_format": "#,##0"
+      }
+    }
+    },
+
+    "summary_datas": {
+      "start_cell": "A10",
+      "orientation": "vertical",
+      "labels": [
+        "Total Revenue",
+        "Total Expenses",
+        "Net Profit"
+      ],
+      "values_format": {
+        "font": {
+          "bold": true
+        },
+        "number_format": "#,##0",
+        "fill": {
+          "bg_color": "F2F2F2"
+        }
+      }
+    },
+    "footer_notes": {
+      "cell": "A12",
+      "format": {
+        "font": {
+          "italic": true,
+          "size": 10
+        },
+        "alignment": {
+          "wrap_text": true
+        }
+      },
+      "height": 40
+    }
+  }
+}
+
