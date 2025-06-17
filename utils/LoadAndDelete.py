@@ -27,7 +27,7 @@ def get_word_bookmarks(file_stream):
             if(len(name_part) > 1):
                 node = {
                     'id': bm_id,
-                    'name': name_part[0],
+                    'name': name,
                     'children': [],
                 }
                 if name_part[0] == TemplateBookMarkType.text.name:

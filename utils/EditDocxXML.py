@@ -77,7 +77,7 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None):
         image_bytes = base64.b64decode(b64data)
         image_stream = BytesIO(image_bytes)
         run = paragraph.add_run()
-        run.add_picture(image_stream, width=Cm(5))  # 自行控制宽度
+        run.add_picture(image_stream, width=Cm(14))  # 自行控制宽度
 
     elif value_type == TemplateBookMarkType.sheet.value:
         if not doc:

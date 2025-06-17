@@ -30,18 +30,19 @@ async def create_template(
         book_markets = get_word_bookmarks(BytesIO(content))
         for book_mark in book_markets:
             await recursion_create_bookmark(book_mark, template.id)        
-    return {'code': 0, 'message': '模板保存成功'}
+    return {'code': 200, 'message': '模板保存成功'}
 
 async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
-    create_info = {
-        'name': bookmark['name'],
-        'type': bookmark['type'],
-        'description': bookmark['description'] if bookmark.get('description') else None,
-        'sort_order': bookmark['sort_order'] if bookmark.get('sort_order') else 0,
-        'parent_id': parent_id,
-        'template_doc_id': template_id
-    }
-    new_bookmark = await TemplateBookmark.create(**create_info)
-    for child in bookmark['children']:
-        if child.get('name') and child.get('id'):
-            await recursion_create_bookmark(child, template_id, new_bookmark.id)
+    if bookmark.get('name') and bookmark.get('id') and bookmark.get('type') is not None:
+        create_info = {
+            'name': bookmark['name'],
+            'type': bookmark['type'],
+            'description': bookmark['description'] if bookmark.get('description') else None,
+            'sort_order': bookmark['sort_order'] if bookmark.get('sort_order') else 0,
+            'parent_id': parent_id,
+            'template_doc_id': template_id
+        }
+        new_bookmark = await TemplateBookmark.create(**create_info)
+        for child in bookmark['children']:
+            if child.get('name') and child.get('id'):
+                await recursion_create_bookmark(child, template_id, new_bookmark.id)
