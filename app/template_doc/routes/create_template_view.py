@@ -29,6 +29,7 @@ async def create_template(
         template =  await TemplateDoc.create(**create_info)
         book_markets = get_word_bookmarks(BytesIO(content))
         for book_mark in book_markets:
+            pass
             await recursion_create_bookmark(book_mark, template.id)        
     return {'code': 200, 'message': '模板保存成功'}
 

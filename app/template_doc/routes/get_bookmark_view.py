@@ -1,5 +1,3 @@
-
-
 from typing import List, Optional, Dict
 from fastapi import APIRouter
 from ..model.template_bookmark import TemplateBookmark

@@ -1,12 +1,70 @@
 from typing import List, Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from ..model.template_doc import TemplateDoc
-from utils.EditDocxXML import fill_word_bookmark
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
 
+
+class TemplateItem(BaseModel):
+    id: int = Field(..., description='模板id')
+    name: str = Field(..., description='模板名称')
+
+
+class DataSchema(BaseModel):
+    sum_count: int = Field(0, description='模板总数')
+    template_list: List[TemplateItem] = Field([], description='模板列表')
+    page: int = Field(1, description='页码')
+    page_size: int = Field(10, description='每页条数')
+
+
+class OutSchema(BaseModel):
+    code: int = Field(0, description='状态码')
+    message: str = Field('获取成功', description='返回信息')
+    data: DataSchema = Field(..., description='返回数据')
+
+
 @router.get('/get_template')
-async def get_template():
-    templates = await TemplateDoc.all().values('name', 'id')
-    return {'code': 200, 'message': '获取成功', 'data': {'templates': templates}}
+async def get_template(
+    name: Optional[str]= Query(None, description='模板名称'), 
+    desc: Optional[int] = Query(0, description='0: 升序，1: 降序'),
+    sort_field: Optional[int] = Query(None, description='排序字段 0: id, 1: 创建时间, 2: 更新时间'),
+    page: int = Query(1, ge=1, description='页码，从1开始'),
+    page_size: int = Query(10, ge=1, le=100, description='每页条数，默认10，最大100')
+    ):
+
+    # 排序字段映射
+    sort_map = {
+        0: 'id',
+        1: 'create_datetime',
+        2: 'update_datetime'
+    }
+    sort_key = sort_map.get(sort_field, 'id')
+    if desc == 0:
+        sort_key = f'{sort_key}'  # 升序排序，Tortoise ORM语法
+    else:
+        sort_key = f'-{sort_key}'  # 降序排序，Tortoise ORM语法
+
+
+    # 构建基础查询（如果 name 存在就加筛选）
+    query = TemplateDoc.all()
+    if name:
+        query = query.filter(name__contains=name)
+
+    total = await query.count()
+    # 排序 + 分页
+    query = query.order_by(sort_key).offset((page - 1) * page_size).limit(page_size)
+
+    # 执行查询
+    template_list = await query.values('id', 'name')
+
+    return {'code': 200, 
+            'message': '获取成功', 
+            'data': {
+                'sum_count': len(template_list), 
+                'page': page,
+                'page_size': page_size,
+                'template_list': template_list
+                }
+            }    

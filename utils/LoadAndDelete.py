@@ -12,8 +12,6 @@ def get_word_bookmarks(file_stream):
 
     # 按文档顺序查找所有bookmarkStart和bookmarkEnd
     all_bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart" or local-name()="bookmarkEnd"]')
-    for elem in all_bookmarks:
-        print(elem.tag)
     bookmarks = []
     stack = []
 
