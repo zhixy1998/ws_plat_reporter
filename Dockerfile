@@ -36,5 +36,4 @@ COPY . .
 # 设置环境变量（可选）
 ENV PYTHONUNBUFFERED=1
 
-# 启动 FastAPI 服务
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8004"]
+CMD ["sh", "-c", "chmod +x /app/start.sh && /app/start.sh"]
