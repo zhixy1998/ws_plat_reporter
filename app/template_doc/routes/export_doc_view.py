@@ -17,21 +17,24 @@ router = APIRouter()
 class BookmarkData(BaseModel):
     bookmarket_name: str
     value: Union[str, List[List[Union[str, int]]]]
-    type: int
+    type: int = Field(..., description='0: 文本，1: 表格，2: 图片')
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
                     "bookmarket_name": "bookmarket_name",
+                    "type": 0,
                     "value": "文字"
                 },  
                 {
-                    "bookmarket_name": "bookmarket_name",
+                    "type": "bookmarket_name",
+                    "type": 2,
                     "value": "图片base64"
                 },
                 {
                     "bookmarket_name": "bookmarket_name",
+                    "type": 1,
                     "value": [["列1", "列2"], ["值1", "值2"]]
                 }
             ]

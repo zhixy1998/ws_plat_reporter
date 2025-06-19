@@ -2,14 +2,16 @@ from typing import List, Optional
 from fastapi import APIRouter, Query
 from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
+from constants.template_constant import TemplateType
 
 router = APIRouter()
-
-
 
 class TemplateItem(BaseModel):
     id: int = Field(..., description='模板id')
     name: str = Field(..., description='模板名称')
+    type_decs: str = Field(..., description='模板类型')
+    create_datetime: str = Field(..., description='创建时间')
+    update_datetime: str = Field(..., description='更新时间')
 
 
 class DataSchema(BaseModel):
@@ -57,7 +59,16 @@ async def get_template(
     query = query.order_by(sort_key).offset((page - 1) * page_size).limit(page_size)
 
     # 执行查询
-    template_list = await query.values('id', 'name')
+    template_list = await query.values('id', 'name', 'type', 'create_datetime', 'update_datetime')
+    template_list = [
+    {
+        **{k: v for k, v in item.items() if k not in ['type', 'create_datetime', 'update_datetime']},
+        'type_decs': TemplateType.get_name_desc_by_value(item['type']),
+        'create_datetime': item['create_datetime'].strftime('%Y-%m-%d %H:%M:%S') if item['create_datetime'] else None,
+        'update_datetime': item['update_datetime'].strftime('%Y-%m-%d %H:%M:%S') if item['update_datetime'] else None,
+    }
+    for item in template_list
+    ]
 
     return {'code': 200, 
             'message': '获取成功', 
