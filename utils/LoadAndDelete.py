@@ -22,25 +22,30 @@ def get_word_bookmarks(file_stream):
         if tag_name == 'bookmarkStart':
             name = elem.get(f'{{{ns_uri}}}name')
             name_part = name.split('_')
+            font, font_size = get_font_and_size(elem)
+            bookmark_type = TemplateBookMarkType.text.value
             if(len(name_part) > 1):
                 node = {
                     'id': bm_id,
                     'name': name,
                     'children': [],
                 }
-                if name_part[0] == TemplateBookMarkType.text.name:
-                    node['type'] = TemplateBookMarkType.text.value # 文字
+                # if name_part[0] == TemplateBookMarkType.text.name:
+                #     bookmark_type = TemplateBookMarkType.text.value # 文字
                 if name_part[0] == TemplateBookMarkType.sheet.name:
-                    node['type'] = TemplateBookMarkType.sheet.value # 表格
+                    bookmark_type = TemplateBookMarkType.sheet.value # 表格
                 if name_part[0] == TemplateBookMarkType.img.name:
-                    node['type'] = TemplateBookMarkType.img.value # 图片
+                    bookmark_type = TemplateBookMarkType.img.value # 图片
             else:
                 node = {
                     'id': bm_id,
                     'name': name,
                     'children': [],
-                    'type': 0  #文字
+                    'type': bookmark_type  #文字
                 }
+            node['font'] = font
+            node['font_size'] = font_size
+            node['img_size'] = get_image_size(elem) if bookmark_type == TemplateBookMarkType.img.value else None
             if stack:
                 stack[-1]['children'].append(node)
             else:
@@ -128,7 +133,45 @@ def delete_bookmark_content(doc_path, bookmark_names, output_path):
 
     doc.save(output_path)
 
+def get_font_and_size(elem):
+    # 默认字体 & 字号
+    default_font = "宋体"
+    default_size = 12
 
+    run = elem.getparent()
+    while run is not None and run.tag != '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r':
+        run = run.getparent()
+
+    if run is None:
+        return default_font, default_size
+
+    ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+
+    font_elem = run.find('.//w:rFonts', namespaces=ns)
+    font = font_elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ascii') if font_elem is not None else default_font
+
+    size_elem = run.find('.//w:sz', namespaces=ns)
+    font_size = int(size_elem.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')) / 2 if size_elem is not None else default_size
+
+    return font, font_size
+
+
+def get_image_size(elem):
+    # 默认图像宽度（cm）
+    default_size = 14.0
+
+    try:
+        drawing = elem.getparent().xpath('.//wp:extent', namespaces={
+            'wp': 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'
+        })
+        if drawing:
+            cx = int(drawing[0].get('cx'))  # EMUs单位
+            cm_size = round(cx / 360000.0, 2)
+            return cm_size
+    except Exception:
+        pass
+
+    return default_size
 
 # 使用示例
 # input_file = r'D:\Python\Template1.docx'

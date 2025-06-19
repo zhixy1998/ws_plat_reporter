@@ -1,4 +1,3 @@
-
 from tortoise import fields
 from tortoise.models import Model
 
@@ -10,6 +9,14 @@ class TemplateBookmark(Model):
     type = fields.IntField(max_length=10, default=0)  # 0:text 1: sheet 2:image
     description = fields.TextField(null=True)
     sort_order = fields.IntField(null=True, default=0)
+    font = fields.CharField(max_length=255, null=True)
+    font_size = fields.IntField(null=True, help_text="字体大小")
+    img_size = fields.FloatField(null=True, help_text="图片大小")
+    create_datetime = fields.DatetimeField(auto_now_add=True)
+    update_datetime = fields.DatetimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
 
     class Meta:
         table = "template_bookmark"

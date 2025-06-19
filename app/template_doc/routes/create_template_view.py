@@ -41,7 +41,10 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
             'description': bookmark['description'] if bookmark.get('description') else None,
             'sort_order': bookmark['sort_order'] if bookmark.get('sort_order') else 0,
             'parent_id': parent_id,
-            'template_doc_id': template_id
+            'template_doc_id': template_id,
+            'font': bookmark['font'] if bookmark.get('font') else None,
+            'font_size': bookmark['font_size'] if bookmark.get('font_size') else None,
+            'image_size': bookmark['image_size'] if bookmark.get('image_size') else None
         }
         new_bookmark = await TemplateBookmark.create(**create_info)
         for child in bookmark['children']:

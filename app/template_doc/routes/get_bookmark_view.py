@@ -14,6 +14,9 @@ class BookmarkItem(BaseModel):
     type: int = Field(..., description="书签类型（1: 文本，2: 图片，3: 表格）")
     description: Optional[str] = Field(None, description="书签的详细描述")
     sort_order: int = Field(..., description="显示顺序（越小越靠前）")
+    font: Optional[str] = Field(None, description="字体")
+    font_size: Optional[int] = Field(None, description="字号")
+    img_size: Optional[float] = Field(None, description="图片大小")
     children: List["BookmarkItem"] = Field(default_factory=list, description="子书签") # 递归用字符串引用
 
 class BookmarkDataSchema(BaseModel):

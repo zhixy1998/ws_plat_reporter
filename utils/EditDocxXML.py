@@ -173,3 +173,4 @@ def try_global_bookmark_fill(doc, bookmark_name, value, value_type):
             insert_value(paragraph, bm, value, value_type, doc)
             return True
     return False
+
