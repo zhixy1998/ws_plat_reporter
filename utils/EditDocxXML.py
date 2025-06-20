@@ -103,9 +103,12 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None):
         if cols == 0:
             print(f"警告: 为书签 {bookmark_element.get(qn('w:name'))} 提供的表格数据没有列。")
             return
-            
+        width_cm = Cm(1.5)    
         tbl = doc.add_table(rows=0, cols=cols)
         tbl.style = 'Table Grid'
+
+        for column in tbl.columns:
+            column.width = width_cm
         for row_data in table_data:
             # 确保每行数据长度与列数一致
             if len(row_data) != cols:
