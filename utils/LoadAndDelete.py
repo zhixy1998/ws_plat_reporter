@@ -41,8 +41,8 @@ def get_word_bookmarks(file_stream):
                     'id': bm_id,
                     'name': name,
                     'children': [],
-                    'type': bookmark_type  #文字
                 }
+            node['type'] = bookmark_type
             node['font'] = font
             node['font_size'] = font_size
             node['img_size'] = get_image_size(elem) if bookmark_type == TemplateBookMarkType.img.value else None
