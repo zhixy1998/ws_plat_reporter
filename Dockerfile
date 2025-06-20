@@ -36,4 +36,4 @@ COPY . .
 # 设置环境变量（可选）
 ENV PYTHONUNBUFFERED=1
 
-CMD ["sh", "-c", "chmod +x /app/start.sh && /app/start.sh"]
+CMD ["sh", "-c", "aerich upgrade && uvicorn app.main:app --host 0.0.0.0 --port 8003"]
