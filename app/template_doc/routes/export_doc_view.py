@@ -15,7 +15,7 @@ from constants.template_constant import TemplateBookMarkType
 router = APIRouter()
 
 class BookmarkData(BaseModel):
-    bookmarket_name: str
+    bookmark_name: str
     value: Union[str, List[List[Union[str, int]]]]
     type: int = Field(..., description='0: 文本，1: 表格，2: 图片')
 
@@ -23,17 +23,17 @@ class BookmarkData(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "bookmarket_name": "bookmarket_name",
+                    "bookmark_name": "bookmark_name",
                     "type": 0,
                     "value": "文字"
                 },  
                 {
-                    "type": "bookmarket_name",
+                    "type": "bookmark_name",
                     "type": 2,
                     "value": "图片base64"
                 },
                 {
-                    "bookmarket_name": "bookmarket_name",
+                    "bookmark_name": "bookmark_name",
                     "type": 1,
                     "value": [["列1", "列2"], ["值1", "值2"]]
                 }
@@ -46,20 +46,13 @@ class InputSchema(BaseModel):
     bookmark_data: List[BookmarkData] = Field(..., description="书签值，支持文本、图片base64、表格数据")
 
 @router.post('/export_doc')
-async def export_doct(data: InputSchema):
+async def export_docx(data: InputSchema):
     template_id = data.template_id
     bookmark_data = data.bookmark_data
-    # 1. 从数据库获取 TemplateDoc
-    template = await TemplateDoc.get_or_none(id=template_id)
-    if not template:
-        return {'code': 1, 'message': '模板不存在'}
-    # 2. base64 解码成二进制
-    content_bytes = base64.b64decode(template.template_content)
-    doc_stream = BytesIO(content_bytes)
-    doc = Document(doc_stream)
+    doc = get_doc_obj_by_template_id(template_id)
 
     for bookmark in bookmark_data:
-        name = bookmark.bookmarket_name
+        name = bookmark.bookmark_name
         value = bookmark.value
         bookmark_type = bookmark.type
         # if bookmark_type == TemplateBookMarkType.text.value:
@@ -80,3 +73,13 @@ async def export_doct(data: InputSchema):
     return StreamingResponse(doc_stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
         "Content-Disposition": "attachment; filename=filled.docx"
     })
+
+async def get_doc_obj_by_template_id(template_id: int):
+    template = await TemplateDoc.get_or_none(id=template_id)
+    if not template:
+        return {'code': 1, 'message': '模板不存在'}
+    # 2. base64 解码成二进制
+    content_bytes = base64.b64decode(template.template_content)
+    doc_stream = BytesIO(content_bytes)
+    doc = Document(doc_stream)
+    return doc
