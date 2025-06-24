@@ -5,7 +5,7 @@ from docx.shared import Cm
 from constants.template_constant import TemplateBookMarkType
 
 #向指定标签插入内容
-def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkType.text.value):
+def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkType.text.value, font=None, font_size=None):
     found = False
 
     for paragraph in doc.paragraphs:
@@ -15,7 +15,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                 if name == bookmark_name:
                     found = True
                     remove_following_runs(paragraph, element)
-                    insert_value(paragraph, element, value, value_type)
+                    insert_value(paragraph, element, value, value_type, font=font, font_size=font_size)
 
     for table in doc.tables:
         for row in table.rows:
@@ -27,7 +27,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                             if name == bookmark_name:
                                 found = True
                                 remove_following_runs(paragraph, element)
-                                insert_value(paragraph, element, value, value_type)
+                                insert_value(paragraph, element, value, value_type, font=font, font_size=font_size)
 
     for section in doc.sections:
         for paragraph in section.header.paragraphs:
@@ -37,7 +37,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                     if name == bookmark_name:
                         found = True
                         remove_following_runs(paragraph, element)
-                        insert_value(paragraph, element, value, value_type)
+                        insert_value(paragraph, element, value, value_type, font=font, font_size=font_size)
 
     for section in doc.sections:
         for paragraph in section.footer.paragraphs:
@@ -47,10 +47,10 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                     if name == bookmark_name:
                         found = True
                         remove_following_runs(paragraph, element)
-                        insert_value(paragraph, element, value, value_type)
+                        insert_value(paragraph, element, value, value_type, font=font, font_size=font_size)
 
     if not found:
-        found = try_global_bookmark_fill(doc, bookmark_name, value, value_type)
+        found = try_global_bookmark_fill(doc, bookmark_name, value, value_type, font=font, font_size=font_size)
 
     if not found:
         print(f"⚠ 没有找到书签: {bookmark_name}")
@@ -60,11 +60,20 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
     output_stream.seek(0)
     return output_stream
 
-def insert_value(paragraph, bookmark_element, value, value_type, doc=None):
+def insert_value(paragraph, bookmark_element, value, value_type, doc=None, font=None, font_size=None):
     insert_index = paragraph._element.index(bookmark_element) + 1
 
     if value_type == TemplateBookMarkType.text.value:
         new_run = paragraph.insert_paragraph_before().add_run(str(value))
+        if font:
+            new_run.font.name = font
+            # 为兼容部分中文字体设置，推荐设置 rFonts 属性
+            r = new_run._element.rPr
+            rFonts = r.get_or_add_rFonts()
+            rFonts.set(qn('w:eastAsia'), font)
+
+        if font_size:
+            new_run.font.size = Pt(font_size)
         paragraph._element.insert(insert_index, new_run._element)
 
     elif value_type == TemplateBookMarkType.img.value:
@@ -151,7 +160,7 @@ def remove_following_runs(paragraph, bookmark_element):
 
 
 # 全局查找书签并填充
-def try_global_bookmark_fill(doc, bookmark_name, value, value_type):
+def try_global_bookmark_fill(doc, bookmark_name, value, value_type, font, font_size):
     from docx.oxml import parse_xml
     doc_element = doc.part._element
     bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart"]')
@@ -173,7 +182,7 @@ def try_global_bookmark_fill(doc, bookmark_name, value, value_type):
                 # 书签不在段落里，无法插入文本或图片，直接返回True
                 return True
             paragraph = Paragraph(p_elem, doc)
-            insert_value(paragraph, bm, value, value_type, doc)
+            insert_value(paragraph, bm, value, value_type, doc=doc, font=font, font_size=font_size)
             return True
     return False
 
