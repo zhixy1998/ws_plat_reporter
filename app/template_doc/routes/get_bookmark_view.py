@@ -44,6 +44,7 @@ async def get_bookmark(template_id: int, type: Optional[int] = None):
     return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': result}}
 
 def build_tree(bookmarks):
+    id_list = []
     id_node_map = {item['id']: {**item, 'children': []} for item in bookmarks}
 
     tree = []
@@ -58,4 +59,11 @@ def build_tree(bookmarks):
                 parent['children'].append(node)
             else:
                 tree.append(node)
+    for i in tree:
+        d = {}
+        d['bm_id'] = i.get('id')
+        d['font'] = i.get('font')
+        d['font_size'] = i.get('font_size')
+        id_list.append(d)
+    print('id列表:', id_list)
     return tree

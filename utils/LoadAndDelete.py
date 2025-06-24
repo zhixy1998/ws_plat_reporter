@@ -21,27 +21,18 @@ def get_word_bookmarks(file_stream):
 
         if tag_name == 'bookmarkStart':
             name = elem.get(f'{{{ns_uri}}}name')
-            name_part = name.split('_')
             font, font_size = get_font_and_size(elem)
-            bookmark_type = TemplateBookMarkType.text.value
-            if(len(name_part) > 1):
-                node = {
-                    'id': bm_id,
-                    'name': name,
-                    'children': [],
-                }
-                # if name_part[0] == TemplateBookMarkType.text.name:
-                #     bookmark_type = TemplateBookMarkType.text.value # 文字
-                if name_part[0] == TemplateBookMarkType.sheet.name:
-                    bookmark_type = TemplateBookMarkType.sheet.value # 表格
-                if name_part[0] == TemplateBookMarkType.img.name:
-                    bookmark_type = TemplateBookMarkType.img.value # 图片
+            if TemplateBookMarkType.sheet.decs in name:
+                bookmark_type = TemplateBookMarkType.sheet.value
+            elif TemplateBookMarkType.img.decs in name:
+                bookmark_type = TemplateBookMarkType.img.value
             else:
-                node = {
-                    'id': bm_id,
-                    'name': name,
-                    'children': [],
-                }
+                bookmark_type = TemplateBookMarkType.text.value
+            node = {
+                'id': bm_id,
+                'name': name,
+                'children': [],
+            }
             node['type'] = bookmark_type
             node['font'] = font
             node['font_size'] = font_size
