@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict
 from fastapi import APIRouter
 from ..model.template_bookmark import TemplateBookmark
+from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
 from constants.template_constant import TemplateBookMarkType
 
@@ -35,7 +36,11 @@ async def get_bookmark(template_id: int, type: Optional[int] = None):
         bookmarks = await TemplateBookmark.filter(template_doc_id=template_id, type=type).all().values()
     else:
         bookmarks = await TemplateBookmark.filter(template_doc_id=template_id).all().values()
-        # 按 type 分组
+    
+    # 把带标题两个字的标签过滤掉
+    bookmarks = [bm for bm in bookmarks if "标题" not in bm.get('name')]
+    
+    # 按 type 分组
     grouped = {}
     for item in bookmarks:
         item_type = item.get('type', 'unknown')
@@ -59,11 +64,19 @@ def build_tree(bookmarks):
                 parent['children'].append(node)
             else:
                 tree.append(node)
-    for i in tree:
-        d = {}
-        d['bm_id'] = i.get('id')
-        d['font'] = i.get('font')
-        d['font_size'] = i.get('font_size')
-        id_list.append(d)
+
+    # 扁平化树结构
+    id_list = []
+    def flatten_tree(nodes):
+        for node in nodes:
+            id_list.append({
+                'bm_id': node.get('id'),
+                'font': node.get('font'),
+                'font_size': node.get('font_size')
+            })
+            if node.get('children'):
+                flatten_tree(node['children'])
+
+    flatten_tree(tree)
     print('id列表:', id_list)
     return tree

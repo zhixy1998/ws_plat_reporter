@@ -14,6 +14,7 @@ class TemplateBookmark(Model):
     img_size = fields.FloatField(null=True, help_text="图片大小")
     create_datetime = fields.DatetimeField(auto_now_add=True)
     update_datetime = fields.DatetimeField(auto_now=True)
+    is_del = fields.SmallIntField(default=0)
 
     def __str__(self):
         return self.name

@@ -24,5 +24,5 @@ class OutSchema(BaseModel):
 async def get_template_content(template_id: int):
     template = await TemplateDoc.get_or_none(id=template_id)
     if not template:
-        raise APIException(ErrorCode.TemplateNotFound)
+        raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
     return {'code': 200, 'message': '获取成功', 'data': {'template_content': template.template_content}}

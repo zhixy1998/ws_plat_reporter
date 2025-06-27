@@ -15,7 +15,7 @@ class InputSchema(BaseModel):
 async def update_template(data: InputSchema):
     template = await TemplateDoc.get_or_none(id=data.id)
     if not template:
-        raise APIException(ErrorCode.TemplateNotFound)
+        raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
     template.name = data.name
     await template.save()
     return {'code': 200, 'message': '模板更新成功'}

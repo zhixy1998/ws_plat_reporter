@@ -1,8 +1,11 @@
-from docx.oxml.ns import qn
-from io import BytesIO
 import base64
-from docx.shared import Cm
+from io import BytesIO
+
+from docx.oxml.ns import qn
+from docx.shared import Pt, Cm
 from constants.template_constant import TemplateBookMarkType
+from docx.text.run import Run
+from docx.text.paragraph import Paragraph
 
 #向指定标签插入内容
 def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkType.text.value, font=None, font_size=None):
@@ -14,8 +17,11 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                 name = element.get(qn('w:name'))
                 if name == bookmark_name:
                     found = True
-                    remove_following_runs(paragraph, element)
-                    insert_value(paragraph, element, value, value_type, font=font, font_size=font_size)
+                    if value:
+                        remove_following_runs(paragraph, element)
+                        insert_value(paragraph, element, value, value_type)
+                    else:
+                        set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
 
     for table in doc.tables:
         for row in table.rows:
@@ -26,8 +32,11 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                             name = element.get(qn('w:name'))
                             if name == bookmark_name:
                                 found = True
-                                remove_following_runs(paragraph, element)
-                                insert_value(paragraph, element, value, value_type, font=font, font_size=font_size)
+                                if value:
+                                    remove_following_runs(paragraph, element)
+                                    insert_value(paragraph, element, value, value_type)
+                                else:
+                                    set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
 
     for section in doc.sections:
         for paragraph in section.header.paragraphs:
@@ -36,8 +45,11 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                     name = element.get(qn('w:name'))
                     if name == bookmark_name:
                         found = True
-                        remove_following_runs(paragraph, element)
-                        insert_value(paragraph, element, value, value_type, font=font, font_size=font_size)
+                        if value:
+                            remove_following_runs(paragraph, element)
+                            insert_value(paragraph, element, value, value_type)
+                        else:
+                            set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
 
     for section in doc.sections:
         for paragraph in section.footer.paragraphs:
@@ -46,8 +58,11 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                     name = element.get(qn('w:name'))
                     if name == bookmark_name:
                         found = True
-                        remove_following_runs(paragraph, element)
-                        insert_value(paragraph, element, value, value_type, font=font, font_size=font_size)
+                        if value:
+                            remove_following_runs(paragraph, element)
+                            insert_value(paragraph, element, value, value_type)
+                        else:
+                            set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
 
     if not found:
         found = try_global_bookmark_fill(doc, bookmark_name, value, value_type, font=font, font_size=font_size)
@@ -60,23 +75,16 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
     output_stream.seek(0)
     return output_stream
 
-def insert_value(paragraph, bookmark_element, value, value_type, doc=None, font=None, font_size=None):
+def insert_value(paragraph, bookmark_element, value, value_type, doc=None):
     insert_index = paragraph._element.index(bookmark_element) + 1
 
     if value_type == TemplateBookMarkType.text.value:
         new_run = paragraph.insert_paragraph_before().add_run(str(value))
-        if font:
-            new_run.font.name = font
-            # 为兼容部分中文字体设置，推荐设置 rFonts 属性
-            r = new_run._element.rPr
-            rFonts = r.get_or_add_rFonts()
-            rFonts.set(qn('w:eastAsia'), font)
-
-        if font_size:
-            new_run.font.size = Pt(font_size)
         paragraph._element.insert(insert_index, new_run._element)
 
     elif value_type == TemplateBookMarkType.img.value:
+        if not value:
+            return
         # 先判断是否带有 data:image/png;base64, 前缀
         if value.startswith("data:image"):
             header, b64data = value.split(",", 1)
@@ -92,7 +100,8 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None, font=
         if not doc:
             print("错误：插入表格时缺少'doc'对象。")
             return
-
+        if not value:
+            return
         p_element = paragraph._element # 书签所在的段落元素 <w:p>
 
         # 1. 向上查找，判断书签是否在表格内
@@ -156,8 +165,63 @@ def remove_following_runs(paragraph, bookmark_element):
             elements_to_remove.append(element)
 
     for el in elements_to_remove:
-        paragraph._p.remove(el) 
+        paragraph._p.remove(el)
 
+
+def set_bookmark_run_style(doc, paragraph, bookmark_name, font=None, font_size=None):
+    # 1. 找到所有 bookmarkStart 和 bookmarkEnd
+    # 1. 找到目标 bookmarkStart 和对应 id
+    bookmark_starts = doc.part._element.xpath('.//*[local-name()="bookmarkStart"]')
+    start_bm = None
+    bm_id = None
+
+    for bm in bookmark_starts:
+        if bm.get(qn("w:name")) == bookmark_name:
+            start_bm = bm
+            bm_id = bm.get(qn("w:id"))
+            break
+
+    if start_bm is None:
+        print(f"❌ 没找到书签 {bookmark_name}")
+        return
+
+    # 2. 找到对应的 bookmarkEnd
+    bookmark_ends = doc.part._element.xpath('.//*[local-name()="bookmarkEnd"]')
+    end_bm = None
+    for bm in bookmark_ends:
+        if bm.get(qn("w:id")) == bm_id:
+            end_bm = bm
+            break
+
+    if end_bm is None:
+        print(f"❌ 没找到书签 {bookmark_name} 的结束标签")
+        return
+
+    # 3. 遍历 bookmarkStart 到 bookmarkEnd 之间的兄弟节点
+    element = start_bm.getnext()
+    while element is not None and element != end_bm:
+        if element.tag.endswith("r"):  # 是 run
+            # 检查该 run 的直接子元素是否为 <w:t>
+            for child in element.getchildren():
+                if child.tag.endswith("t"):
+                    # 找到该 run 的所属段落
+                    p_elem = element
+                    while p_elem is not None and p_elem.tag != qn("w:p"):
+                        p_elem = p_elem.getparent()
+                    if p_elem is None:
+                        continue
+
+                    para = Paragraph(p_elem, doc)
+                    run = Run(element, para)
+
+                    if font:
+                        run.font.name = font
+                        r = run._element.rPr
+                        rFonts = r.get_or_add_rFonts()
+                        rFonts.set(qn('w:eastAsia'), font)
+                    if font_size:
+                        run.font.size = Pt(font_size)
+        element = element.getnext()
 
 # 全局查找书签并填充
 def try_global_bookmark_fill(doc, bookmark_name, value, value_type, font, font_size):
@@ -182,7 +246,7 @@ def try_global_bookmark_fill(doc, bookmark_name, value, value_type, font, font_s
                 # 书签不在段落里，无法插入文本或图片，直接返回True
                 return True
             paragraph = Paragraph(p_elem, doc)
-            insert_value(paragraph, bm, value, value_type, doc=doc, font=font, font_size=font_size)
+            insert_value(paragraph, bm, value, value_type, doc=doc)
             return True
     return False
 

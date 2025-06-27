@@ -1,4 +1,5 @@
 #获取word中存在的书签名称（去重）
+from io import BytesIO
 from docx import Document
 from docx.oxml.ns import qn
 from constants.template_constant import TemplateBookMarkType
@@ -21,6 +22,8 @@ def get_word_bookmarks(file_stream):
 
         if tag_name == 'bookmarkStart':
             name = elem.get(f'{{{ns_uri}}}name')
+            if name.startswith('_'):
+                continue
             font, font_size = get_font_and_size(elem)
             if TemplateBookMarkType.sheet.decs in name:
                 bookmark_type = TemplateBookMarkType.sheet.value
@@ -37,6 +40,7 @@ def get_word_bookmarks(file_stream):
             node['font'] = font
             node['font_size'] = font_size
             node['img_size'] = get_image_size(elem) if bookmark_type == TemplateBookMarkType.img.value else None
+
             if stack:
                 stack[-1]['children'].append(node)
             else:
@@ -60,69 +64,42 @@ def get_word_bookmarks(file_stream):
 
 
 #删除指定书签
-def delete_bookmark_content(doc_path, bookmark_names, output_path):
-    """
-    删除指定书签及其所有内容（支持跨段落/表格）
-    :param doc_path: 输入文档路径
-    :param bookmark_names: 要删除的书签名列表
-    :param output_path: 输出文档路径
-    """
-    doc = Document(doc_path)
-    root = doc.part._element
-    ns_uri = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+def delete_bookmark_content(doc, bookmark_name, output_path):
+    # 1. 找到目标 bookmarkStart 和它的 id
+    bookmarks = doc.part._element.xpath('.//*[local-name()="bookmarkStart"]')
+    start_bm = None
+    target_id = None
 
-    # 遍历所有书签起始标签
-    bookmark_starts = [elem for elem in root.iter() if elem.tag.endswith('bookmarkStart')]
+    for bm in bookmarks:
+        name = bm.get(qn("w:name"))
+        if name == bookmark_name:
+            start_bm = bm
+            target_id = bm.get(qn("w:id"))
+            break
 
-    for bm_start in bookmark_starts:
-        # 获取书签名称和ID
-        name = bm_start.get(f'{{{ns_uri}}}name')
-        if name not in bookmark_names:
-            continue
+    if start_bm is None:
+        print(f"❌ 没有找到书签 {bookmark_name}")
+        return
 
-        bm_id = bm_start.get(f'{{{ns_uri}}}id')
-        parent = bm_start.getparent()
+    # 2. 找到对应 bookmarkEnd（同一个 id）
+    bookmark_ends = doc.part._element.xpath('.//*[local-name()="bookmarkEnd"]')
+    end_bm = None
+    for end in bookmark_ends:
+        if end.get(qn("w:id")) == target_id:
+            end_bm = end
+            break
 
-        # 查找匹配的结束标签（全局搜索）
-        bm_end = None
-        for elem in root.iter():
-            if elem.tag.endswith('bookmarkEnd') and elem.get(f'{{{ns_uri}}}id') == bm_id:
-                bm_end = elem
-                break
-
-        if not bm_end:
-            continue
-
-        # 标记需要删除的节点（跨父节点处理）
-        nodes_to_delete = []
-        current_node = bm_start
-        while current_node != bm_end:
-            nodes_to_delete.append(current_node)
-            # 深度优先遍历子节点
-            if len(current_node) > 0:
-                current_node = current_node[0]
-            else:
-                next_node = current_node.getnext()
-                while not next_node and current_node != parent:
-                    current_node = current_node.getparent()
-                    next_node = current_node.getnext()
-                current_node = next_node
-
-        nodes_to_delete.append(bm_end)
-
-        # 逆序删除避免结构破坏
-        for node in reversed(nodes_to_delete):
-            p = node.getparent()
-            if p is not None:
-                p.remove(node)
-
-    # 清理空段落
-    for para in reversed(doc.paragraphs):
-        if not para.text.strip():
-            p = para._element
-            p.getparent().remove(p)
-
-    doc.save(output_path)
+    if end_bm is None:
+        print(f"❌ 没找到书签 {bookmark_name} 的结束标签")
+        return
+    # 3. 删除 bookmarkStart 到 bookmarkEnd 之间的所有元素，包括两端
+    element = start_bm
+    while element is not None:
+        next_element = element.getnext()
+        element.getparent().remove(element)
+        if element == end_bm:
+            break
+        element = next_element
 
 def get_font_and_size(elem):
     # 默认字体 & 字号
