@@ -51,6 +51,7 @@ async def get_template(
 
     # 构建基础查询（如果 name 存在就加筛选）
     query = TemplateDoc.all()
+    sum_count = await query.count()
     if name:
         query = query.filter(name__contains=name)
 
@@ -73,7 +74,7 @@ async def get_template(
     return {'code': 200, 
             'message': '获取成功', 
             'data': {
-                'sum_count': len(template_list), 
+                'sum_count': sum_count, 
                 'page': page,
                 'page_size': page_size,
                 'template_list': template_list

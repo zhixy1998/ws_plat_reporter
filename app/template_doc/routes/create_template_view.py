@@ -6,6 +6,8 @@ from tortoise.transactions import in_transaction
 from ..model.template_doc import TemplateDoc
 from ..model.template_bookmark import TemplateBookmark
 from utils.LoadAndDelete import get_word_bookmarks
+from exceptions.error import ErrorCode
+from exceptions.command_exception import APIException
 
 router = APIRouter()
 
@@ -13,14 +15,21 @@ router = APIRouter()
 #     name: str = Field(None, description='模板名称')
 
 @router.post('/upload_template')
-async def create_template(
+async def create_template_view(
     name: str = Form(None, description='模板名称'),
     file: UploadFile = File(..., description='模板文件')
     ):
-    name = name if name else file.filename
-    content = await file.read()
-    content_base64 = base64.b64encode(content).decode('utf-8')
-    # 存入数据库
+    try:
+        name = name if name else file.filename
+        content = await file.read()
+        content_base64 = base64.b64encode(content).decode('utf-8')
+        # 存入数据库
+        await create_template(name, content_base64, content)
+    except Exception as e:
+        raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
+    return {'code': 200, 'message': '模板保存成功'}
+
+async def create_template(name: str, content_base64: str, content: bytes):
     async with in_transaction() as connnection:
         create_info = {
             'name': name,
@@ -30,8 +39,7 @@ async def create_template(
         book_markets = get_word_bookmarks(BytesIO(content))
         for book_mark in book_markets:
             pass
-            await recursion_create_bookmark(book_mark, template.id)        
-    return {'code': 200, 'message': '模板保存成功'}
+            await recursion_create_bookmark(book_mark, template.id)     
 
 async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
     if bookmark.get('name') and bookmark.get('id') and bookmark.get('type') is not None:

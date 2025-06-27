@@ -1,5 +1,3 @@
-import ast
-
 import base64
 from io import BytesIO
 
