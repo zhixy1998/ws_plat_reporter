@@ -32,7 +32,7 @@ class InputSchema(BaseModel):
     title_list: List[BookmarkItem] = Field(None, description='报告名称')
     header: BookmarkItem = Field(None, description='页眉')
     footer: BookmarkItem = Field(None, description='页脚')
-    operation_type: int = Field(None, description='操作类型 0: 预览 1:另存为')
+    operation_type: int = Field(None, description='操作类型 0: 预览 1:另存为 2: 保存')
     name: str = Field(None, description='模板名称 当另存为的时候传入')
 
 
@@ -98,8 +98,8 @@ async def update_bookmark(data: InputSchema):
         doc_stream = fill_word_bookmark(doc, name, value, bookmark_type)
     
     # 处理替换修改字体和字体大小
-    update_bookmark = get_update_bookmark(bookmark_id_font_mapping, [*data.bookmark_list, *data.title_list])
-    for bookmark in update_bookmark:
+    update_bookmark_list = get_update_bookmark(bookmark_id_font_mapping, [*data.bookmark_list, *data.title_list])
+    for bookmark in update_bookmark_list:
         name = bookmark.get('name')
         font = bookmark.get('font')
         font_size = bookmark.get('font_size')
@@ -131,6 +131,12 @@ async def update_bookmark(data: InputSchema):
 
     if operation_type == 1: # 另存为
         await create_template(data.name, base64_str, doc_raw_bytes)
+    if operation_type == 2: # 保存
+        await TemplateDoc.filter(id=data.template_id).update(template_content=base64_str)
+        for bookmark in update_bookmark_list:
+            await TemplateBookmark.filter(id=bookmark.get('id')).update(font=bookmark.get('font'), font_size=bookmark.get('font_size'))
+        for del_bookmark_name in del_bookmark_name_list:
+            await TemplateBookmark.filter(template_doc_id = data.template_id, name=del_bookmark_name).update(is_del=1)
     
     return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': base64_str}}
 
@@ -146,5 +152,6 @@ def get_update_bookmark(real_id_font_mapping: Dict[int, BookmarkItem], input_boo
             if real_id_font_mapping[i.bm_id]['font'] != i.font or real_id_font_mapping[i.bm_id]['font_size'] != i.font_size:
                 i_dict['name'] = real_id_font_mapping[i.bm_id]['name']
                 i_dict['type'] = real_id_font_mapping[i.bm_id]['type']
+                i_dict['id'] = i.bm_id
                 update_book_mark.append(i_dict)
     return update_book_mark

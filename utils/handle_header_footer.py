@@ -59,11 +59,13 @@ def set_header_footer(doc, header_text=None, footer_text=None, header_font_name=
                 p.getparent().remove(p)
 
             para = header.add_paragraph(header_text)
-            run = para.runs[0]
-            run.font.name = header_font_name
-            run.font.size = Pt(header_font_size)
-            rFonts = run._element.rPr.get_or_add_rFonts()
-            rFonts.set(qn('w:eastAsia'), header_font_name)
+            if len(para.runs):
+                run = para.runs[0]
+                if header_font_size:
+                    run.font.name = header_font_name
+                    run.font.size = Pt(header_font_size)
+                    rFonts = run._element.rPr.get_or_add_rFonts()
+                    rFonts.set(qn('w:eastAsia'), header_font_name)
 
         # 设置页脚
         footer = section.footer
@@ -73,8 +75,10 @@ def set_header_footer(doc, header_text=None, footer_text=None, header_font_name=
                 p.getparent().remove(p)
 
             para = footer.add_paragraph(footer_text)
-            run = para.runs[0]
-            run.font.name = footer_font_name
-            run.font.size = Pt(footer_font_size)
-            rFonts = run._element.rPr.get_or_add_rFonts()
-            rFonts.set(qn('w:eastAsia'), footer_font_name)
+            if len(para.runs):
+                run = para.runs[0]
+                if footer_font_size:
+                    run.font.name = footer_font_name
+                    run.font.size = Pt(footer_font_size)
+                    rFonts = run._element.rPr.get_or_add_rFonts()
+                    rFonts.set(qn('w:eastAsia'), footer_font_name)

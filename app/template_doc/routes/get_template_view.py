@@ -50,7 +50,7 @@ async def get_template(
 
 
     # 构建基础查询（如果 name 存在就加筛选）
-    query = TemplateDoc.all()
+    query = TemplateDoc.filter(is_del=0)
     sum_count = await query.count()
     if name:
         query = query.filter(name__contains=name)

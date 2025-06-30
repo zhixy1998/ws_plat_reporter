@@ -8,6 +8,9 @@ class TemplateDoc(Model):
     create_datetime = fields.DatetimeField(auto_now_add=True)
     update_datetime = fields.DatetimeField(auto_now=True)
     template_content = fields.TextField()  # Base64 存储doc内容
+    base_template_id = fields.IntField(null=True, help_text='基础模版的id')
+    is_del = fields.SmallIntField(default=0)
+
 
     class Meta:
         table = "template_doc"
