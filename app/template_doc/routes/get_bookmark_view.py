@@ -33,9 +33,9 @@ class OutSchema(BaseModel):
 @router.get('/get_bookmark', response_model=OutSchema)
 async def get_bookmark(template_id: int, type: Optional[int] = None):
     if type is not None:
-        bookmarks = await TemplateBookmark.filter(template_doc_id=template_id, type=type).all().values()
+        bookmarks = await TemplateBookmark.filter(template_doc_id=template_id, type=type, is_del=0).all().values()
     else:
-        bookmarks = await TemplateBookmark.filter(template_doc_id=template_id).all().values()
+        bookmarks = await TemplateBookmark.filter(template_doc_id=template_id, is_del=0).all().values()
     
     # 把带标题两个字的标签过滤掉
     bookmarks = [bm for bm in bookmarks if "标题" not in bm.get('name')]
@@ -65,18 +65,18 @@ def build_tree(bookmarks):
             else:
                 tree.append(node)
 
-    # 扁平化树结构
-    id_list = []
-    def flatten_tree(nodes):
-        for node in nodes:
-            id_list.append({
-                'bm_id': node.get('id'),
-                'font': node.get('font'),
-                'font_size': node.get('font_size')
-            })
-            if node.get('children'):
-                flatten_tree(node['children'])
+    # # 扁平化树结构
+    # id_list = []
+    # def flatten_tree(nodes):
+    #     for node in nodes:
+    #         id_list.append({
+    #             'bm_id': node.get('id'),
+    #             'font': node.get('font'),
+    #             'font_size': node.get('font_size')
+    #         })
+    #         if node.get('children'):
+    #             flatten_tree(node['children'])
 
-    flatten_tree(tree)
-    print('id列表:', id_list)
+    # flatten_tree(tree)
+    # print('id列表:', id_list)
     return tree
