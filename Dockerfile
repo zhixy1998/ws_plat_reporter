@@ -3,17 +3,14 @@ FROM python:3.8.6
 # 设置工作目录
 WORKDIR /app
 
-# 关键步骤: 更新apt缓存并安装LibreOffice Writer和中文字体
-# 这对于处理Word文档中的中文至关重要，防止PDF乱码
-RUN apt-get update && apt-get install -y \
-    # 只安装Writer组件，而不是整个LibreOffice套件
-    libreoffice-writer \
-    # 安装推荐的中文字体，保证中文字符能正确显示
-    fonts-noto-cjk \
-    # [优化] 不安装“推荐”的非必需软件包，显著减小镜像体积
-    --no-install-recommends \
-    # [优化] 在同一层(RUN)中清理apt缓存，减小最终镜像大小
-    && rm -rf /var/lib/apt/lists/*
+# 替换为国内 Debian 镜像，加速 apt 安装，解决连接失败问题
+RUN set -eux; \
+    sed -i 's|http://deb.debian.org|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libreoffice-writer \
+        fonts-noto-cjk && \
+    rm -rf /var/lib/apt/lists/*
 
 # 复制 requirements.txt 并安装依赖
 COPY requirements.txt .
