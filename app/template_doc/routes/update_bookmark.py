@@ -1,4 +1,7 @@
 import base64
+import os
+import tempfile
+import subprocess
 from io import BytesIO
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -47,7 +50,7 @@ class OutSchema(BaseModel):
 
 
 
-@router.post('/update_bookmark', response_model=OutSchema)
+@router.post('/update_bookmark')
 async def update_bookmark(data: InputSchema):
     operation_type = data.operation_type
     template = await TemplateDoc.get_or_none(id=data.template_id)
@@ -120,14 +123,11 @@ async def update_bookmark(data: InputSchema):
     doc.save(output_stream)
     output_stream.seek(0)
 
-    # 返回文件
-    # return StreamingResponse(output_stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
-    #     "Content-Disposition": "attachment; filename=filled.docx"
-    # })
 
     # 转换为 base64 字符串
     doc_raw_bytes = output_stream.read()
-    base64_str = base64.b64encode(doc_raw_bytes).decode("utf-8")
+    pdf_raw_bytes = convert_docx_to_pdf(doc_raw_bytes)
+    base64_str = base64.b64encode(pdf_raw_bytes).decode("utf-8")
 
     if operation_type == 1: # 另存为
         await create_template(data.name, base64_str, doc_raw_bytes)
@@ -137,8 +137,11 @@ async def update_bookmark(data: InputSchema):
             await TemplateBookmark.filter(id=bookmark.get('id')).update(font=bookmark.get('font'), font_size=bookmark.get('font_size'))
         for del_bookmark_name in del_bookmark_name_list:
             await TemplateBookmark.filter(template_doc_id = data.template_id, name=del_bookmark_name).update(is_del=1)
-    
     return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': base64_str}}
+    # 返回文件
+    # return StreamingResponse(content=BytesIO(pdf_raw_bytes), media_type="application/pdf", headers={
+    #     "Content-Disposition": "attachment; filename=converted.pdf"
+    # })
 
 def get_update_bookmark(real_id_font_mapping: Dict[int, BookmarkItem], input_bookmark_list: List[BookmarkItem]):
     """
@@ -155,3 +158,40 @@ def get_update_bookmark(real_id_font_mapping: Dict[int, BookmarkItem], input_boo
                 i_dict['id'] = i.bm_id
                 update_book_mark.append(i_dict)
     return update_book_mark
+
+def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
+    """
+    使用 LibreOffice 将 docx 文件转换为 pdf 并返回 pdf 的字节内容。
+    
+    参数：
+        docx_bytes: Word 文档的二进制内容（例如从 BytesIO 或 UploadFile.read() 得到）
+
+    返回：
+        转换后的 PDF 文件内容（bytes）
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        docx_path = os.path.join(tmpdir, "input.docx")
+        pdf_path = os.path.join(tmpdir, "input.pdf")
+
+        # 保存 docx 到临时文件
+        with open(docx_path, "wb") as f:
+            f.write(docx_bytes)
+
+        # 转换 docx 为 pdf，LibreOffice 会自动输出到 tmpdir 中
+        try:
+            subprocess.run([
+                "libreoffice",
+                "--headless",
+                "--convert-to", "pdf",
+                "--outdir", tmpdir,
+                docx_path
+            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"LibreOffice 转换失败: {e.stderr.decode()}")
+
+        # 读取转换后的 PDF
+        if not os.path.exists(pdf_path):
+            raise FileNotFoundError("PDF 文件未生成")
+
+        with open(pdf_path, "rb") as f:
+            return f.read()
