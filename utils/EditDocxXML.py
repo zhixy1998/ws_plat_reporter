@@ -204,6 +204,8 @@ def set_bookmark_run_style(doc, paragraph, bookmark_name, font=None, font_size=N
             # 检查该 run 的直接子元素是否为 <w:t>
             for child in element.getchildren():
                 if child.tag.endswith("t"):
+                    child.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+
                     # 找到该 run 的所属段落
                     p_elem = element
                     while p_elem is not None and p_elem.tag != qn("w:p"):
