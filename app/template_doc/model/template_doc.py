@@ -1,7 +1,8 @@
 from tortoise import fields
 from tortoise.models import Model
+from .template_doc_base import TemplateDocBase
 
-class TemplateDoc(Model):
+class TemplateDoc(TemplateDocBase):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=255)
     type = fields.IntField(max_length=10, default=0, help_text="模板类型")
