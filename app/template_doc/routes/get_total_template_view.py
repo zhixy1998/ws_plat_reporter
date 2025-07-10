@@ -1,8 +1,12 @@
+
 from typing import List, Optional
 from fastapi import APIRouter, Query
 from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
+
+from exceptions.error import ErrorCode
 from constants.template_constant import TemplateType
+from exceptions.command_exception import APIException
 
 router = APIRouter()
 
@@ -27,13 +31,13 @@ class OutSchema(BaseModel):
     data: DataSchema = Field(..., description='返回数据')
 
 
-@router.get('/get_template')
-async def get_template(
+@router.get('/get_total_template')
+async def get_total_template(
     name: Optional[str]= Query(None, description='模板名称'), 
     desc: Optional[int] = Query(0, description='0: 升序，1: 降序'),
     sort_field: Optional[int] = Query(None, description='排序字段 0: id, 1: 创建时间, 2: 更新时间'),
     page: int = Query(1, ge=1, description='页码，从1开始'),
-    page_size: int = Query(10, ge=1, le=100, description='每页条数，默认10，最大100')
+    page_size: int = Query(10, ge=1, le=100, description='每页条数，默认10，最大100'),
     ):
 
     # 排序字段映射
@@ -47,7 +51,6 @@ async def get_template(
         sort_key = f'{sort_key}'  # 升序排序，Tortoise ORM语法
     else:
         sort_key = f'-{sort_key}'  # 降序排序，Tortoise ORM语法
-
 
     # 构建基础查询（如果 name 存在就加筛选）
     query = TemplateDoc.filter(is_del=0)

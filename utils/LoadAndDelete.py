@@ -1,7 +1,11 @@
 #获取word中存在的书签名称（去重）
-from io import BytesIO
+import re, os, json
+from typing import Dict, List
+
 from docx import Document
 from docx.oxml.ns import qn
+from docx.table import Table
+from docx.oxml.table import CT_Tbl
 from constants.template_constant import TemplateBookMarkType
 
 #获取word中所有的书签名称
@@ -27,6 +31,11 @@ def get_word_bookmarks(file_stream):
             font, font_size = get_font_and_size(elem)
             if TemplateBookMarkType.sheet.decs in name:
                 bookmark_type = TemplateBookMarkType.sheet.value
+                tbl = get_table_by_element(elem, doc)
+                if tbl:
+                    node['table_structure'] = parse_table_to_json(tbl, name)
+                else:
+                    node['table_structure'] = None
             elif TemplateBookMarkType.img.decs in name:
                 bookmark_type = TemplateBookMarkType.img.value
             else:
@@ -140,6 +149,89 @@ def get_image_size(elem):
         pass
 
     return default_size
+
+
+def get_table_by_element(elem, doc: Document) -> Table:
+    parent = elem
+    while parent is not None:
+        if parent.tag.endswith('tbl'):
+            return Table(parent, doc)
+        parent = parent.getparent()
+    return None
+
+
+def parse_table_to_json(tbl: Table, name: str):
+    headers, data_rows = parse_table_keep_headers(tbl)
+
+    try:
+        table_meta = load_table_structure_by_name(name)
+    except FileNotFoundError:
+        table_meta = {}
+    
+    # 你可以进一步提取“表头”信息，比如前两行是嵌套表头
+    result = {
+        'table_name': name,
+        "headers": headers,       # 假设前两行为表头，可按需调整
+        "rows": data_rows,          # 剩下的是数据
+        "row_count": len(tbl.rows),
+        "col_count": len(tbl.columns),
+    }
+    """
+{
+  "headers": [
+    ["序号", "样品编号", "试样体积V(ml)", "样品溶液吸光度（A）", "样品溶液吸光度（A）", "样品溶液吸光度（A）", "检测结果m(ug)", "样品浓度C(mg/L)", "备注"],
+    ["", "", "", "A1", "A2", "A3", "", "", "", ""]
+  ],
+  "fields": ["index", "sample_id", "volume", "a1", "a2", "a3", "result", "concentration", "remark"],
+  "rows": [
+    [1, "S001", 10, 0.123, 0.125, 0.124, 5.6, 0.45, ""],
+    [2, "S002", 12.5, 0.201, 0.203, 0.202, 8.1, 0.648, "高"]
+  ]
+}
+    """
+    return result
+
+
+def load_table_structure_by_name(name: str, base_dir: str = "tables") -> dict:
+    """
+    根据表格名称 name 加载 tables 目录下的 JSON 配置文件。
+    文件应命名为 {name}.json。
+    """
+    json_path = os.path.join(base_dir, f"{name}.json")
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"未找到配置文件: {json_path}")
+    
+    with open(json_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+
+def is_data_row(row_texts: List[str]) -> bool:
+    """
+    判断是否为数据行：至少半数以上单元格包含数字或小数
+    """
+    numeric_cells = sum(bool(re.search(r'\d', cell)) for cell in row_texts)
+    return numeric_cells >= len(row_texts) // 2  # 半数以上为数字
+
+def parse_table_keep_headers(table) -> Dict:
+    rows = table.rows
+    all_rows = [[cell.text.strip() for cell in row.cells] for row in rows]
+
+    header_rows = []
+    data_rows = []
+
+    found_data = False
+    for row_texts in all_rows:
+        if not found_data and not is_data_row(row_texts):
+            header_rows.append(row_texts)
+        else:
+            found_data = True
+            data_rows.append(row_texts)
+
+    return {
+        "headers": header_rows,   # 这是你想要的结构
+        "data_rows": data_rows        # 保留原始二维数据行
+    }
 
 # 使用示例
 # input_file = r'D:\Python\Template1.docx'
