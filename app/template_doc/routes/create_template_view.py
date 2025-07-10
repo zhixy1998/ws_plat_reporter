@@ -9,6 +9,7 @@ from ..model.template_bookmark import TemplateBookmark
 from utils.LoadAndDelete import get_word_bookmarks
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
+from constants.template_constant import TemplateBookMarkType
 
 router = APIRouter()
 
@@ -60,6 +61,8 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
             'image_size': bookmark['image_size'] if bookmark.get('image_size') else None
         }
         new_bookmark = await TemplateBookmark.create(**create_info)
+        if new_bookmark.type == TemplateBookMarkType.sheet.value: # 如果是表格
+            pass
         for child in bookmark['children']:
             if child.get('name') and child.get('id'):
                 await recursion_create_bookmark(child, template_id, new_bookmark.id)

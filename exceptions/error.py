@@ -24,3 +24,4 @@ class ErrorCode(Enum):
     INVALID_ARGUMENT = Error(1002, zh="无效的参数")
     TEMPLATE_NOT_FOUND = Error(1003, zh="模板不存在")
     SAVE_TEMPLATE_FAILED = Error(1004, zh="保存模板失败")
+    REPORT_TEMPLATE_TYPE_ERROR = Error(1005, zh='报表模板类型错误 只允许传入报表模版类型')

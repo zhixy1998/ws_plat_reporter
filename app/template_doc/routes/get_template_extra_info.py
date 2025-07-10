@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 
 from exceptions.error import ErrorCode
 from ..model.template_doc import TemplateDoc
-from ..model.template_bookmark import TemplateBookmark
 from exceptions.command_exception import APIException
+from ..model.template_bookmark import TemplateBookmark
 from .export_doc_view import get_doc_obj_by_template_id
 from utils.get_bookmark_text import get_bookmark_text
 from utils.handle_header_footer import get_header_footer_font_info

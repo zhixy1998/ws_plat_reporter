@@ -8,7 +8,11 @@ class TemplateBookMarkType(StorageInfo):
 
 
 class TemplateType(StorageInfo):
-    default = MessageType(decs='默认', value=0, name='default')
+    original_records = MessageType(decs='原始记录模版', value=0, name='default')
+    report_template = MessageType(decs='报告模版', value=1, name='report_template')
+    calibration_template = MessageType(decs='校准模版', value=2, name='calibration_template')
+    installation_acceptance_template = MessageType(decs='安装验收模版', value=3, name='installation_acceptance_template')
+
 
 
 class WordFontType(StorageInfo):

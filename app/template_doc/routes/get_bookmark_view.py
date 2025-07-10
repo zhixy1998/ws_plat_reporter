@@ -59,7 +59,7 @@ def build_tree(bookmarks):
         if parent_id is None:
             tree.append(node)
         else:
-            parent = id_node_map[parent_id]
+            parent = id_node_map.get(parent_id)
             if parent:
                 parent['children'].append(node)
             else:
