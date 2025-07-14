@@ -14,6 +14,11 @@ class TemplateType(StorageInfo):
     installation_acceptance_template = MessageType(decs='安装验收模版', value=3, name='installation_acceptance_template')
 
 
+class StructureType(StorageInfo):
+    Horizontal = MessageType(decs='横向表头', value=0, name='Horizontal')
+    Vertical = MessageType(decs='纵向表头', value=1, name='Vertical')
+
+
 
 class WordFontType(StorageInfo):
     songti = MessageType(decs="宋体", value="宋体", name="songti")

@@ -6,7 +6,9 @@ from docx import Document
 from docx.oxml.ns import qn
 from docx.table import Table
 from docx.oxml.table import CT_Tbl
-from constants.template_constant import TemplateBookMarkType
+from constants.template_constant import TemplateBookMarkType, StructureType
+# from exceptions.error import ErrorCode
+# from exceptions.command_exception import APIException
 
 #获取word中所有的书签名称
 def get_word_bookmarks(file_stream):
@@ -29,6 +31,11 @@ def get_word_bookmarks(file_stream):
             if name.startswith('_'):
                 continue
             font, font_size = get_font_and_size(elem)
+            node = {
+                'id': bm_id,
+                'name': name,
+                'children': [],
+            }
             if TemplateBookMarkType.sheet.decs in name:
                 bookmark_type = TemplateBookMarkType.sheet.value
                 tbl = get_table_by_element(elem, doc)
@@ -40,11 +47,6 @@ def get_word_bookmarks(file_stream):
                 bookmark_type = TemplateBookMarkType.img.value
             else:
                 bookmark_type = TemplateBookMarkType.text.value
-            node = {
-                'id': bm_id,
-                'name': name,
-                'children': [],
-            }
             node['type'] = bookmark_type
             node['font'] = font
             node['font_size'] = font_size
@@ -161,7 +163,7 @@ def get_table_by_element(elem, doc: Document) -> Table:
 
 
 def parse_table_to_json(tbl: Table, name: str):
-    headers, data_rows = parse_table_keep_headers(tbl)
+    table_info = parse_table_keep_headers(tbl)
 
     try:
         table_meta = load_table_structure_by_name(name)
@@ -171,11 +173,10 @@ def parse_table_to_json(tbl: Table, name: str):
     # 你可以进一步提取“表头”信息，比如前两行是嵌套表头
     result = {
         'table_name': name,
-        "headers": headers,       # 假设前两行为表头，可按需调整
-        "rows": data_rows,          # 剩下的是数据
         "row_count": len(tbl.rows),
         "col_count": len(tbl.columns),
     }
+    result.update(table_info)
     """
 {
   "headers": [
@@ -206,31 +207,62 @@ def load_table_structure_by_name(name: str, base_dir: str = "tables") -> dict:
 
 
 
-def is_data_row(row_texts: List[str]) -> bool:
-    """
-    判断是否为数据行：至少半数以上单元格包含数字或小数
-    """
-    numeric_cells = sum(bool(re.search(r'\d', cell)) for cell in row_texts)
-    return numeric_cells >= len(row_texts) // 2  # 半数以上为数字
+# def is_data_row(row_texts: List[str]) -> bool:
+#     """
+#     判断是否为数据行：至少半数以上单元格包含数字或小数
+#     """
+#     numeric_cells = sum(bool(re.search(r'\d', cell)) for cell in row_texts)
+#     return numeric_cells >= len(row_toxts) // 2  # 半数以上为数字
+
+
+def more_than_half_filled(row: List[str]) -> bool:
+    non_empty_count = sum(1 for item in row if item.strip() != '')
+    return non_empty_count > len(row) / 2
+
 
 def parse_table_keep_headers(table) -> Dict:
     rows = table.rows
+    columns = table.columns
     all_rows = [[cell.text.strip() for cell in row.cells] for row in rows]
+    all_columns = [[cell.text.strip() for cell in column.cells] for column in columns]
 
     header_rows = []
     data_rows = []
+    column_width = []
 
-    found_data = False
-    for row_texts in all_rows:
-        if not found_data and not is_data_row(row_texts):
-            header_rows.append(row_texts)
-        else:
-            found_data = True
-            data_rows.append(row_texts)
+    # 拿到宽度
+    for col_idx in range(len(all_columns)):
+        cell = table.cell(0, col_idx)
+        width = cell.width if cell.width else None
+        column_width.append(width)
 
+    first_column = all_columns[0] 
+    first_column_all_text_flag = all(item.strip() != '' for item in first_column) # 判断第一列是否全为空
+
+    if first_column_all_text_flag: # 纵向表格(表头在第一列) 标记是否第一列的所有单元格都为空, 如果第一列均有数据，就判断是纵向表头
+        structure_type = StructureType.Vertical.value # 默认横向表头
+        for col in all_columns:
+            is_header = more_than_half_filled(col)
+            if not found_column_data and not is_header:
+                header_rows.append(col)
+            else:
+                found_column_data = True
+                data_rows.append(col)
+    else:  # 横向表格(表头在第一行)
+        structure_type = StructureType.Horizontal.value # 默认横向表头
+        found_row_data = False
+        for row in all_rows:
+            is_header = more_than_half_filled(row)
+            if not found_row_data and is_header:
+                header_rows.append(row)
+            else:
+                found_row_data = True
+                data_rows.append(row)
     return {
-        "headers": header_rows,   # 这是你想要的结构
-        "data_rows": data_rows        # 保留原始二维数据行
+        'headers': header_rows,   # 这是你想要的结构
+        'data_rows': data_rows,    # 保留原始二维数据行
+        'structure_type': structure_type,
+        'column_width': column_width
     }
 
 # 使用示例
