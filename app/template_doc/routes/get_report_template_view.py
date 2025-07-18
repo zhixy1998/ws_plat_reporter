@@ -37,7 +37,7 @@ async def get_report_template(
     sort_field: Optional[int] = Query(None, description='排序字段 0: id, 1: 创建时间, 2: 更新时间'),
     page: int = Query(1, ge=1, description='页码，从1开始'),
     page_size: int = Query(10, ge=1, le=100, description='每页条数，默认10，最大100'),
-    type: Optional[int] = Query(0, description='模板类型 0: 原始模版 1: 报告模版')
+    type: Optional[int] = Query(0, description='模板类型 0: 原始记录模版 1: 报告模版')
     ):
 
     # 排序字段映射

@@ -16,7 +16,7 @@ from utils.EditDocxXML import fill_word_bookmark
 from utils.LoadAndDelete import delete_bookmark_content
 from utils.handle_header_footer import set_header_footer
 from exceptions.command_exception import APIException
-from .export_doc_view import get_doc_obj_by_template_id
+from utils.template_utils import get_doc_obj_by_template_id
 from constants.template_constant import TemplateBookMarkType
 from .create_template_view import create_template
 
