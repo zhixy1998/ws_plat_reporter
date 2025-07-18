@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from ..model.template_doc import TemplateDoc
 from utils.EditDocxXML import fill_word_bookmark
 from constants.template_constant import TemplateBookMarkType
+from utils.template_utils import get_doc_obj_by_template_id
 
 router = APIRouter()
 
@@ -71,13 +72,3 @@ async def export_docx(data: InputSchema):
     return StreamingResponse(doc_stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
         "Content-Disposition": "attachment; filename=filled.docx"
     })
-
-async def get_doc_obj_by_template_id(template_id: int):
-    template = await TemplateDoc.get_or_none(id=template_id)
-    if not template:
-        return {'code': 1, 'message': '模板不存在'}
-    # 2. base64 解码成二进制
-    content_bytes = base64.b64decode(template.template_content)
-    doc_stream = BytesIO(content_bytes)
-    doc = Document(doc_stream)
-    return doc

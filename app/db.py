@@ -35,7 +35,7 @@ async def init_db():
     await Tortoise.generate_schemas()
 
 
-async def execute_safe_sql(sql: str, params: list = None, return_dict: bool = False):
+async def execute_safe_sql(sql: str, params: list = None, return_dict: bool = False, connection=None):
     """
     安全执行 SQL，支持参数绑定防止 SQL 注入
 
@@ -58,7 +58,9 @@ async def execute_safe_sql(sql: str, params: list = None, return_dict: bool = Fa
     await execute_safe_sql(sql, [19, "新书签"])
 
     """
-    conn = Tortoise.get_connection("default")
+    conn = connection
+    if conn is None:
+        conn = Tortoise.get_connection("default")
     if params is None:
         params = []
 

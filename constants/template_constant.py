@@ -76,3 +76,13 @@ class WordImageSizeType(StorageInfo):
     size36cm = MessageType(decs="宽度 36 厘米", value=36.0, name="size36cm")
     size38cm = MessageType(decs="宽度 38 厘米", value=38.0, name="size38cm")
     size40cm = MessageType(decs="宽度 40 厘米", value=40.0, name="size40cm")
+
+class GetTypeConstant(StorageInfo):
+    common = MessageType(decs='从接口取', value=0, name="default")
+    endpoint = MessageType(decs='从接口取', value=1, name="default")
+    database = MessageType(decs='从数据库取', value=2, name='database')
+
+
+class FillTypeConstant(StorageInfo):
+    jinja = MessageType(decs='jinja填充', value=0, name="jinja")
+    bookmark = MessageType(decs='标签填充', value=1, name="bookmark")

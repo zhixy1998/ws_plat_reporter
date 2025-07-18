@@ -16,6 +16,7 @@ from .update_bookmark import router as update_bookmark_router
 from .get_template_extra_info import router as get_template_extra_info_router
 from .del_template_view import router as del_template_router
 from .get_template_industry import router as get_template_industry_router
+from .export_original_report_doc_view import router as export_original_report_doc_router
 
 router.include_router(create_template_router, prefix='', tags=['导入模板'])
 router.include_router(export_doc_router, prefix='', tags=['替换书签, 导出word'])
@@ -31,3 +32,4 @@ router.include_router(update_bookmark_router, prefix='', tags=['更新书签'])
 router.include_router(get_template_extra_info_router, prefix='', tags=['获取模板额外信息, 标题，页眉，页脚'])
 router.include_router(del_template_router, prefix='', tags=['删除模板'])
 router.include_router(get_template_industry_router, prefix='', tags=['获取模板行业'])
+router.include_router(export_original_report_doc_router, prefix='', tags=['导出原始报告和原始记录'])
