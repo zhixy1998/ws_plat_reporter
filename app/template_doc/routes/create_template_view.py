@@ -1,4 +1,4 @@
-import base64, os, json
+import base64, os, json, shutil
 from io import BytesIO
 from zipfile import BadZipFile
 
@@ -33,7 +33,7 @@ async def create_template_view(
     ):
     try:
         name = name if name else file.filename.split('.')[0]
-        if await TemplateDocBase.get_or_none(name=name):
+        if await TemplateDocBase.get_or_none(name=name, is_del=0):
             raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
         content = await file.read()
         content_base64 = base64.b64encode(content).decode('utf-8')
@@ -68,7 +68,7 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
         # 创建json文件
         for book_mark in book_markets:
             await recursion_create_bookmark(book_mark, template.id)     
-        await create_python_setting_file(name=name, template_file_steam=BytesIO(content), connection=connection)
+        await create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), connection=connection)
 
 
 
@@ -99,7 +99,7 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
             if child.get('name') and child.get('id'):
                 await recursion_create_bookmark(child, template_id, new_bookmark.id)
 
-async def create_python_setting_file(name: str, template_file_steam: BytesIO, connection=None):
+async def create_python_setting_file(template_id: int, name: str, template_file_steam: BytesIO, connection=None):
     """
     只创建一个空的JSON文件
     
@@ -128,28 +128,28 @@ async def create_python_setting_file(name: str, template_file_steam: BytesIO, co
 
     # 获取表格表头
     table_list = []
-    tables = await get_table_structure_by_template_name(name, connection)
+    tables = await get_table_structure_by_template_name(template_id=template_id, template_name=name, connection=connection)
     if tables:
         for table in tables:
-            table_fields = []
-            table_dict = {
-                'table_name': None,
-                'table_fields': []
-            }
-            table_structure = table.get('table_structure')
-            table_dict['table_name'] = table_structure.get('table_name')
-            headers = json.loads(table_structure).get('headers')
-            if len(headers) == 1:
-                for h in headers[0]:
-                    table_fields.append(h)
-            else:
-                table_fields = ["-".join(map(str, group)) for group in zip(*headers)]
-            table_dict['table_fields'] = table_fields
-            table_list.append(table_dict)
+            # table_fields = []
+            # table_dict = {
+            #     'table_name': None,
+            #     'table_fields': []
+            # }
+            table_structure = json.loads(table.get('table_structure'))
+            # table_dict['table_name'] = table_structure.get('table_name')
+            # headers = table_structure.get('headers')
+            # if len(headers) == 1:
+            #     for h in headers[0]:
+            #         table_fields.append(h)
+            # else:
+            #     table_fields = ["-".join(map(str, group)) for group in zip(*headers)]
+            # table_dict['table_fields'] = table_fields
+            table_list.append(table_structure)
 
 
 
-    context = list(context_vars) + dict
+    context = list(context_vars)
     for i, var in enumerate(context):
         comma = "," if i < len(context) - 1 else ""
         if var in context_vars:
@@ -157,38 +157,29 @@ async def create_python_setting_file(name: str, template_file_steam: BytesIO, co
     py_lines.append("}\n")
     
     # 字段渲染表格
-    py_lines.append("table_fields = [\n")
-    for i, table in enumerate(table_list):
-        comma = "," if i < len(table_list) - 1 else ""
-        py_lines.append(f'    {{"table_name": "{table["table_name"]}", "table_fields": {table["table_fields"]}}}{comma}\n')
-    py_lines.append("]\n")
-
-    # py_lines.append("table_fields = [\n")
-    # for i, table in enumerate(table_list):
-    #     comma = "," if i < len(table_list) - 1 else ""
-
-    #     py_lines.append("    {\n")
-    #     py_lines.append(f'        "table_name": "{table["table_name"]}",\n')
-    #     py_lines.append(f'        "table_fields": {json.dumps(table["table_fields"], ensure_ascii=False)}\n')
-    #     py_lines.append(f"    }}{comma}\n")
-
-    # py_lines.append("]\n")
-
-    
+    py_lines.append("table_fields = ")
+    table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False).replace("null", "None")
+    py_lines.append(f"{table_fields_str}\n") 
     
     # 创建文件
     py_path = os.path.join(py_folders, f"{name}.py")
+    backup_path = os.path.join(py_folders, f"{name}_back.py")
+    # 如果原文件存在，先备份
+    if os.path.exists(py_path):
+        # 如果之前已有备份，也可以选择是否覆盖，这里直接覆盖
+        shutil.copy2(py_path, backup_path)
     with open(py_path, "w", encoding="utf-8") as f:
         f.writelines(py_lines)
-        
+     
     return py_path
 
-async def get_table_structure_by_template_name(name, connection):
+async def get_table_structure_by_template_name(template_id, template_name, connection):
     sql_text = """
     select bookmark_data.table_structure from template_doc 
     left join template_bookmark on template_doc.id = template_bookmark.template_doc_id 
     left join bookmark_data on template_bookmark.id = bookmark_data.bookmark_id 
-    where template_doc.name = %s and template_bookmark.type = %s
+    where template_doc.name = %s and template_doc.id = %s and template_bookmark.type = %s and template_doc.is_del = %s
     """
-    sql_result = await execute_safe_sql(sql_text, [name, TemplateBookMarkType.sheet.value], return_dict=True, connection=connection)
+    sql_result = await execute_safe_sql(sql_text, [template_name, template_id,TemplateBookMarkType.sheet.value, 0], return_dict=True, connection=connection)
     return sql_result
+

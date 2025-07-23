@@ -7,65 +7,131 @@ from docx.oxml.ns import qn
 from docx.table import Table
 from docx.oxml.table import CT_Tbl
 from constants.template_constant import TemplateBookMarkType, StructureType
+from docx.shared import Cm
+from docx.oxml import OxmlElement
+from io import BytesIO
 # from exceptions.error import ErrorCode
 # from exceptions.command_exception import APIException
 
 #获取word中所有的书签名称
-def get_word_bookmarks(file_stream):
-    doc = Document(file_stream)
+# def get_word_bookmarks(file_stream):
+#     doc = Document(file_stream)
 
+#     ns_uri = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+#     doc_element = doc.part._element
+
+#     # 按文档顺序查找所有bookmarkStart和bookmarkEnd
+#     all_bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart" or local-name()="bookmarkEnd"]')
+#     bookmarks = []
+#     stack = []
+
+#     for elem in all_bookmarks:
+#         tag_name = elem.tag.split('}')[-1]  # 获取local-name
+#         bm_id = elem.get(f'{{{ns_uri}}}id')
+
+#         if tag_name == 'bookmarkStart':
+#             name = elem.get(f'{{{ns_uri}}}name')
+#             if name.startswith('_'):
+#                 continue
+#             font, font_size = get_font_and_size(elem)
+#             node = {
+#                 'id': bm_id,
+#                 'name': name,
+#                 'children': [],
+#             }
+#             if TemplateBookMarkType.sheet.decs in name:
+#                 bookmark_type = TemplateBookMarkType.sheet.value
+#                 tbl = get_table_by_element(elem, doc)
+#                 if tbl:
+#                     node['table_structure'] = parse_table_to_json(tbl, name)
+#                 else:
+#                     node['table_structure'] = None
+#             elif TemplateBookMarkType.img.decs in name:
+#                 bookmark_type = TemplateBookMarkType.img.value
+#             else:
+#                 bookmark_type = TemplateBookMarkType.text.value
+#             node['type'] = bookmark_type
+#             node['font'] = font
+#             node['font_size'] = font_size
+#             node['img_size'] = get_image_size(elem) if bookmark_type == TemplateBookMarkType.img.value else None
+
+#             if stack:
+#                 stack[-1]['children'].append(node)
+#             else:
+#                 bookmarks.append(node)
+#             stack.append(node)
+
+#         elif tag_name == 'bookmarkEnd':
+#             # 找到结束时，直接出栈（注意：真实Word文件的id一般是严格配对的）
+#             if stack:
+#                 stack.pop()
+#             else:
+#                 # 理论上这里可以做异常处理，表示书签不匹配
+#                 pass
+#     return bookmarks
+
+
+def get_word_bookmarks(file_stream):
+    from collections import deque
+    doc = Document(file_stream)
     ns_uri = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
     doc_element = doc.part._element
 
-    # 按文档顺序查找所有bookmarkStart和bookmarkEnd
     all_bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart" or local-name()="bookmarkEnd"]')
     bookmarks = []
-    stack = []
+    id_to_node = {}
+    stack = deque()
 
     for elem in all_bookmarks:
-        tag_name = elem.tag.split('}')[-1]  # 获取local-name
+        tag_name = elem.tag.split('}')[-1]
         bm_id = elem.get(f'{{{ns_uri}}}id')
 
         if tag_name == 'bookmarkStart':
             name = elem.get(f'{{{ns_uri}}}name')
             if name.startswith('_'):
                 continue
+
             font, font_size = get_font_and_size(elem)
             node = {
                 'id': bm_id,
                 'name': name,
                 'children': [],
+                'type': None,
+                'font': font,
+                'font_size': font_size,
             }
+
             if TemplateBookMarkType.sheet.decs in name:
                 bookmark_type = TemplateBookMarkType.sheet.value
                 tbl = get_table_by_element(elem, doc)
-                if tbl:
-                    node['table_structure'] = parse_table_to_json(tbl, name)
-                else:
-                    node['table_structure'] = None
+                node['table_structure'] = parse_table_to_json(tbl, name) if tbl else None
             elif TemplateBookMarkType.img.decs in name:
                 bookmark_type = TemplateBookMarkType.img.value
+                node['img_size'] = get_image_size(elem)
             else:
                 bookmark_type = TemplateBookMarkType.text.value
-            node['type'] = bookmark_type
-            node['font'] = font
-            node['font_size'] = font_size
-            node['img_size'] = get_image_size(elem) if bookmark_type == TemplateBookMarkType.img.value else None
 
-            if stack:
-                stack[-1]['children'].append(node)
-            else:
-                bookmarks.append(node)
-            stack.append(node)
+            node['type'] = bookmark_type
+
+            id_to_node[bm_id] = node
+            stack.append(bm_id)
 
         elif tag_name == 'bookmarkEnd':
-            # 找到结束时，直接出栈（注意：真实Word文件的id一般是严格配对的）
+            # 出现end就把匹配id的node出栈，并挂接到父节点
             if stack:
-                stack.pop()
+                open_id = stack.pop()
+                node = id_to_node[open_id]
+                if stack:
+                    parent_id = stack[-1]
+                    id_to_node[parent_id]['children'].append(node)
+                else:
+                    bookmarks.append(node)
             else:
-                # 理论上这里可以做异常处理，表示书签不匹配
+                # 未匹配的bookmarkEnd，跳过或记录异常
                 pass
+
     return bookmarks
+
 
 
 # 使用示例  获取该文档中所有的书签
@@ -259,7 +325,7 @@ def parse_table_keep_headers(table) -> Dict:
                 found_row_data = True
                 data_rows.append(row)
     return {
-        'headers': header_rows,   # 这是你想要的结构
+        'headers': header_rows,
         'data_rows': data_rows,    # 保留原始二维数据行
         'structure_type': structure_type,
         'column_width': column_width
@@ -272,3 +338,43 @@ def parse_table_keep_headers(table) -> Dict:
 
 # delete_bookmark_content(input_file, bookmarks_to_remove, output_file)
 # print(f"已删除书签 {bookmarks_to_remove}，新文档保存至 {output_file}")
+
+def lock_table_width_on_document(doc: Document) -> None:
+    for table in doc.tables:
+        tbl = table._element
+        tblPr = tbl.tblPr
+
+        # ... (省略 tblLayout 的设置，确保它是 fixed) ...
+
+        tblW = tblPr.find(qn('w:tblW'))
+        if tblW is not None:
+            tblW.set(qn('w:type'), 'dxa')
+            # 尝试一个更大的宽度，例如 10500 dxa 或 11000 dxa
+            # 这个值需要根据您的页面边距和期望的表格大小来定
+            tblW.set(qn('w:w'), "10500") # 假设一个更大的值
+
+        # 遍历单元格，确保它们的宽度也设置为 dxa
+        # 并且如果需要，可以尝试根据新的表格总宽度均匀分配
+        num_cols = len(table.columns)
+        if num_cols > 0:
+            # 计算每个单元格的平均宽度
+            # 这里的 10500 应与上面 tblW 的设置保持一致
+            avg_cell_width = str(int(10500 / num_cols))
+        else:
+            avg_cell_width = "3000" # fallback
+
+        for row in table.rows:
+            for cell_idx, cell in enumerate(row.cells):
+                tc = cell._element
+                tcPr = tc.tcPr
+
+                tcW = tcPr.find(qn('w:tcW'))
+                if tcW is not None:
+                    tcW.set(qn('w:type'), 'dxa')
+                    # 强制设置单元格宽度，使其与表格总宽度一致
+                    tcW.set(qn('w:w'), avg_cell_width)
+                else:
+                    tcW = OxmlElement('w:tcW')
+                    tcW.set(qn('w:type'), 'dxa')
+                    tcW.set(qn('w:w'), avg_cell_width)
+                    tcPr.insert(0, tcW)

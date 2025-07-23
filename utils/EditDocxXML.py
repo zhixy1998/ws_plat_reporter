@@ -1,16 +1,23 @@
 import base64
 from io import BytesIO
+from typing import List, Optional
 
+from docx import Document
 from docx.oxml.ns import qn
-from docx.shared import Pt, Cm
-from constants.template_constant import TemplateBookMarkType
 from docx.text.run import Run
+from docx.shared import Pt, Cm, Twips
+from docx.oxml import OxmlElement
 from docx.text.paragraph import Paragraph
+from constants.template_constant import TemplateBookMarkType
 
 #向指定标签插入内容
-def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkType.text.value, font=None, font_size=None):
-    found = False
+def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkType.text.value, font=None, font_size=None, specific_column_widths: Optional[List[int]] = None ):
+    if isinstance(doc, BytesIO):
+        doc.seek(0)
+        doc = Document(doc)
 
+    found = False
+    # 遍历文档主体段落
     for paragraph in doc.paragraphs:
         for element in paragraph._p:
             if element.tag.endswith('bookmarkStart'):
@@ -19,10 +26,10 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                     found = True
                     if value:
                         remove_following_runs(paragraph, element)
-                        insert_value(paragraph, element, value, value_type)
+                        insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
                     else:
                         set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
-
+    # 遍历表格中的段落
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -34,10 +41,10 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                                 found = True
                                 if value:
                                     remove_following_runs(paragraph, element)
-                                    insert_value(paragraph, element, value, value_type)
+                                    insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
                                 else:
                                     set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
-
+    # 遍历页眉中的段落
     for section in doc.sections:
         for paragraph in section.header.paragraphs:
             for element in paragraph._p:
@@ -47,10 +54,10 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                         found = True
                         if value:
                             remove_following_runs(paragraph, element)
-                            insert_value(paragraph, element, value, value_type)
+                            insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
                         else:
                             set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
-
+    # 遍历页脚中的段落
     for section in doc.sections:
         for paragraph in section.footer.paragraphs:
             for element in paragraph._p:
@@ -60,12 +67,12 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                         found = True
                         if value:
                             remove_following_runs(paragraph, element)
-                            insert_value(paragraph, element, value, value_type)
+                            insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
                         else:
                             set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
 
     if not found:
-        found = try_global_bookmark_fill(doc, bookmark_name, value, value_type, font=font, font_size=font_size)
+        found = try_global_bookmark_fill(doc, bookmark_name, value, value_type, font=font, font_size=font_size, specific_column_widths=specific_column_widths)
 
     if not found:
         print(f"⚠ 没有找到书签: {bookmark_name}")
@@ -75,7 +82,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
     output_stream.seek(0)
     return output_stream
 
-def insert_value(paragraph, bookmark_element, value, value_type, doc=None):
+def insert_value(paragraph, bookmark_element, value, value_type, doc=None, specific_column_widths: Optional[List[int]] = None):
     insert_index = paragraph._element.index(bookmark_element) + 1
 
     if value_type == TemplateBookMarkType.text.value:
@@ -112,6 +119,19 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None):
                 parent_tbl_elem = parent
                 break
             parent = parent.getparent()
+        
+        # 查找旧的table的格式
+        tblPr = parent_tbl_elem.tblPr
+        if tblPr is not None:
+            tblStyle = tblPr.tblStyle
+            if tblStyle is not None:
+                old_style_id = tblStyle.val  # 这是样式名字符串
+            else:
+                old_style_id = None
+        else:
+            old_style_id = None
+
+        old_style_name = get_style_name_from_id(doc, old_style_id)
 
         # 2. 创建新表格 (你的逻辑，很好)
         # 注意：add_table 会将表格添加到文档末尾，我们之后需要移动它
@@ -123,10 +143,31 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None):
             return
         width_cm = Cm(1.5)    
         tbl = doc.add_table(rows=0, cols=cols)
-        tbl.style = 'Table Grid'
+        tbl.style = old_style_name
+        set_table_border(tbl)
+        # ！！！在这里使用 specific_column_widths 设置列宽！！！
+        if specific_column_widths and len(specific_column_widths) == cols:
+            for idx, col_width_emu in enumerate(specific_column_widths):
+                # 将 EMU 转换为 dxa (1 dxa = 15 EMU)
+                if col_width_emu is not None:
+                    tbl.columns[idx].width = Twips(col_width_emu // 15) # 使用 // 进行整数除法
+                # else: 如果为 None，则保持 python-docx 默认行为或您可以提供一个默认 dxa 值
+        else:
+            # 如果没有提供精确列宽，或者列数不匹配，则回退到默认的 1.5cm
+            # 平分每列的宽度
+            PAGE_WIDTH_CM = 21
+            LEFT_MARGIN_CM = 2.54
+            RIGHT_MARGIN_CM = 2.54
+            USABLE_WIDTH_CM = PAGE_WIDTH_CM - LEFT_MARGIN_CM - RIGHT_MARGIN_CM
+            col_width_cm = USABLE_WIDTH_CM / cols
+            tbl = doc.add_table(rows=0, cols=cols)
+            tbl.style = old_style_name
+            set_table_border(tbl)
 
-        for column in tbl.columns:
-            column.width = width_cm
+            for column in tbl.columns:
+                column.width = Cm(col_width_cm)
+        # ！！！列宽设置结束！！！
+
         for row_data in table_data:
             # 确保每行数据长度与列数一致
             if len(row_data) != cols:
@@ -226,7 +267,7 @@ def set_bookmark_run_style(doc, paragraph, bookmark_name, font=None, font_size=N
         element = element.getnext()
 
 # 全局查找书签并填充
-def try_global_bookmark_fill(doc, bookmark_name, value, value_type, font, font_size):
+def try_global_bookmark_fill(doc, bookmark_name, value, value_type, font, font_size, specific_column_widths=None):
     from docx.oxml import parse_xml
     doc_element = doc.part._element
     bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart"]')
@@ -248,7 +289,29 @@ def try_global_bookmark_fill(doc, bookmark_name, value, value_type, font, font_s
                 # 书签不在段落里，无法插入文本或图片，直接返回True
                 return True
             paragraph = Paragraph(p_elem, doc)
-            insert_value(paragraph, bm, value, value_type, doc=doc)
+            insert_value(paragraph, bm, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
             return True
     return False
 
+
+def get_style_name_from_id(doc, style_id):
+    for style in doc.styles:
+        if style.style_id == style_id:
+            return style.name
+    return None
+
+def set_table_border(table):
+    tbl = table._element
+    tblPr = tbl.tblPr
+
+    tblBorders = OxmlElement('w:tblBorders')
+
+    for border_name in ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'):
+        border = OxmlElement(f'w:{border_name}')
+        border.set(qn('w:val'), 'single')   # 实线
+        border.set(qn('w:sz'), '4')         # 粗细
+        border.set(qn('w:space'), '0')
+        border.set(qn('w:color'), '000000') # 黑色
+        tblBorders.append(border)
+
+    tblPr.append(tblBorders)

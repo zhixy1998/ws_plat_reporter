@@ -12,6 +12,7 @@ data = {
     "数据类型": {"fill_type": 0, 'get_type': 0, 'position': ['dataType']},
     "方法信息": {"fill_type": 0, 'get_type': 0, 'position': ['methodName']},
     "检测项目": {"fill_type": 0, 'get_type': 0, 'position': ['project']},
+    "项目": {"fill_type": 0, 'get_type': 0, 'position': ['project']},
     "注释": {"fill_type": 0, 'get_type': 0, 'position': ['remark']},
     "仪器波长": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentWavelength']},
     "参考方法": {"fill_type": 0, 'get_type': 0, 'position': ['referenceMethod']},
@@ -22,8 +23,52 @@ data = {
     "检测开始时间": {"fill_type": 0, 'get_type': 0, 'position': ['detectionStartTime']},
     "检测结束时间": {"fill_type": 0, 'get_type': 0, 'position': ['detectionEndTime']},
     "检测者": {"fill_type": 0, 'get_type': 0, 'position': ['detector']},
-    "检测项目": {"fill_type": 0, 'get_type': 0, 'position': ['project']},
+    "检测人": {"fill_type": 0, 'get_type': 0, 'position': ['detector']},
     "能量灯": {"fill_type": 0, 'get_type': 0, 'position': ['energyLight']},
     "计算公式": {"fill_type": 0, 'get_type': 0, 'position': ['calculationFormula']},
-    "阶梯矫正": {"fill_type": 0, 'get_type': 0, 'position': ['stairCorrection']}
+    "阶梯矫正": {"fill_type": 0, 'get_type': 0, 'position': ['stairCorrection']},
+    "阶梯校正": {"fill_type": 0, 'get_type': 0, 'position': ['stairCorrection']},
+    "样品名称": {"fill_type": 0, 'get_type': 0, 'position': ['sampleName']},
+    "方法名称": {"fill_type": 0, 'get_type': 0, 'position': ['methodName']},
+    "操作步骤": {"fill_type": 0, 'get_type': 0, 'position': ['steps']},
 }
+
+table_name_list = {
+    '光度测量表格': {},
+    '定量测量表格': {},
+    '光谱扫描表格': {
+        "名称": {'position': ['name']},
+        "波峰": {'position': ['peak']},
+        "波谷": {'position': ['valley']},
+        "标记点": {'position': ['markPoint']},
+        "参数设置": {'position': []},
+        "参数数据": {'position': ['parameterData']},
+        "数据类型": {'position': ['dataType']}
+    },
+    '时间扫描表格': {},
+    '光度测量原始记录表格': {}
+    }
+
+
+    
+def handle_endpoint_data_to_table_row(table_fields: list, common_table_val) -> list:
+    header_row = list(table_fields.keys())
+    table_row = [header_row]
+    table_row_key = []
+    for k, v in table_fields.items():
+        if v.get('position'):
+            table_row_key.append(v.get('position')[0])
+        else:
+            table_row_key.append('')
+    for row in common_table_val:
+        row_data = []
+        for k in table_row_key:
+            v = row.get(k)
+            if v:
+                if isinstance(v, list): 
+                    v = v[0]
+            else:
+                v = ''
+            row_data.append(v)
+        table_row.append(row_data)
+    return table_row
