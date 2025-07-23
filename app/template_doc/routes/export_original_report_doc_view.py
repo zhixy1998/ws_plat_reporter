@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from ..model.template_doc import TemplateDoc
 from utils.EditDocxXML import fill_word_bookmark
 from constants.template_constant import TemplateBookMarkType
-from utils.template_utils import get_doc_name_and_doc_stream_obj
+from utils.template_utils import get_doc_name_and_doc_stream_obj, add_section_page_break
 from utils.fille_template_utils import FillDataUtils
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
@@ -55,7 +55,7 @@ async def export_docx(data: InputSchema):
         lock_table_width_on_document(doc_original)
 
     if report_template_id and original_template_id:
-        doc_report.add_page_break() # 添加一个分页符
+        add_section_page_break(doc_report)
         composer = Composer(doc_report)
         composer.append(doc_original)
 
