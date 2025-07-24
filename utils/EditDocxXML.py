@@ -155,7 +155,7 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None, speci
         else:
             # 如果没有提供精确列宽，或者列数不匹配，则回退到默认的 1.5cm
             # 平分每列的宽度
-            PAGE_WIDTH_CM = 21
+            PAGE_WIDTH_CM = 18
             LEFT_MARGIN_CM = 2.54
             RIGHT_MARGIN_CM = 2.54
             USABLE_WIDTH_CM = PAGE_WIDTH_CM - LEFT_MARGIN_CM - RIGHT_MARGIN_CM
