@@ -130,6 +130,7 @@ class FillDataUtils():
 
         tpl = DocxTemplate(doc_stream)
         python_jinja_mapping = {}
+        value_list = [] # 所有的值的列表
         for k, v_dict in private_key.items():
             if v_dict.get('position'):
                 pass
@@ -147,13 +148,19 @@ class FillDataUtils():
                                     print(f"{k} 解码失败: {e}")
                                     [k] = val
                             else:
-                                python_jinja_mapping[k] = val if val else ''*5
+                                python_jinja_mapping[k] = val if val else ''
+                                value_list.append(val)
                 else:
-                    python_jinja_mapping[k] = '     '
+                    python_jinja_mapping[k] = ''
+        max_len_val_blank = ''
+        for v in value_list:
+            if v and len(v) > len(max_len_val_blank):
+                max_len_val_blank = len(v) * ' '
+
         for k, v in python_jinja_mapping.items():
             # print(k, v)
             if v == '':
-                python_jinja_mapping[k] = '     '
+                python_jinja_mapping[k] = max_len_val_blank
         intermediate_stream = self.fill_template_by_jinja(tpl, python_template_var_mapping=python_jinja_mapping)
         return intermediate_stream
 
