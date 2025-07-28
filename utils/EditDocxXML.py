@@ -141,33 +141,12 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None, speci
         if cols == 0:
             print(f"警告: 为书签 {bookmark_element.get(qn('w:name'))} 提供的表格数据没有列。")
             return
-        width_cm = Cm(1.5)    
         tbl = doc.add_table(rows=0, cols=cols)
-        tbl.style = old_style_name
+        # tbl.style = old_style_name  # 临时注释掉样式设置
+        # print(f"🎨 跳过表格样式设置，使用默认样式")
         set_table_border(tbl)
-        # ！！！在这里使用 specific_column_widths 设置列宽！！！
-        if specific_column_widths and len(specific_column_widths) == cols:
-            for idx, col_width_emu in enumerate(specific_column_widths):
-                # 将 EMU 转换为 dxa (1 dxa = 15 EMU)
-                if col_width_emu is not None:
-                    tbl.columns[idx].width = Twips(col_width_emu // 15) # 使用 // 进行整数除法
-                # else: 如果为 None，则保持 python-docx 默认行为或您可以提供一个默认 dxa 值
-        else:
-            # 如果没有提供精确列宽，或者列数不匹配，则回退到默认的 1.5cm
-            # 平分每列的宽度
-            PAGE_WIDTH_CM = 18
-            LEFT_MARGIN_CM = 2.54
-            RIGHT_MARGIN_CM = 2.54
-            USABLE_WIDTH_CM = PAGE_WIDTH_CM - LEFT_MARGIN_CM - RIGHT_MARGIN_CM
-            col_width_cm = USABLE_WIDTH_CM / cols
-            tbl = doc.add_table(rows=0, cols=cols)
-            tbl.style = old_style_name
-            set_table_border(tbl)
-
-            for column in tbl.columns:
-                column.width = Cm(col_width_cm)
-        # ！！！列宽设置结束！！！
-
+        
+        # 先添加所有行数据
         for row_data in table_data:
             # 确保每行数据长度与列数一致
             if len(row_data) != cols:
@@ -177,15 +156,30 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None, speci
             for idx, cell_data in enumerate(row_data):
                 row_cells[idx].text = str(cell_data)
         
+        # 最后设置表格宽度和列宽
+        set_table_width(tbl)  # 设置表格整体宽度和对齐
+        
+        # ！！！在这里使用 specific_column_widths 设置列宽！！！
+        if specific_column_widths and len(specific_column_widths) == cols:
+            for idx, col_width_emu in enumerate(specific_column_widths):
+                # 将 EMU 转换为 dxa (1 dxa = 15 EMU)
+                if col_width_emu is not None:
+                    tbl.columns[idx].width = Twips(col_width_emu // 635) # 使用 // 进行整数除法
+                # else: 如果为 None，则保持 python-docx 默认行为或您可以提供一个默认 dxa 值
+        else:
+            # 如果没有提供精确列宽，让表格自动调整列宽
+            # 不手动设置列宽，让 set_table_width 中的整体宽度生效
+            pass
+
         # 3. 根据情况，替换旧表格或占位段落
         if parent_tbl_elem is not None:
             # a. 如果书签在表格里，用新表格替换整个旧表格
             parent_tbl_elem.addnext(tbl._element)
             parent_tbl_elem.getparent().remove(parent_tbl_elem)
         else:
-            # b. 如果书签在普通段落里，用新表格替换该段落
+            # b. 如果书签在普通段落里，在段落后插入表格，但保留原段落
             p_element.addnext(tbl._element)
-            p_element.getparent().remove(p_element)
+            # 不删除原段落，只清理书签相关的内容
 
 def remove_following_runs(paragraph, bookmark_element):
     start_found = False
@@ -315,3 +309,29 @@ def set_table_border(table):
         tblBorders.append(border)
 
     tblPr.append(tblBorders)
+
+def set_table_width(tbl, width_cm=8):
+    tblPr = tbl._element.tblPr
+
+    # 先清除所有现有的宽度设置，避免冲突
+    for elem in tblPr.findall(qn('w:tblW')):
+        tblPr.remove(elem)
+
+    # 设置表格布局算法为固定布局
+    tblLayout = OxmlElement('w:tblLayout')
+    tblLayout.set(qn('w:type'), 'fixed')  # 固定布局
+    tblPr.insert(0, tblLayout)
+    
+    # 创建新的宽度元素
+    tblW = OxmlElement('w:tblW')
+    
+    # 使用百分比宽度 (30% 的页面宽度)
+    width_pct = 1500  # 30% = 1500 (30 * 50)
+    tblW.set(qn('w:w'), str(width_pct))
+    tblW.set(qn('w:type'), 'pct')  # 使用百分比
+    tblPr.insert(1, tblW)
+    
+    # 添加表格对齐方式设置 - 居中对齐
+    jc = OxmlElement('w:jc')
+    jc.set(qn('w:val'), 'center')  # 居中对齐
+    tblPr.insert(2, jc)

@@ -31,6 +31,8 @@ data = {
     "样品名称": {"fill_type": 0, 'get_type': 0, 'position': ['sampleName']},
     "方法名称": {"fill_type": 0, 'get_type': 0, 'position': ['methodName']},
     "操作步骤": {"fill_type": 0, 'get_type': 0, 'position': ['steps']},
+    "仪器名称": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentName']},
+    "仪器型号": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentModel']}
 }
 
 table_name_list = {

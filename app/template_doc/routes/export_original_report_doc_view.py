@@ -55,7 +55,7 @@ async def export_docx(data: InputSchema):
         lock_table_width_on_document(doc_original)
 
     if report_template_id and original_template_id:
-        add_section_page_break(doc_report)
+        # add_section_page_break(doc_report)
         composer = Composer(doc_report)
         composer.append(doc_original)
 
