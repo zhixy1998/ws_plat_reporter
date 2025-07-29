@@ -2,7 +2,7 @@ import os, base64, re
 import importlib
 from io import BytesIO
 from dotenv import load_dotenv
-
+import urllib.parse
 import requests
 from docx import Document
 from docx.shared import Cm
@@ -28,8 +28,10 @@ class FillDataUtils():
 
     async def fill_data(self, doc_stream, task_id):
 
-        template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + task_id
-        res = requests.get(template_common_url, timeout=10)
+        template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
+        # print(f"DEBUG: 请求URL: {template_common_url}")
+        # print(f"DEBUG: 原始task_id: {repr(task_id)}")
+        res = requests.get(template_common_url, timeout=15)
         if res.status_code == 200:
             try:
                 res_json = res.json()
@@ -104,7 +106,7 @@ class FillDataUtils():
         for table_info in private_data_table_fields:
             table_name = table_info.get('table_name')
             if table_name in common_table_info_dict: 
-                # 如果表格名字在通用表格名称里（就是接口已经定义的)
+                # 如果表格名字在通用表格名称里（就是接口已经定义的）
                 # 就通过 通过表格接口传递参数获取
                 table_header_data_mapping = common_table_info_dict.get(table_name)
                 table_header_data_mapping = self.filter_table_header(table_info.get('headers'), table_header_data_mapping)
@@ -196,7 +198,9 @@ class FillDataUtils():
         return output_stream
     
     def get_common_table_data(self, table_name: str, task_id: str) -> dict:
-        template_common_url = os.getenv('TEMPLATE_COMMON_TABLE_URL') + '?taskId=' + task_id + '&reportName=' + table_name
+        template_common_url = os.getenv('TEMPLATE_COMMON_TABLE_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&reportName=' + table_name
+        print(f"DEBUG: 请求URL: {template_common_url}")
+        print(f"DEBUG: 原始task_id: {repr(task_id)}")
         res = requests.get(template_common_url)
         if res.status_code == 200:
             common_table_val = res.json().get('data')
