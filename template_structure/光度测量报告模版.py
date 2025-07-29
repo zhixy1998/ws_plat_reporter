@@ -101,29 +101,3 @@ def handle_endpoint_data_to_table_row(table_header_data_mapping: list, common_ta
         return row
     except Exception as e:
         return []
-
-
-def handle_endpoint_data_to_table_row(table_header_data_mapping: list, common_table_val) -> list:
-    try:
-        headers_data_mapping = {}
-        row = []
-
-        header_row = []
-        for header_info in common_table_val.get('headList'):
-            headers_data_mapping[header_info.get('name')] = header_info.get('identity')
-            header_row.append(header_info.get('name')) 
-        row.append(header_row)
-        for data_info in common_table_val.get('dataList'):
-            one_row = []
-            for header_name in header_row:
-                row_data = data_info.get(headers_data_mapping.get(header_name))
-                if row_data:
-                    one_row.append(row_data)
-                else:
-                    one_row.append('')
-            row.append(one_row)
-        # print(common_table_val)
-        return row
-    except Exception as e:
-        return []
-    

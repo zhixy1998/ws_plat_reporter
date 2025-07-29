@@ -32,7 +32,14 @@ data = {
     "方法名称": {"fill_type": 0, 'get_type': 0, 'position': ['methodName']},
     "操作步骤": {"fill_type": 0, 'get_type': 0, 'position': ['steps']},
     "仪器名称": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentName']},
-    "仪器型号": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentModel']}
+    "仪器型号": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentModel']},
+    "环境温度": {"fill_type": 0, 'get_type': 0, 'position': ['ambientTemperature']},
+    "相对湿度": {"fill_type": 0, 'get_type': 0, 'position': ['relativeHumidity']},
+    "质量等级": {"fill_type": 0, 'get_type': 0, 'position': ['qualityLevel']},
+    "比色皿光程": {"fill_type": 0, 'get_type': 0, 'position': ['colorPlateWavelength']},
+    "式中": {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']},
+    "收样日期": {"fill_type": 0, 'get_type': 0, 'position': ['samplingTime']},
+    "样品状态": {"fill_type": 0, 'get_type': 0, 'position': ['sampleState']}
 }
 
 table_name_list = {

@@ -42,3 +42,46 @@ def add_section_page_break(document):
     type_.set(qn('w:val'), 'nextPage')
     sectPr.append(type_)
     p._p.get_or_add_pPr().append(sectPr)
+
+
+def remove_empty_paragraphs_at_end(doc):
+    """
+    移除文档末尾的空段落，避免产生多余的空白页
+    """
+    # 获取文档的所有段落
+    paragraphs = doc.paragraphs
+    
+    # 从后往前遍历，移除末尾的空段落
+    while paragraphs and (not paragraphs[-1].text.strip() or paragraphs[-1].text == ''):
+        # 获取最后一个段落的XML元素
+        last_para = paragraphs[-1]
+        # 从父元素中移除这个段落
+        last_para._element.getparent().remove(last_para._element)
+        # 重新获取段落列表
+        paragraphs = doc.paragraphs
+
+def remove_last_section_break(doc):
+    """
+    移除文档末尾的分节符，避免产生空白页
+    """
+    # 获取文档的最后一个段落
+    if doc.paragraphs:
+        last_para = doc.paragraphs[-1]
+        # 检查段落是否包含分节符
+        pPr = last_para._p.get_or_add_pPr()
+        sectPr = pPr.find(qn('w:sectPr'))
+        if sectPr is not None:
+            # 移除分节符
+            pPr.remove(sectPr)
+
+def clean_document_for_merge(doc):
+    """
+    清理文档以便合并，移除可能导致空白页的元素
+    """
+    # 移除末尾的空段落
+    remove_empty_paragraphs_at_end(doc)
+    
+    # 移除末尾的分节符
+    remove_last_section_break(doc)
+    
+    return doc
