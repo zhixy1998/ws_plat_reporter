@@ -70,78 +70,161 @@ from io import BytesIO
 #                 pass
 #     return bookmarks
 
+class AnalysisBookMark:
+    """
+    分析Word文档中的书签并构建多层嵌套树结构
+    支持任意深度的嵌套关系，通过 '-' 分隔符识别层级
+    
+    例如：
+    - "基础信息" (根节点)
+    - "基础信息-样品信息" (一级子节点)
+    - "基础信息-样品信息-样品名称" (二级子节点)
+    - "基础信息-样品信息-样品编号" (二级子节点)
+    - "基础信息-测试信息-测试日期" (另一个二级子节点)
+    """
+    
+    def __init__(self, file_stream):
+        self.file_stream = file_stream
+        self.bookmarks = []  # 最终的树结构
+        self.all_nodes = {}  # 所有节点的映射，用于快速查找
 
-def get_word_bookmarks(file_stream):
-    from collections import deque
-    doc = Document(file_stream)
-    ns_uri = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
-    doc_element = doc.part._element
+    def get_word_bookmarks(self):
+        """解析Word文档中的所有书签并构建树结构"""
+        doc = Document(self.file_stream)
+        ns_uri = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+        doc_element = doc.part._element
 
-    all_bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart" or local-name()="bookmarkEnd"]')
-    bookmarks = []
-    id_to_node = {}
-    stack = deque()
+        all_bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart"]')
+        raw_bookmarks = []
 
-    for elem in all_bookmarks:
-        tag_name = elem.tag.split('}')[-1]
-        bm_id = elem.get(f'{{{ns_uri}}}id')
-
-        if tag_name == 'bookmarkStart':
-            name = elem.get(f'{{{ns_uri}}}name')
-            if name.startswith('_'):
+        # 第一步：收集所有书签的基本信息
+        for elem in all_bookmarks:
+            bookmark_id = elem.get(f'{{{ns_uri}}}id')
+            if not bookmark_id or bookmark_id.startswith('_'):
                 continue
-
+            
+            name = elem.get(f'{{{ns_uri}}}name')
+            if not name or name.startswith('_'):
+                continue
+            
             font, font_size = get_font_and_size(elem)
-            node = {
-                'id': bm_id,
-                'name': name,
-                'children': [],
-                'type': None,
-                'font': font,
-                'font_size': font_size,
-            }
-
+        
+            # 确定书签类型
             if TemplateBookMarkType.sheet.decs in name:
                 bookmark_type = TemplateBookMarkType.sheet.value
                 tbl = get_table_by_element(elem, doc)
-                node['table_structure'] = parse_table_to_json(tbl, name) if tbl else None
+                table_structure = parse_table_to_json(tbl, name) if tbl else None
+                img_size = None
             elif TemplateBookMarkType.img.decs in name:
                 bookmark_type = TemplateBookMarkType.img.value
-                node['img_size'] = get_image_size(elem)
+                table_structure = None
+                img_size = get_image_size(elem)
             else:
                 bookmark_type = TemplateBookMarkType.text.value
+                table_structure = None
+                img_size = None
+            
+            node = {
+                'id': bookmark_id,
+                'name': name,
+                'children': [],
+                'type': bookmark_type,
+                'font': font,
+                'font_size': font_size,
+            }
+        
+            if table_structure:
+                node['table_structure'] = table_structure
+            if img_size:
+                node['img_size'] = img_size
+            
+            raw_bookmarks.append(node)
 
-            node['type'] = bookmark_type
+        # 第二步：构建多层嵌套树结构
+        self._build_tree_structure(raw_bookmarks)
+        
+        return self.bookmarks
 
-            id_to_node[bm_id] = node
-            stack.append(bm_id)
-
-        elif tag_name == 'bookmarkEnd':
-            # 出现end就把匹配id的node出栈，并挂接到父节点
-            if stack:
-                open_id = stack.pop()
-                node = id_to_node[open_id]
-                if stack:
-                    parent_id = stack[-1]
-                    id_to_node[parent_id]['children'].append(node)
-                else:
-                    bookmarks.append(node)
-            else:
-                # 未匹配的bookmarkEnd，跳过或记录异常
-                pass
-
-    return bookmarks
-
-
-
-# 使用示例  获取该文档中所有的书签
-# docx_file = r'D:\Python\Template1.docx'
-# bookmarks = get_word_bookmarks(docx_file)
-# print("文档中的书签列表:", bookmarks)
+    def _build_tree_structure(self, raw_bookmarks):
+        """构建多层嵌套的树结构"""
+        # 重置
+        self.bookmarks = []
+        self.all_nodes = {}
+        
+        # 按名称长度排序，确保父节点先于子节点处理
+        sorted_bookmarks = sorted(raw_bookmarks, key=lambda x: len(x['name'].split('_')))
+        
+        for bookmark in sorted_bookmarks:
+            self._add_bookmark_to_tree(bookmark)
+    
+    def _add_bookmark_to_tree(self, bookmark):
+        """将书签添加到树结构中"""
+        name = bookmark['name']
+        parts = name.split('_')
+        
+        # 将节点添加到映射中
+        self.all_nodes[name] = bookmark
+        
+        if len(parts) == 1:
+            # 根节点
+            self.bookmarks.append(bookmark)
+        else:
+            # 子节点，需要找到父节点
+            parent_name = '_'.join(parts[:-1])
+            parent_node = self._find_or_create_parent(parent_name)
+            parent_node['children'].append(bookmark)
+    
+    def _find_or_create_parent(self, parent_name):
+        """查找或创建父节点"""
+        if parent_name in self.all_nodes:
+            return self.all_nodes[parent_name]
+        
+        # 父节点不存在，需要创建
+        parts = parent_name.split('_')
+        
+        # 创建虚拟父节点
+        parent_node = {
+            'id': f"virtual_{parent_name}",
+            'name': parent_name,
+            'children': [],
+            'type': TemplateBookMarkType.text.value,
+            'font': None,
+            'font_size': None,
+        }
+        
+        # 递归处理父节点的父节点
+        if len(parts) == 1:
+            # 这是根节点
+            self.bookmarks.append(parent_node)
+        else:
+            # 这也有父节点
+            grandparent_name = '_'.join(parts[:-1])
+            grandparent_node = self._find_or_create_parent(grandparent_name)
+            grandparent_node['children'].append(parent_node)
+        
+        # 添加到映射中
+        self.all_nodes[parent_name] = parent_node
+        return parent_node
+    
+    def print_tree(self, nodes=None, indent=0):
+        """打印树结构，用于调试"""
+        if nodes is None:
+            nodes = self.bookmarks
+        
+        for node in nodes:
+            print("  " * indent + f"_ {node['name']} (type: {node['type']})")
+            if node['children']:
+                self.print_tree(node['children'], indent + 1)
 
 
 #删除指定书签
-def delete_bookmark_content(doc, bookmark_name, output_path):
+def delete_bookmark_content(doc, bookmark_name, output_path=None):
+    """
+    删除指定书签及其内容
+    返回修改后的文档
+    """
+    print(f"开始删除书签: {bookmark_name}")
+
     # 1. 找到目标 bookmarkStart 和它的 id
     bookmarks = doc.part._element.xpath('.//*[local-name()="bookmarkStart"]')
     start_bm = None
@@ -156,7 +239,7 @@ def delete_bookmark_content(doc, bookmark_name, output_path):
 
     if start_bm is None:
         print(f"❌ 没有找到书签 {bookmark_name}")
-        return
+        return doc
 
     # 2. 找到对应 bookmarkEnd（同一个 id）
     bookmark_ends = doc.part._element.xpath('.//*[local-name()="bookmarkEnd"]')
@@ -168,15 +251,47 @@ def delete_bookmark_content(doc, bookmark_name, output_path):
 
     if end_bm is None:
         print(f"❌ 没找到书签 {bookmark_name} 的结束标签")
-        return
-    # 3. 删除 bookmarkStart 到 bookmarkEnd 之间的所有元素，包括两端
-    element = start_bm
-    while element is not None:
-        next_element = element.getnext()
-        element.getparent().remove(element)
-        if element == end_bm:
+        return doc
+
+    print(f"找到书签 {bookmark_name}，开始删除内容")
+
+    # 3. 使用更精确的方法删除书签之间的内容
+    elements_to_remove = []
+
+    # 获取文档中所有元素的列表（按文档顺序）
+    all_elements = doc.part._element.xpath('.//*')
+
+    # 找到开始和结束书签在文档中的位置
+    start_index = None
+    end_index = None
+
+    for i, elem in enumerate(all_elements):
+        if elem == start_bm:
+            start_index = i
+        elif elem == end_bm:
+            end_index = i
             break
-        element = next_element
+
+    if start_index is None or end_index is None:
+        print(f"❌ 无法确定书签 {bookmark_name} 的位置")
+        return doc
+
+    # 收集需要删除的元素（包括书签标记本身）
+    for i in range(start_index, end_index + 1):
+        elements_to_remove.append(all_elements[i])
+
+    # 按照从后往前的顺序删除，避免索引变化问题
+    for elem in reversed(elements_to_remove):
+        try:
+            parent = elem.getparent()
+            if parent is not None:
+                parent.remove(elem)
+        except Exception as e:
+            print(f"删除元素时出错: {e}")
+            continue
+
+    print(f"✅ 成功删除书签 {bookmark_name} 及其内容")
+    return doc
 
 def get_font_and_size(elem):
     # 默认字体 & 字号
