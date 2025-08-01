@@ -10,7 +10,8 @@ from ..model.template_doc import TemplateDoc
 from ..model.template_doc_base import TemplateDocBase
 from ..model.template_bookmark import TemplateBookmark
 from ..model.bookmark_data import BookmarkData
-from utils.LoadAndDelete import get_word_bookmarks
+from utils.LoadAndDelete import AnalysisBookMark
+from utils.doc_converter import convert_doc_to_docx, detect_file_format
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType, TemplateType
@@ -36,6 +37,24 @@ async def create_template_view(
         if await TemplateDocBase.get_or_none(name=name, is_del=0):
             raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
         content = await file.read()
+
+        # 检测文件格式并自动转换DOC到DOCX
+        file_format = detect_file_format(content)
+        if file_format == 'doc':
+            print(f"检测到DOC文件，正在转换为DOCX: {file.filename}")
+            try:
+                docx_stream = convert_doc_to_docx(content)
+                content = docx_stream.read()  # 获取转换后的字节内容
+                print(f"✅ DOC文件转换成功: {file.filename}")
+            except Exception as e:
+                print(f"❌ DOC文件转换失败: {e}")
+                raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
+        elif file_format == 'docx':
+            print(f"检测到DOCX文件: {file.filename}")
+        else:
+            print(f"❌ 不支持的文件格式: {file.filename}")
+            raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
+
         content_base64 = base64.b64encode(content).decode('utf-8')
         # 存入数据库
         try:
@@ -64,7 +83,8 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
         create_info['base_template_id'] = template_base_instance.id
         template =  await TemplateDoc.create(**create_info)
         # 创建标签
-        book_markets = get_word_bookmarks(BytesIO(content))
+        analysis_bookmark = AnalysisBookMark(BytesIO(content))
+        book_markets = analysis_bookmark.get_word_bookmarks()
         # 创建json文件
         for book_mark in book_markets:
             await recursion_create_bookmark(book_mark, template.id)     
@@ -182,4 +202,3 @@ async def get_table_structure_by_template_name(template_id, template_name, conne
     """
     sql_result = await execute_safe_sql(sql_text, [template_name, template_id,TemplateBookMarkType.sheet.value, 0], return_dict=True, connection=connection)
     return sql_result
-
