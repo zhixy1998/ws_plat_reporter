@@ -166,24 +166,71 @@ class FillDataUtils():
         intermediate_stream = self.fill_template_by_jinja(tpl, python_template_var_mapping=python_jinja_mapping)
         return intermediate_stream
 
+    @staticmethod
+    def fill_template_jinja_blank(doc_stream):
+        """
+        获取docxtpl模板中所有未填充的Jinja变量，并将它们填充为空字符串
+        
+        Args:
+            doc_stream: Word文档的BytesIO流
+            
+        Returns:
+            填充后的文档BytesIO流
+        """
+        try:
+            from docxtpl import DocxTemplate
+            from io import BytesIO
+            
+            # 创建DocxTemplate对象
+            tpl = DocxTemplate(doc_stream)
+            
+            # 获取模板中所有未声明的变量
+            undeclared_vars = tpl.get_undeclared_template_variables()
+            
+
+            # 为所有未声明的变量创建空字符串映射
+            blank_context = {}
+            for var in undeclared_vars:
+                blank_context[var] = ""
+
+            # 如果没有未声明的变量，直接返回原文档
+            if not blank_context:
+                doc_stream.seek(0)
+                return doc_stream
+            
+            # 使用空字符串上下文渲染模板
+            tpl.render(blank_context)
+            
+            # 保存到新的BytesIO流
+            output_stream = BytesIO()
+            tpl.save(output_stream)
+            output_stream.seek(0)
+            
+            return output_stream
+            
+        except Exception as e:
+            # 出错时返回原文档
+            doc_stream.seek(0)
+            return doc_stream
+
     # 通用的通过书签填充
     def common_fill_data_by_bookmark(private_key, common_key, common_val, doc_stream):
         pass
 
     # 通过接口获取数据然后jinja填充
-    def endpoint_fill_data_by_jinja():
+    def endpoint_fill_data_by_jinja(self):
         pass
 
     # 通过接口获取数据然后书签填充
-    def endpoint_fill_data_by_bookmark():
+    def endpoint_fill_data_by_bookmark(self):
         pass
 
     # 通过数据库获取数据然后jinja填充
-    def database_fill_data_by_jinja():
+    def database_fill_data_by_jinja(self):
         pass
 
     # 通过数据库获取数据然后书签填充
-    def database_fill_data_by_bookmark():
+    def database_fill_data_by_bookmark(self):
         pass
 
     def fill_template_by_jinja(self, tpl, python_template_var_mapping):
