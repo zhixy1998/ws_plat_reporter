@@ -1,0 +1,18 @@
+from tortoise import fields
+from tortoise.models import Model
+from .template_doc_base import TemplateDocBase
+
+class TemplateDoc(TemplateDocBase):
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=255)
+    type = fields.SmallIntField(default=0, help_text="模板类型 常量 TemplateType")
+    industry_type = fields.CharField(max_length=255, null=True, help_text="行业类型")
+    create_datetime = fields.DatetimeField(auto_now_add=True)
+    update_datetime = fields.DatetimeField(auto_now=True)
+    template_content = fields.TextField()  # Base64 存储doc内容
+    base_template_id = fields.IntField(null=True, help_text='基础模版的id')
+    is_del = fields.SmallIntField(default=0)
+
+
+    class Meta:
+        table = "template_doc"
