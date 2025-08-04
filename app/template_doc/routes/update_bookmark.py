@@ -1,23 +1,29 @@
+# 标准库导入
 import base64
 import os
-import tempfile
 import subprocess
+import tempfile
+import time
 from io import BytesIO
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
-from ..model.template_doc import TemplateDoc
-from fastapi.responses import StreamingResponse
-from ..model.template_bookmark import TemplateBookmark
+from typing import Dict, List, Optional
 
+# 第三方库导入
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+# 本地应用导入
 from app.db import execute_safe_sql
+from constants.template_constant import TemplateBookMarkType
+from exceptions.command_exception import APIException
 from exceptions.error import ErrorCode
 from utils.EditDocxXML import fill_word_bookmark
-from utils.LoadAndDelete import delete_bookmark_content
+from utils.fille_template_utils import FillDataUtils
 from utils.handle_header_footer import set_header_footer
-from exceptions.command_exception import APIException
+from utils.LoadAndDelete import delete_bookmark_content
 from utils.template_utils import get_doc_obj_by_template_id
-from constants.template_constant import TemplateBookMarkType
+from ..model.template_bookmark import TemplateBookmark
+from ..model.template_doc import TemplateDoc
 from .create_template_view import create_template
 
 router = APIRouter()
@@ -123,11 +129,17 @@ async def update_bookmark(data: InputSchema):
     doc.save(output_stream)
     output_stream.seek(0)
 
-
-    # 转换为 base64 字符串
-    doc_raw_bytes = output_stream.read()
-    pdf_raw_bytes = convert_docx_to_pdf(doc_raw_bytes)
-    base64_str = base64.b64encode(pdf_raw_bytes).decode("utf-8")
+    # 先获取原始字节数据
+    doc_raw_bytes = output_stream.getvalue()
+    
+    # 为显示创建流（处理docxtpl标识）
+    show_output_stream = BytesIO(doc_raw_bytes)
+    show_output_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=show_output_stream)
+    show_base64_str, _ = file_stream_to_pdf_base64(show_output_stream)
+    
+    # 为保存创建流（保持原始内容）
+    save_output_stream = BytesIO(doc_raw_bytes)
+    base64_str, _ = file_stream_to_pdf_base64(file_stream=save_output_stream)
 
     if operation_type == 1: # 另存为
         await create_template(data.name, base64_str, doc_raw_bytes)
@@ -137,11 +149,18 @@ async def update_bookmark(data: InputSchema):
             await TemplateBookmark.filter(id=bookmark.get('id')).update(font=bookmark.get('font'), font_size=bookmark.get('font_size'))
         for del_bookmark_name in del_bookmark_name_list:
             await TemplateBookmark.filter(template_doc_id = data.template_id, name=del_bookmark_name).update(is_del=1)
-    return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': base64_str}}
+    return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': show_base64_str}}
     # 返回文件
     # return StreamingResponse(content=BytesIO(pdf_raw_bytes), media_type="application/pdf", headers={
     #     "Content-Disposition": "attachment; filename=converted.pdf"
     # })
+
+def file_stream_to_pdf_base64(file_stream):
+    doc_raw_bytes = file_stream.read()
+    pdf_raw_bytes = convert_docx_to_pdf(doc_raw_bytes)
+    base64_str = base64.b64encode(pdf_raw_bytes).decode("utf-8")
+    return base64_str, doc_raw_bytes
+
 
 def get_update_bookmark(real_id_font_mapping: Dict[int, BookmarkItem], input_bookmark_list: List[BookmarkItem]):
     """
@@ -173,25 +192,36 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
         docx_path = os.path.join(tmpdir, "input.docx")
         pdf_path = os.path.join(tmpdir, "input.pdf")
 
+
         # 保存 docx 到临时文件
         with open(docx_path, "wb") as f:
             f.write(docx_bytes)
+        
 
         # 转换 docx 为 pdf，LibreOffice 会自动输出到 tmpdir 中
         try:
-            subprocess.run([
+            result = subprocess.run([
                 "libreoffice",
                 "--headless",
                 "--convert-to", "pdf",
                 "--outdir", tmpdir,
                 docx_path
-            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+            
+
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"LibreOffice 转换失败: {e.stderr.decode()}")
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("LibreOffice 转换超时（30秒）")
+
+        # 等待一下，确保文件写入完成
+        time.sleep(1)
+        
 
         # 读取转换后的 PDF
         if not os.path.exists(pdf_path):
             raise FileNotFoundError("PDF 文件未生成")
 
         with open(pdf_path, "rb") as f:
-            return f.read()
+            pdf_content = f.read()
+            return pdf_content
