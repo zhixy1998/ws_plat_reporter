@@ -22,6 +22,7 @@ from utils.fille_template_utils import FillDataUtils
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from utils.LoadAndDelete import lock_table_width_on_document
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -34,6 +35,7 @@ class OutSchema(BaseModel):
     pass
 
 @router.post('/export_original_report_docx')
+@log_response
 async def export_docx(data: InputSchema):
     report_template_id = data.report_template_id
     original_template_id = data.original_template_id

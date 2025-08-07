@@ -10,6 +10,7 @@ from ..model.template_bookmark import TemplateBookmark
 from utils.template_utils import get_doc_obj_by_template_id
 from utils.get_bookmark_text import get_bookmark_text
 from utils.handle_header_footer import get_header_footer_font_info
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ class OutSchema(BaseModel):
     data: DataSchema = Field(..., description='返回数据')
 
 @router.get('/get_template_extra_info', response_model=OutSchema)
+@log_response
 async def update_template(template_id: int):
     template_instance = await TemplateDoc.get_or_none(id=template_id)
     if not template_instance:

@@ -4,6 +4,7 @@ from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -12,6 +13,7 @@ class InputSchema(BaseModel):
     name: str = Field(None, description='模板名称')
 
 @router.post('/update_template')
+@log_response
 async def update_template(data: InputSchema):
     template = await TemplateDoc.get_or_none(id=data.id)
     if not template:

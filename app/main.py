@@ -10,7 +10,9 @@ from jwt import ExpiredSignatureError, PyJWTError, InvalidTokenError
 from app.db import init_db
 from contextlib import asynccontextmanager
 from exceptions.command_exception import APIException
+from middleware.logging_middleware import LoggingMiddleware
 from app.template_doc.routes import router as template_doc_router
+from utils.logger import logger, format_error_log
 
 KEY = "px_iNexus"
 ALGORITHM = "HS256"
@@ -99,6 +101,7 @@ class JWTVerificationMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(JWTVerificationMiddleware)
 app.add_middleware(
     CORSMiddleware,

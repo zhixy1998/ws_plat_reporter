@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
 from constants.template_constant import TemplateType
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ class OutSchema(BaseModel):
 
 
 @router.get('/get_calibration_template')
+@log_response
 async def get_calibration_template(
     name: Optional[str]= Query(None, description='模板名称'), 
     desc: Optional[int] = Query(0, description='0: 升序，1: 降序'),

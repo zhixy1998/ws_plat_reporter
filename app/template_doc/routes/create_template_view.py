@@ -16,6 +16,7 @@ from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType, TemplateType
 from app.db import execute_safe_sql
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ router = APIRouter()
 #     name: str = Field(None, description='模板名称')
 
 @router.post('/upload_template')
+@log_response
 async def create_template_view(
     name: str = Form(None, description='模板名称'),
     template_type: int = Form(0, description=f"""模板类型 \n
@@ -178,7 +180,9 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     
     # 字段渲染表格
     py_lines.append("table_fields = ")
-    table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False).replace("null", "None")
+    # 使用更安全的方式处理中文字符，确保编码正确
+    table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False, separators=(',', ': '))
+    table_fields_str = table_fields_str.replace("null", "None")
     py_lines.append(f"{table_fields_str}\n") 
     
     # 创建文件
@@ -188,8 +192,11 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     if os.path.exists(py_path):
         # 如果之前已有备份，也可以选择是否覆盖，这里直接覆盖
         shutil.copy2(py_path, backup_path)
-    with open(py_path, "w", encoding="utf-8") as f:
-        f.writelines(py_lines)
+    
+    # 使用更安全的文件写入方式，确保 UTF-8 编码正确
+    with open(py_path, "w", encoding="utf-8", newline='\n') as f:
+        for line in py_lines:
+            f.write(line)
      
     return py_path
 

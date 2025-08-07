@@ -6,6 +6,7 @@ from exceptions.command_exception import APIException
 from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
 from app.db import execute_safe_sql
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -20,6 +21,7 @@ class OutSchema(BaseModel):
         })
 
 @router.get('/get_template_industry', response_model=OutSchema)
+@log_response
 async def get_template_industry():
     sql_text = """
     select industry_type, count(*) as count from template_doc group by industry_type

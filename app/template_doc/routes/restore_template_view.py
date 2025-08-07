@@ -11,6 +11,7 @@ from ..model.template_bookmark import TemplateBookmark
 from utils.LoadAndDelete import get_word_bookmarks
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -19,6 +20,7 @@ class InputSchema(BaseModel):
     id: int = Field(..., description='模板id')
 
 @router.post('/restore_template')
+@log_response
 async def create_template_view(
     data: InputSchema
     ):
