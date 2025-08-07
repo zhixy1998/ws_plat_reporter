@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from exceptions.error import ErrorCode
 from constants.template_constant import TemplateType
 from exceptions.command_exception import APIException
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -32,6 +33,7 @@ class OutSchema(BaseModel):
 
 
 @router.get('/get_total_template')
+@log_response
 async def get_total_template(
     name: Optional[str]= Query(None, description='模板名称'), 
     desc: Optional[int] = Query(0, description='0: 升序，1: 降序'),

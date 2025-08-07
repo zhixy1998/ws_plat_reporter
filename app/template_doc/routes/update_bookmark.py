@@ -25,6 +25,7 @@ from utils.template_utils import get_doc_obj_by_template_id
 from ..model.template_bookmark import TemplateBookmark
 from ..model.template_doc import TemplateDoc
 from .create_template_view import create_template
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -57,6 +58,7 @@ class OutSchema(BaseModel):
 
 
 @router.post('/update_bookmark')
+@log_response
 async def update_bookmark(data: InputSchema):
     operation_type = data.operation_type
     template = await TemplateDoc.get_or_none(id=data.template_id)

@@ -10,6 +10,7 @@ from ..model.template_doc import TemplateDoc
 from utils.EditDocxXML import fill_word_bookmark
 from constants.template_constant import TemplateBookMarkType
 from utils.template_utils import get_doc_obj_by_template_id
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -45,6 +46,7 @@ class InputSchema(BaseModel):
     bookmark_data: List[BookmarkData] = Field(..., description="书签值，支持文本、图片base64、表格数据")
 
 @router.post('/export_doc')
+@log_response
 async def export_docx(data: InputSchema):
     template_id = data.template_id
     bookmark_data = data.bookmark_data

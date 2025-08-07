@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from ..model.template_bookmark import TemplateBookmark
 from pydantic import BaseModel, Field
 from constants.template_constant import WordFontType, WordFontSize, WordImageSizeType
-
+from utils.log_decorator import log_response
 router = APIRouter()
 
 
@@ -19,6 +19,7 @@ class OutSchema(BaseModel):
     data: DataSchema = Field(..., description='返回数据')
 
 @router.get('/get_bookmark_setting', response_model=OutSchema)
+@log_response
 def get_bookmark_setting():
     data = {
         'word_font_type': [{ 'name': k, 'value': v}  for k, v in WordFontType.generate_decs_value_map().items()],  # 去除未知WordFontType.generate_decs_value_map().items(),

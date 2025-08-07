@@ -16,6 +16,7 @@ from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType, TemplateType
 from app.db import execute_safe_sql
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ router = APIRouter()
 #     name: str = Field(None, description='模板名称')
 
 @router.post('/upload_template')
+@log_response
 async def create_template_view(
     name: str = Form(None, description='模板名称'),
     template_type: int = Form(0, description=f"""模板类型 \n

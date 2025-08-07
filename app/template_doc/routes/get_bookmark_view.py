@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from constants.template_constant import TemplateBookMarkType
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -33,6 +34,7 @@ class OutSchema(BaseModel):
     data: BookmarkDataSchema
 
 @router.get('/get_bookmark', response_model=OutSchema)
+@log_response
 async def get_bookmark(template_id: int, type: Optional[int] = None):
     template_instance = await TemplateDoc.get_or_none(id=template_id, is_del=0)
     if template_instance is None:

@@ -10,6 +10,7 @@ from ..model.template_bookmark import TemplateBookmark
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from utils.fille_template_utils import FillDataUtils
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -24,6 +25,7 @@ class OutSchema(BaseModel):
 
 
 @router.get('/get_template_content', response_model=OutSchema)
+@log_response
 async def get_template_content(template_id: int):
     template = await TemplateDoc.get_or_none(id=template_id)
     if not template:

@@ -5,6 +5,7 @@ from ..model.template_doc_base import TemplateDocBase
 from pydantic import BaseModel, Field
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
+from utils.log_decorator import log_response
 
 router = APIRouter()
 
@@ -12,6 +13,7 @@ class InputSchema(BaseModel):
     id: int = Field(..., description='模板id')
 
 @router.post('/del_template')
+@log_response
 async def del_template(data: InputSchema):
     template_instance = await TemplateDoc.get_or_none(id=data.id, is_del=0)
     if template_instance:
