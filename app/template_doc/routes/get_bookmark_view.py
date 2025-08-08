@@ -54,7 +54,13 @@ async def get_bookmark(template_id: int, type: Optional[int] = None):
         item_type = item.get('type', 'unknown')
         grouped.setdefault(item_type, []).append(item)
     result = {item_type: build_tree(bookmarks_list) for item_type, bookmarks_list in grouped.items()}
-    return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': result}}
+    #return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': result}}
+    # 对每个类型的书签树进行处理
+    processed_result = {item_type: process_tree(bookmarks_tree) for item_type, bookmarks_tree in result.items()}
+    return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': processed_result}}
+
+
+
 
 def build_tree(bookmarks):
     id_list = []
@@ -87,4 +93,17 @@ def build_tree(bookmarks):
 
     # flatten_tree(tree)
     # print('id列表:', id_list)
+    return tree
+
+# 递归处理树结构，二级标签分割保留
+def process_tree(tree):
+    for node in tree:
+        # 处理当前节点的名称
+        name_parts = node['name'].split('_')
+        # 如果有_分隔符且长度大于2，保留二级标签，否则保持原名称
+        if len(name_parts) >= 2:
+            node['name'] = name_parts[1]
+        # 递归处理子节点
+        if node.get('children'):
+            process_tree(node['children'])
     return tree
