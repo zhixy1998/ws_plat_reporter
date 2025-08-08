@@ -96,8 +96,9 @@ class AnalysisBookMark:
 
         all_bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart"]')
         raw_bookmarks = []
-
+        sheet_bookmark_has_child_bookmark = False
         # 第一步：收集所有书签的基本信息
+
         for elem in all_bookmarks:
             bookmark_id = elem.get(f'{{{ns_uri}}}id')
             if not bookmark_id or bookmark_id.startswith('_'):
@@ -111,17 +112,17 @@ class AnalysisBookMark:
         
             # 确定书签类型
             if TemplateBookMarkType.sheet.decs in name:
+                if '_' in name:
+                    sheet_bookmark_has_child_bookmark = True
                 bookmark_type = TemplateBookMarkType.sheet.value
-                tbl = get_table_by_element(elem, doc)
-                table_structure = parse_table_to_json(tbl, name) if tbl else None
+                # tbl = get_table_by_element(elem, doc)
+                # table_structure = parse_table_to_json(tbl, name) if tbl else None
                 img_size = None
             elif TemplateBookMarkType.img.decs in name:
                 bookmark_type = TemplateBookMarkType.img.value
-                table_structure = None
                 img_size = get_image_size(elem)
             else:
                 bookmark_type = TemplateBookMarkType.text.value
-                table_structure = None
                 img_size = None
             
             node = {
@@ -131,14 +132,32 @@ class AnalysisBookMark:
                 'type': bookmark_type,
                 'font': font,
                 'font_size': font_size,
+                'elem': elem
             }
         
-            if table_structure:
-                node['table_structure'] = table_structure
             if img_size:
                 node['img_size'] = img_size
             
             raw_bookmarks.append(node)
+
+        if sheet_bookmark_has_child_bookmark: # 给表头也打上了子标签
+            # 根据子标签解析表头和表格结构
+            table_structures = self._parse_table_with_child_bookmarks(raw_bookmarks, doc)
+            # 将解析结果赋值给对应的节点
+            for node in raw_bookmarks:
+                if node['type'] == TemplateBookMarkType.sheet.value and node['name'] in table_structures:
+                    node['table_structure'] = table_structures[node['name']]
+        else:  # 没有给表头打上子标签 elem按照表格来处理
+            for node in raw_bookmarks:
+                if node['type'] == TemplateBookMarkType.sheet.value:
+                    tbl = get_table_by_element(node.get('elem'), doc)
+                    table_structure = parse_table_to_json(tbl, name) if tbl else None
+                    node['table_structure'] = table_structure
+        
+        # 清理：删除所有节点中的 elem 字段，避免内存泄漏和序列化问题
+        for node in raw_bookmarks:
+            if 'elem' in node:
+                del node['elem']
 
         # 第二步：构建多层嵌套树结构
         self._build_tree_structure(raw_bookmarks)
@@ -212,9 +231,253 @@ class AnalysisBookMark:
             nodes = self.bookmarks
         
         for node in nodes:
-            print("  " * indent + f"_ {node['name']} (type: {node['type']})")
+            print("  " * indent + f"- {node['name']} (type: {node['type']})")
             if node['children']:
                 self.print_tree(node['children'], indent + 1)
+
+    def _parse_table_with_child_bookmarks(self, raw_bookmarks, doc):
+        """
+        根据子标签解析表头和表格结构
+        处理类似 "数据表格" 和 "数据表格_序号" 这样的标签组合
+        
+        Returns:
+            dict: 表格名称到表格结构的映射
+        """
+        # 按名称分组，找到主表格和其子标签
+        table_groups = {}
+        result_structures = {}
+        
+        for node in raw_bookmarks:
+            if node['type'] == TemplateBookMarkType.sheet.value:
+                name = node['name']
+                
+                if '_' in name:
+                    # 子标签，如 "数据表格_序号"
+                    main_name, sub_name = name.split('_', 1)
+                    if main_name not in table_groups:
+                        table_groups[main_name] = {'main': None, 'children': []}
+                    table_groups[main_name]['children'].append({
+                        'name': sub_name,
+                        'node': node,
+                        'elem': node['elem']
+                    })
+                else:
+                    # 主标签，如 "数据表格"
+                    if name not in table_groups:
+                        table_groups[name] = {'main': None, 'children': []}
+                    table_groups[name]['main'] = node
+        
+        # 处理每个表格组
+        for table_name, group in table_groups.items():
+            if group['main'] and group['children']:
+                # 有主标签和子标签，进行解析
+                table_structure = self._parse_table_structure_from_bookmarks(
+                    table_name, group['main'], group['children'], doc
+                )
+                if table_structure:
+                    result_structures[table_name] = table_structure
+                    print(f"Debug: Successfully parsed table_structure for '{table_name}' with {len(table_structure.get('headers', [[]]))} header rows")
+                else:
+                    print(f"Debug: Failed to parse table_structure for '{table_name}'")
+        
+        return result_structures
+    
+    def _parse_table_structure_from_bookmarks(self, table_name, main_node, child_nodes, doc):
+        """
+        从主标签和子标签中解析表格结构
+        
+        Args:
+            table_name: 表格名称
+            main_node: 主标签节点
+            child_nodes: 子标签节点列表
+            doc: Word文档对象
+            
+        Returns:
+            dict: 与 parse_table_to_json 一致的表格结构
+        """
+        try:
+            # 获取列标题和列宽信息
+            headers = []
+            column_widths = []
+            
+            # 按子标签在Word文档中的位置排序，保持原始列顺序
+            sorted_children = self._sort_children_by_document_position(child_nodes)
+            
+            for child in sorted_children:
+                headers.append(child['name'])
+                
+                # 尝试获取列宽
+                try:
+                    # 找到子标签对应的表格单元格
+                    elem = child['elem']
+                    cell_elem = self._find_table_cell_from_bookmark(elem)
+                    if cell_elem:
+                        # 获取单元格宽度
+                        width = self._get_cell_width(cell_elem)
+                        column_widths.append(width)
+                    else:
+                        column_widths.append(None)
+                except Exception:
+                    column_widths.append(None)
+            
+            # 判断表格方向
+            # 如果子标签都在同一行，则是横向表格；如果在同一列，则是纵向表格
+            structure_type = self._determine_table_orientation(sorted_children)
+            
+            # 构建与 parse_table_to_json 一致的结构
+            if structure_type == StructureType.Horizontal.value:
+                # 横向表格：表头在第一行
+                result = {
+                    'table_name': table_name,
+                    "row_count": len(main_node.get('table_structure', {}).get('rows', [])),
+                    "col_count": len(headers),
+                    'headers': [headers],  # 表头作为第一行
+                    'data_rows': [],  # 数据行为空，因为只有表头信息
+                    'structure_type': structure_type,
+                    'column_width': column_widths
+                }
+            else:
+                # 纵向表格：表头在第一列
+                result = {
+                    'table_name': table_name,
+                    "row_count": len(main_node.get('table_structure', {}).get('rows', [])),
+                    "col_count": len(headers),
+                    'headers': [[header] for header in headers],  # 每个表头作为一行
+                    'data_rows': [],  # 数据行为空
+                    'structure_type': structure_type,
+                    'column_width': column_widths
+                }
+            
+            # 尝试加载表格元数据
+            try:
+                table_meta = load_table_structure_by_name(table_name)
+                if table_meta and 'column_width' in table_meta:
+                    result['column_width'] = table_meta['column_width']
+            except Exception:
+                pass
+            
+            return result
+            
+        except Exception as e:
+            print(f"Error parsing table structure for '{table_name}': {e}")
+            return None
+    
+    def _find_table_cell_from_bookmark(self, bookmark_elem):
+        """
+        从书签元素找到对应的表格单元格
+        """
+        current = bookmark_elem
+        while current is not None:
+            if current.tag.endswith('tc'):  # 找到单元格
+                return current
+            current = current.getparent()
+        return None
+    
+    def _get_cell_width(self, cell_elem):
+        """
+        获取单元格宽度
+        """
+        try:
+            # 查找 tcW 元素
+            tcPr = cell_elem.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tcPr')
+            if tcPr is not None:
+                tcW = tcPr.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tcW')
+                if tcW is not None:
+                    width_val = tcW.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}w')
+                    if width_val:
+                        return int(width_val)
+        except Exception:
+            pass
+        return None
+    
+    def _determine_table_orientation(self, child_nodes):
+        """
+        判断表格方向：横向还是纵向
+        
+        Args:
+            child_nodes: 子标签节点列表
+            
+        Returns:
+            str: StructureType.Horizontal.value 或 StructureType.Vertical.value
+        """
+        try:
+            # 获取所有子标签的位置信息
+            positions = []
+            for child in child_nodes:
+                elem = child['elem']
+                # 找到书签在文档中的位置
+                doc_element = elem.getroottree().getroot()
+                all_elements = list(doc_element.iter())
+                try:
+                    pos = all_elements.index(elem)
+                    positions.append(pos)
+                except ValueError:
+                    continue
+            
+            if len(positions) < 2:
+                # 如果只有一个子标签或无法确定位置，默认为横向
+                return StructureType.Horizontal.value
+            
+            # 简单启发式：如果位置差距较小，可能是横向；差距较大，可能是纵向
+            position_diffs = [positions[i+1] - positions[i] for i in range(len(positions)-1)]
+            avg_diff = sum(position_diffs) / len(position_diffs)
+            
+            # 如果平均差距小于某个阈值，认为是横向表格
+            if avg_diff < 50:  # 这个阈值可以根据实际情况调整
+                return StructureType.Horizontal.value
+            else:
+                return StructureType.Vertical.value
+                
+        except Exception:
+            # 出错时默认返回横向
+            return StructureType.Horizontal.value
+    
+    def _sort_children_by_document_position(self, child_nodes):
+        """
+        按子标签在Word文档中的位置排序，保持原始列顺序
+        
+        Args:
+            child_nodes: 子标签节点列表
+            
+        Returns:
+            list: 按文档位置排序的子标签列表
+        """
+        try:
+            # 为每个子标签获取其在文档中的位置
+            children_with_positions = []
+            
+            for child in child_nodes:
+                elem = child['elem']
+                try:
+                    # 获取文档根元素
+                    doc_element = elem.getroottree().getroot()
+                    all_elements = list(doc_element.iter())
+                    
+                    # 找到元素在文档中的位置
+                    position = all_elements.index(elem)
+                    children_with_positions.append((position, child))
+                    
+                except (ValueError, AttributeError):
+                    # 如果无法获取位置，使用一个很大的数作为默认位置
+                    children_with_positions.append((999999, child))
+            
+            # 按位置排序
+            children_with_positions.sort(key=lambda x: x[0])
+            
+            # 返回排序后的子标签列表
+            sorted_children = [child for position, child in children_with_positions]
+            
+            # 调试信息：显示排序结果
+            print(f"Debug: Sorted children by document position:")
+            for i, (position, child) in enumerate(children_with_positions):
+                print(f"  [{i}] Position {position}: {child['name']}")
+            
+            return sorted_children
+            
+        except Exception as e:
+            print(f"Warning: Failed to sort children by document position: {e}")
+            # 如果排序失败，返回原始顺序
+            return child_nodes
 
 
 #删除指定书签
@@ -238,7 +501,7 @@ def delete_bookmark_content(doc, bookmark_name, output_path=None):
             break
 
     if start_bm is None:
-        print(f"❌ 没有找到书签 {bookmark_name}")
+        print(f"没有找到书签 {bookmark_name}")
         return doc
 
     # 2. 找到对应 bookmarkEnd（同一个 id）

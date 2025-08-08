@@ -203,9 +203,12 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
 async def get_table_structure_by_template_name(template_id, template_name, connection):
     sql_text = """
     select bookmark_data.table_structure from template_doc 
-    left join template_bookmark on template_doc.id = template_bookmark.template_doc_id 
-    left join bookmark_data on template_bookmark.id = bookmark_data.bookmark_id 
+    inner join template_bookmark on template_doc.id = template_bookmark.template_doc_id 
+    inner join bookmark_data on template_bookmark.id = bookmark_data.bookmark_id 
     where template_doc.name = %s and template_doc.id = %s and template_bookmark.type = %s and template_doc.is_del = %s
+    and bookmark_data.table_structure is not null
     """
     sql_result = await execute_safe_sql(sql_text, [template_name, template_id,TemplateBookMarkType.sheet.value, 0], return_dict=True, connection=connection)
+    
+    print(f"Debug: Found {len(sql_result)} table_structure records")
     return sql_result
