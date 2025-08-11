@@ -25,6 +25,10 @@ class FillDataUtils():
         self.name = name
         private_mod = None
         self.template_id = template_id
+        self.common_val = None   # 代表通用数据接口返回的数据
+        self.common_key = None   # 代表通用数据的描述
+        self.private_key = None  # 代表私有数据的描述
+        self.python_jinja_mapping = {}
 
     async def fill_data(self, doc_stream, task_id):
 
@@ -46,11 +50,12 @@ class FillDataUtils():
             print("请求通用数据失败, url:", template_common_url)
             common_val = {}
         
-
+        self.common_val = common_val
         # 先加载通用数据
         module_name = "template_structure." + 'common_data'  # 比如 name = "my_template"
         common_mod = importlib.import_module(module_name)
         common_key = common_mod.data
+        self.common_key = common_key
         common_table_info_dict = common_mod.table_name_list
 
 
@@ -61,9 +66,11 @@ class FillDataUtils():
             raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)
         self.private_mod = private_mod
         # 不是表格数据
+        self.private_key = private_mod.python_template_var
         private_key_text_fields = private_mod.python_template_var    
         # 表格数据
         private_data_table_fields = private_mod.table_fields
+        self.table_fields = private_mod.table_fields
 
         get_data_from_common_data_jinja = [] # 这个数据从通用里面取 然后jinja填充
         get_data_from_common_data_bookmark = [] # 这个数据从通用里面取 然后书签填充 
@@ -91,7 +98,7 @@ class FillDataUtils():
                     get_data_from_database_bookmark.append({k:item})
 
         if get_data_from_common_data_jinja:
-            doc_stream = await self.common_fill_data_by_jinja(private_key_text_fields, common_key, common_val, doc_stream)
+            doc_stream = await self.common_fill_data_by_jinja(doc_stream)
         if get_data_from_common_data_bookmark:
             pass
         if get_data_from_endpoint_jinja:
@@ -125,46 +132,62 @@ class FillDataUtils():
 
 
     # 通用数据的jinja填充数据
-    async def common_fill_data_by_jinja(self, private_key, common_key, common_val, doc_stream):
+    async def common_fill_data_by_jinja(self, doc_stream):
         """
         逻辑: 如果private里面有，但是没有描述position, 那么就从common里面取, 如果描述了position，再说
         """
 
         tpl = DocxTemplate(doc_stream)
-        python_jinja_mapping = {}
         value_list = [] # 所有的值的列表
-        for k, v_dict in private_key.items():
+        for private_k, v_dict in self.private_key.items():
+            # 如果私有文件描述了怎么取数据。
             if v_dict.get('position'):
                 pass
             else:
-                if k in common_key:
-                    get_desc = common_key[k]
+            # 查看通用数据是否描述了这个变量的取值方法。
+                if private_k in self.common_key:
+                    get_desc = self.common_key[private_k]
                     if get_desc.get('position'):
-                        val_key = get_desc.get('position') 
-                        if val_key:
-                            val = common_val.get(val_key[0])
-                            if '图片' in k and isinstance(val, str) and self.is_base64(val):
-                                try:
-                                    python_jinja_mapping[k] = await self.decode_base64_image(bookmark_name=k, tpl=tpl, val=val)
-                                except Exception as e:
-                                    print(f"{k} 解码失败: {e}")
-                                    [k] = val
-                            else:
-                                python_jinja_mapping[k] = val if val else ''
-                                value_list.append(val)
+                        await self.handle_position(private_k, get_desc.get('position'), value_list)
+                        # val_key = get_desc.get('position') 
+                        # if val_key:
+                        #     val = common_val.get(val_key[0])
+                        #     if '图片' in k and isinstance(val, str) and self.is_base64(val):
+                        #         try:
+                        #             python_jinja_mapping[k] = await self.decode_base64_image(bookmark_name=k, tpl=tpl, val=val)
+                        #         except Exception as e:
+                        #             print(f"{k} 解码失败: {e}")
+                        #             [k] = val
+                        #     else:
+                        #         python_jinja_mapping[k] = val if val else ''
+                        #         value_list.append(val)
                 else:
-                    python_jinja_mapping[k] = ''
+                    self.python_jinja_mapping[private_k] = ''
         max_len_val_blank = ''
         for v in value_list:
             if v and len(v) > len(max_len_val_blank):
                 max_len_val_blank = len(v) * ' '
 
-        for k, v in python_jinja_mapping.items():
+        for k, v in self.python_jinja_mapping.items():
             # print(k, v)
             if v == '':
-                python_jinja_mapping[k] = max_len_val_blank
-        intermediate_stream = self.fill_template_by_jinja(tpl, python_template_var_mapping=python_jinja_mapping)
+                self.python_jinja_mapping[k] = max_len_val_blank
+        intermediate_stream = self.fill_template_by_jinja(tpl)
         return intermediate_stream
+    
+    # 处理position position代表这个数据获取的描述方法。
+    async def handle_position(self, private_k, position, value_list):
+        val = self.common_val.get(position[0])
+        if '图片' in private_k and isinstance(val, str) and self.is_base64(val):
+            try:
+                self.python_jinja_mapping[private_k] = await self.decode_base64_image(bookmark_name=private_k, tpl=tpl, val=val)
+            except Exception as e:
+                print(f"{private_k} 解码失败: {e}")
+        else:
+            self.python_jinja_mapping[private_k] = val if val else ''
+            value_list.append(val)
+        
+
 
     @staticmethod
     def fill_template_jinja_blank(doc_stream):
@@ -233,11 +256,11 @@ class FillDataUtils():
     def database_fill_data_by_bookmark(self):
         pass
 
-    def fill_template_by_jinja(self, tpl, python_template_var_mapping):
+    def fill_template_by_jinja(self, tpl):
         """
         """
         # 处理python jinja语法变量
-        tpl.render(context=python_template_var_mapping)
+        tpl.render(context=self.python_jinja_mapping)
         # 写入内存流，返回
         output_stream = BytesIO()
         tpl.save(output_stream)
