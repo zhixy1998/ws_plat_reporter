@@ -13,13 +13,13 @@ if not os.path.exists(logs_dir):
 # 移除默认的控制台处理器
 logger.remove()
 
-# 添加控制台输出 - 彩色格式，便于开发调试
-logger.add(
-    sys.stdout,
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-    level="INFO",
-    colorize=True
-)
+# 添加控制台输出 - 彩色格式，便于开发调试 (已禁用)
+# logger.add(
+#     sys.stdout,
+#     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+#     level="INFO",
+#     colorize=True
+# )
 
 # 添加普通日志文件 - 记录所有请求和响应
 logger.add(

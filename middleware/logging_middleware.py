@@ -32,23 +32,33 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         safe_headers = {k: v for k, v in headers.items() 
                        if k.lower() not in ['authorization', 'token', 'cookie']}
         
-        # 读取请求体
+        # 读取请求体 - 使用更安全的方式
         body = None
         if request.method in ["POST", "PUT", "PATCH"]:
             try:
-                body_bytes = await request.body()
-                if body_bytes:
+                # 检查 Content-Type 来决定如何处理请求体
+                content_type = request.headers.get("content-type", "")
+                
+                if "application/json" in content_type:
                     try:
-                        body = json.loads(body_bytes.decode('utf-8'))
-                    except:
-                        body = body_bytes.decode('utf-8', errors='ignore')
-                        
-                # 重新设置请求体
-                async def receive():
-                    return {"type": "http.request", "body": body_bytes}
-                request._receive = receive
+                        body = await request.json()
+                    except Exception:
+                        body = "<invalid-json>"
+                elif "multipart/form-data" in content_type:
+                    body = "<multipart-form-data>"
+                elif "application/x-www-form-urlencoded" in content_type:
+                    try:
+                        form_data = await request.form()
+                        body = dict(form_data)
+                    except Exception:
+                        body = "<form-data-error>"
+                else:
+                    # 对于其他类型，只记录类型信息，不读取内容
+                    body = f"<{content_type or 'unknown-content-type'}>"
+                    
             except Exception as e:
                 logger.warning(f"读取请求体失败: {e}")
+                body = f"<error: {str(e)}>"
         
         # 创建请求日志记录
         request_info = {
@@ -153,8 +163,25 @@ def log_complete_request(request_id: str, response_data: Any, status_code: int =
 
 
 class DateTimeEncoder(json.JSONEncoder):
-    """自定义 JSON 编码器，处理 datetime 对象"""
+    """自定义 JSON 编码器，处理 datetime 对象和文件流对象"""
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()  # 转换为 ISO 格式字符串
-        return super().default(obj)
+        
+        # 处理文件流对象
+        if hasattr(obj, 'read') and hasattr(obj, 'name'):
+            return f"<FileStream: {getattr(obj, 'name', 'unknown')}>"
+        
+        # 处理其他类似文件的对象
+        if hasattr(obj, 'read'):
+            return f"<FileObject: {type(obj).__name__}>"
+        
+        # 处理字节对象
+        if isinstance(obj, bytes):
+            return f"<bytes: {len(obj)} bytes>"
+        
+        # 处理其他不可序列化的对象
+        try:
+            return str(obj)
+        except Exception:
+            return f"<{type(obj).__name__}: non-serializable>"

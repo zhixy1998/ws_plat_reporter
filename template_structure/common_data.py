@@ -39,7 +39,11 @@ data = {
     "比色皿光程": {"fill_type": 0, 'get_type': 0, 'position': ['colorPlateWavelength']},
     "式中": {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']},
     "收样日期": {"fill_type": 0, 'get_type': 0, 'position': ['samplingTime']},
-    "样品状态": {"fill_type": 0, 'get_type': 0, 'position': ['sampleState']}
+    "样品状态": {"fill_type": 0, 'get_type': 0, 'position': ['sampleState']},
+    "接样日期": {"fill_type": 0, 'get_type': 0, 'position': ['samplingTime']},
+    "分析日期": {"fill_type": 0, 'get_type': 0, 'position': ['detectionEndTime']},
+    "仪器名称及型号": {"fill_type": 0, 'get_type': 0, 'children': ['仪器名称', '仪器型号'], 'connect_str': ' '},
+    "分析方法及编号": {"fill_type": 0, 'get_type': 0, 'children': ['方法名称', '方法编号'], 'connect_str': ' '}
 }
 
 table_name_list = {

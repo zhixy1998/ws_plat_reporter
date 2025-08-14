@@ -172,11 +172,42 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
 
 
     context = list(context_vars)
-    for i, var in enumerate(context):
-        comma = "," if i < len(context) - 1 else ""
-        if var in context_vars:
-            py_lines.append(f'    "{var}": {{"fill_type": 0}}{comma}\n')
+    
+    # 分离普通变量和带索引的变量
+    normal_vars = []
+    indexed_vars = {}
+    
+    for var in context:
+        # 检查是否是带索引的变量（如：标准溶液加入体积_0）
+        if '_' in var and var.split('_')[-1].isdigit():
+            base_name = '_'.join(var.split('_')[:-1])  # 获取基础名称
+            index = var.split('_')[-1]  # 获取索引
+            
+            if base_name not in indexed_vars:
+                indexed_vars[base_name] = []
+            indexed_vars[base_name].append(var)
+        else:
+            normal_vars.append(var)
+    
+    # 写入普通变量
+    for i, var in enumerate(normal_vars):
+        comma = "," if i < len(normal_vars) - 1 else ""
+        py_lines.append(f'    "{var}": {{"fill_type": 0}}{comma}\n')
+    
     py_lines.append("}\n")
+    
+    # 添加 table_jinja_values 分组信息（作为独立变量）
+    if indexed_vars:
+        py_lines.append("\n# 表格字段分组\n")
+        py_lines.append("table_jinja_values = {\n")
+        
+        for i, (base_name, vars_list) in enumerate(indexed_vars.items()):
+            vars_list.sort(key=lambda x: int(x.split('_')[-1]))  # 按索引排序
+            vars_str = "', '".join(vars_list)
+            comma = "," if i < len(indexed_vars) - 1 else ""
+            py_lines.append(f"    '{base_name}': ['{vars_str}']{comma}\n")
+        
+        py_lines.append("}\n")
     
     # 字段渲染表格
     py_lines.append("table_fields = ")

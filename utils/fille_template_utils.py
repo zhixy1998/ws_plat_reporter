@@ -16,7 +16,7 @@ from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType
 # from app.template_doc.model.bookmark_data import BookmarkData
 from app.template_doc.model.template_bookmark import TemplateBookmark
-from constants.template_constant import GetTypeConstant, FillTypeConstant
+from constants.template_constant import GetTypeConstant, FillTypeConstant, StructureType
 
 load_dotenv(override=True)
 
@@ -35,19 +35,26 @@ class FillDataUtils():
         template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}")
-        res = requests.get(template_common_url, timeout=15)
-        if res.status_code == 200:
-            try:
-                res_json = res.json()
-                if res_json.get('code') == 200:
-                    common_val = res_json.get('data')
-                else:
+        try:
+            res = requests.get(template_common_url, timeout=5)
+            if res.status_code == 200:
+                try:
+                    res_json = res.json()
+                    if res_json.get('code') == 200:
+                        common_val = res_json.get('data')
+                    else:
+                        common_val = {}
+                except Exception as e:
+                    print(e)
                     common_val = {}
-            except Exception as e:
-                print(e)
+            else:
+                print("请求通用数据失败, url:", template_common_url)
                 common_val = {}
-        else:
-            print("请求通用数据失败, url:", template_common_url)
+        except requests.exceptions.Timeout:
+            print(f"请求超时，跳过: {template_common_url}")
+            common_val = {}
+        except Exception as e:
+            print(f"请求异常，跳过: {e}")
             common_val = {}
         
         self.common_val = common_val
@@ -98,7 +105,16 @@ class FillDataUtils():
                     get_data_from_database_bookmark.append({k:item})
 
         if get_data_from_common_data_jinja:
-            doc_stream = await self.common_fill_data_by_jinja(doc_stream)
+            # 检查是否有表格需要tpl渲染，如果有，合并context
+            table_contexts = {}
+            if hasattr(self.private_mod, 'table_jinja_values'):
+                table_jinja_values = self.private_mod.table_jinja_values
+                # table_jinja_and_num_mapping = {}
+                # for context_name, text_list in table_jinja_values.items():
+                #     table_jinja_and_num_mapping[context_name] = len(text_list)
+                table_contexts = self.get_context(table_jinja_values)
+            
+            doc_stream = await self.common_fill_data_by_jinja(doc_stream, additional_context=table_contexts)
         if get_data_from_common_data_bookmark:
             pass
         if get_data_from_endpoint_jinja:
@@ -109,7 +125,8 @@ class FillDataUtils():
             pass
         if get_data_from_database_bookmark:
             pass
-
+        
+        # 处理表格
         for table_info in private_data_table_fields:
             table_name = table_info.get('table_name')
             if table_name in common_table_info_dict: 
@@ -132,10 +149,12 @@ class FillDataUtils():
 
 
     # 通用数据的jinja填充数据
-    async def common_fill_data_by_jinja(self, doc_stream):
+    async def common_fill_data_by_jinja(self, doc_stream, additional_context=None):
         """
         逻辑: 如果private里面有，但是没有描述position, 那么就从common里面取, 如果描述了position，再说
         """
+        if additional_context is None:
+            additional_context = {}
 
         tpl = DocxTemplate(doc_stream)
         value_list = [] # 所有的值的列表
@@ -149,18 +168,8 @@ class FillDataUtils():
                     get_desc = self.common_key[private_k]
                     if get_desc.get('position'):
                         await self.handle_position(private_k, get_desc.get('position'), value_list)
-                        # val_key = get_desc.get('position') 
-                        # if val_key:
-                        #     val = common_val.get(val_key[0])
-                        #     if '图片' in k and isinstance(val, str) and self.is_base64(val):
-                        #         try:
-                        #             python_jinja_mapping[k] = await self.decode_base64_image(bookmark_name=k, tpl=tpl, val=val)
-                        #         except Exception as e:
-                        #             print(f"{k} 解码失败: {e}")
-                        #             [k] = val
-                        #     else:
-                        #         python_jinja_mapping[k] = val if val else ''
-                        #         value_list.append(val)
+                    if get_desc.get('children'):
+                        await self.handle_children(private_k, get_desc.get('children'), value_list, connect_str=get_desc.get('connect_str', ''))
                 else:
                     self.python_jinja_mapping[private_k] = ''
         max_len_val_blank = ''
@@ -172,12 +181,17 @@ class FillDataUtils():
             # print(k, v)
             if v == '':
                 self.python_jinja_mapping[k] = max_len_val_blank
-        intermediate_stream = self.fill_template_by_jinja(tpl)
+        intermediate_stream = self.fill_template_by_jinja(tpl, additional_context)
         return intermediate_stream
-    
+
+    # 从通用接口取当前表格需要的jinja数据
+    async def get_common_val_by_private_position(self, position):
+        val = self.common_val.get(position[0])
+        return val
+
     # 处理position position代表这个数据获取的描述方法。
     async def handle_position(self, private_k, position, value_list):
-        val = self.common_val.get(position[0])
+        val = await self.get_common_val_by_private_position(position)
         if '图片' in private_k and isinstance(val, str) and self.is_base64(val):
             try:
                 self.python_jinja_mapping[private_k] = await self.decode_base64_image(bookmark_name=private_k, tpl=tpl, val=val)
@@ -186,6 +200,19 @@ class FillDataUtils():
         else:
             self.python_jinja_mapping[private_k] = val if val else ''
             value_list.append(val)
+    
+    # 处理children children代表这个数据获取的描述方法。
+    async def handle_children(self, private_k, children, value_list, connect_str=''):
+        final_val_list = []
+        for child in children:
+            get_desc = self.common_key.get(child)
+            if get_desc and get_desc.get('position'):
+                val = await self.get_common_val_by_private_position(get_desc.get('position'))
+                if val:
+                    final_val_list.append(val)
+        if final_val_list:
+            self.python_jinja_mapping[private_k] = connect_str.join(final_val_list)
+            value_list.append(connect_str.join(final_val_list))
         
 
 
@@ -256,26 +283,79 @@ class FillDataUtils():
     def database_fill_data_by_bookmark(self):
         pass
 
-    def fill_template_by_jinja(self, tpl):
+    def fill_template_by_jinja(self, tpl, additional_context=None):
         """
         """
+        # 合并context
+        final_context = self.python_jinja_mapping.copy()
+        if additional_context:
+            final_context.update(additional_context)
+            # print("Merged context:", final_context)
+        
         # 处理python jinja语法变量
-        tpl.render(context=self.python_jinja_mapping)
+        tpl.render(context=final_context)
         # 写入内存流，返回
         output_stream = BytesIO()
         tpl.save(output_stream)
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
+        
+        # 后处理：移除表格中的空行
+        output_stream = self.remove_empty_table_rows(output_stream)
+        
         return output_stream
+    
+    def remove_empty_table_rows(self, doc_stream: BytesIO) -> BytesIO:
+        """移除表格中的空行"""
+        try:
+            from docx import Document
+            doc = Document(doc_stream)
+            
+            for table in doc.tables:
+                rows_to_remove = []
+                for i, row in enumerate(table.rows):
+                    # 检查行是否为空（所有单元格都为空或只包含空白字符）
+                    is_empty = True
+                    for cell in row.cells:
+                        cell_text = cell.text.strip()
+                        if cell_text:
+                            is_empty = False
+                            break
+                    
+                    if is_empty:
+                        rows_to_remove.append(i)
+                
+                # 从后往前删除空行，避免索引问题
+                for row_idx in reversed(rows_to_remove):
+                    if row_idx < len(table.rows):
+                        table._element.remove(table.rows[row_idx]._element)
+            
+            # 保存处理后的文档
+            output_stream = BytesIO()
+            doc.save(output_stream)
+            output_stream.seek(0)
+            return output_stream
+            
+        except Exception as e:
+            print(f"Error removing empty table rows: {e}")
+            doc_stream.seek(0)
+            return doc_stream
     
     def get_common_table_data(self, table_name: str, task_id: str) -> dict:
         template_common_url = os.getenv('TEMPLATE_COMMON_TABLE_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&reportName=' + table_name
         print(f"DEBUG: 请求URL: {template_common_url}")
         print(f"DEBUG: 原始task_id: {repr(task_id)}")
-        res = requests.get(template_common_url)
-        if res.status_code == 200:
-            common_table_val = res.json().get('data')
-        else:
-            print("请求通用b表格据失败, url:", template_common_url)
+        try:
+            res = requests.get(template_common_url, timeout=5)
+            if res.status_code == 200:
+                common_table_val = res.json().get('data')
+            else:
+                print("请求通用表格数据失败, url:", template_common_url)
+                common_table_val = {}
+        except requests.exceptions.Timeout:
+            print(f"请求超时，跳过: {template_common_url}")
+            common_table_val = {}
+        except Exception as e:
+            print(f"请求异常，跳过: {e}")
             common_table_val = {}
         return common_table_val
     
@@ -367,3 +447,33 @@ class FillDataUtils():
         output_stream.seek(0)
         return output_stream
     
+    def get_context(self, table_jinja_values):
+        fake_table_jinja_contexts = {}
+        if hasattr(self.private_mod, 'fake_table_jinja_contexts'):
+            fake_table_jinja_contexts = self.private_mod.fake_table_jinja_contexts
+        contexts = {}
+        for context_name, children_list in table_jinja_values.items():
+            context = self.get_one_context(context_name, children_list)
+            if not context and fake_table_jinja_contexts.get(context_name): # 如果没有取到数据，并且写了假数据，就用假数据代替
+                context = self.fill_fake_context_data(children_list, fake_table_jinja_contexts.get(context_name))
+            contexts.update(context)
+        return contexts
+    
+    def fill_fake_context_data(self, children_list, fake_context_list):
+        context = {}
+        for children_context in children_list:
+            context_index = children_context.split('_')[1]
+            # print(children_context, context_index)
+            context[children_context] = fake_context_list[int(context_index)]
+        return context
+    
+    def get_one_context(self, context_name, children_list):
+        """
+        这个字段负责具体表格的每个变量如何获取，
+        比如 这9个数据
+        ['减空白后吸光度_0', '减空白后吸光度_1', '减空白后吸光度_2', '减空白后吸光度_3', '减空白后吸光度_4', '减空白后吸光度_5', '减空白后吸光度_6', '减空白后吸光度_7', '减空白后吸光度_8'
+        先根据task_id去数据库中查询context_name 怎么获取，
+        然后获取到 9个数据。
+        然后返回一个字典，key是children_list中的值，value是获取到的数据。
+        """
+        return {}

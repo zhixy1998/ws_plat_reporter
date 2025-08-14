@@ -311,7 +311,7 @@ class AnalysisBookMark:
                     # 找到子标签对应的表格单元格
                     elem = child['elem']
                     cell_elem = self._find_table_cell_from_bookmark(elem)
-                    if cell_elem:
+                    if cell_elem is not None:
                         # 获取单元格宽度
                         width = self._get_cell_width(cell_elem)
                         column_widths.append(width)

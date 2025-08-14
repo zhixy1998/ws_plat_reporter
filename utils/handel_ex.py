@@ -2,7 +2,7 @@ from docxtpl import DocxTemplate
 from docx import Document
 from docx.shared import Cm
 
-template_path = 'test_ex.docx' # 假设这是您的模板文件名
+template_path = 'test_ex1.docx' # 模板文件在utils目录下
 
 doc = DocxTemplate(template_path)
 
@@ -51,6 +51,26 @@ abs_data_2 = [
 data_for_template['abs_data_1'] = abs_data_1
 data_for_template['abs_data_2'] = abs_data_2
 data_for_template['blank_abs'] = {"label": "空白吸光度A0", "value": "0.5"}
+
+# data_s = {
+#   'a': [2131,2123,34124,41241,51241,61241,71241],
+#   'b': [512739,612312,712312,812312,912312,1012312,1112312],
+#   'c': [212312,312312,412312,512312,612312,712312,812312],
+#   'g': [212312,312312,412312,512312,612312,712312,812312]
+# }
+data_s = [
+  [2131,2123,34124,41241],
+  [512739,612312,712312,812312],
+  [212312,312312,412312,512312],
+  [212312,312312,412312,512312]
+]
+# data_s = {
+#   'a': [2131,2123],
+#   'b': [512739,612312],
+#   'c': [212312,312312],
+#   'g': [212312,312312]
+# }
+data_for_template['data_s'] = data_s
 # `doc.render` 的上下文就是这个数据
 doc.render(data_for_template)
 
