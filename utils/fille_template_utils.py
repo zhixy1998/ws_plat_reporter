@@ -29,6 +29,7 @@ class FillDataUtils():
         self.common_key = None   # 代表通用数据的描述
         self.private_key = None  # 代表私有数据的描述
         self.python_jinja_mapping = {}
+        self.table_contexts = {}
 
     async def fill_data(self, doc_stream, task_id):
 
@@ -105,16 +106,14 @@ class FillDataUtils():
                     get_data_from_database_bookmark.append({k:item})
 
         if get_data_from_common_data_jinja:
-            # 检查是否有表格需要tpl渲染，如果有，合并context
-            table_contexts = {}
+            # 检查是否有表格需要单独tpl对象渲染，如果有，合并context
             if hasattr(self.private_mod, 'table_jinja_values'):
                 table_jinja_values = self.private_mod.table_jinja_values
                 # table_jinja_and_num_mapping = {}
                 # for context_name, text_list in table_jinja_values.items():
                 #     table_jinja_and_num_mapping[context_name] = len(text_list)
-                table_contexts = self.get_context(table_jinja_values)
+                self.table_contexts = self.get_context(table_jinja_values)
             
-            doc_stream = await self.common_fill_data_by_jinja(doc_stream, additional_context=table_contexts)
         if get_data_from_common_data_bookmark:
             pass
         if get_data_from_endpoint_jinja:
@@ -143,6 +142,22 @@ class FillDataUtils():
                 # table_name实际就是表格名字
                 current_table_column_widths = table_info.get('column_width')
                 doc_stream = fill_word_bookmark(doc_stream, table_name, row_list, bookmark_type, specific_column_widths=current_table_column_widths)
+            else:
+                if 'has_tr' in table_info:  # 这个代表这个表格是用了tr表格渲染的语法
+                    sheet_bookmark = await TemplateBookmark.get(name=table_name, template_doc_id=self.template_id, is_del=0)
+                    # 递归获取所有子标签，组成一维列表，排除包含'_tpl'的标签
+                    all_child_bookmarks = await self.get_all_child_bookmarks(sheet_bookmark.id)
+                    # 过滤掉包含'_tpl'的标签
+                    filtered_bookmarks = [b for b in all_child_bookmarks if '_tpl' not in b.name]
+                    filtered_bookmark_names = [b.name.split(table_name + '_')[1] for b in filtered_bookmarks]
+                    # 现在拿到了所有的需要批量获取的tpl变量。
+                    tr_context = self.get_tr_context(table_name, filtered_bookmark_names)
+                    self.table_contexts.update(tr_context)
+                    # print(f"表格 {table_name} 的tr变量: {filtered_bookmark_names}")
+
+
+                
+        doc_stream = await self.common_fill_data_by_jinja(doc_stream, additional_context=self.table_contexts)
         doc_stream = self.insert_header_page_number(doc_stream)
         return doc_stream
 
@@ -459,14 +474,6 @@ class FillDataUtils():
             contexts.update(context)
         return contexts
     
-    def fill_fake_context_data(self, children_list, fake_context_list):
-        context = {}
-        for children_context in children_list:
-            context_index = children_context.split('_')[1]
-            # print(children_context, context_index)
-            context[children_context] = fake_context_list[int(context_index)]
-        return context
-    
     def get_one_context(self, context_name, children_list):
         """
         这个字段负责具体表格的每个变量如何获取，
@@ -477,3 +484,53 @@ class FillDataUtils():
         然后返回一个字典，key是children_list中的值，value是获取到的数据。
         """
         return {}
+
+    def fill_fake_context_data(self, children_list, fake_context_list):
+        context = {}
+        for children_context in children_list:
+            context_index = children_context.split('_')[1]
+            # print(children_context, context_index)
+            context[children_context] = fake_context_list[int(context_index)]
+        return context
+    
+    async def get_all_child_bookmarks(self, parent_id):
+        """
+        递归获取所有子标签，组成一维列表
+        
+        Args:
+            parent_id: 父标签的ID
+            
+        Returns:
+            list: 所有子标签的一维列表
+        """
+        all_children = []
+        
+        # 获取直接子标签
+        direct_children = await TemplateBookmark.filter(
+            parent_id=parent_id, 
+            template_doc_id=self.template_id, 
+            is_del=0
+        ).all()
+        
+        for child in direct_children:
+            # 添加当前子标签到列表
+            all_children.append(child)
+            
+            # 递归获取这个子标签的所有子标签
+            grandchildren = await self.get_all_child_bookmarks(child.id)
+            all_children.extend(grandchildren)
+        
+        return all_children
+    
+    def get_tr_context(self, table_name, filtered_bookmark_names, row_num=5):
+        """
+        : table_name: 表格名称 因为模版中的语法设置的循环的列表名字是 [table_name]_rows 比如 数据表格_rows 所以这个作为返回的变量
+        : filtered_bookmark_names: 过滤后的标签名称列表  这个名称和标签名称一致 表格每一个列都要设置一个标签 标签以_连接，作为子标签
+        : row_num: 行数 查询多少行
+        """
+        key = table_name + '_rows'
+        # [{}]
+        if hasattr(self.private_mod, key):
+            return {key: getattr(self.private_mod, key)}
+        data_list = []
+        return {key: data_list}

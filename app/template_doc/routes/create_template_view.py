@@ -6,9 +6,10 @@ import jinja2
 from docxtpl import DocxTemplate
 from fastapi import APIRouter, UploadFile, File, Form
 from tortoise.transactions import in_transaction
-from ..model.template_doc import TemplateDoc
-from ..model.template_doc_base import TemplateDocBase
-from ..model.template_bookmark import TemplateBookmark
+from app.template_doc.model.template_doc import TemplateDoc
+from app.template_doc.model.template_doc_base import TemplateDocBase
+from app.template_doc.model.template_bookmark import TemplateBookmark
+from app.template_doc.model.template_extra_info import TemplateExtraInfo
 from ..model.bookmark_data import BookmarkData
 from utils.LoadAndDelete import AnalysisBookMark
 from utils.doc_converter import convert_doc_to_docx, detect_file_format
@@ -17,6 +18,7 @@ from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType, TemplateType
 from app.db import execute_safe_sql
 from utils.log_decorator import log_response
+from utils.template_utils import extract_tr_variables
 
 router = APIRouter()
 
@@ -114,7 +116,24 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
             structure_type = bookmark.get('table_structure').get('structure_type')
             if structure_type is not None:  # 可能是0 0也是正确的
                 table_structure = bookmark.get('table_structure')
-                await BookmarkData.create(bookmark_id=bookmark_id, structure_type=structure_type, table_structure=table_structure)
+                bookmark_data = await BookmarkData.create(bookmark_id=bookmark_id, structure_type=structure_type, table_structure=table_structure)
+                bookmark_name = bookmark.get('name')
+                book_mark_tpl_name = bookmark_name + '_tpl' # 这个代表这个表格有tpl横向表格
+                for child in bookmark.get("children"):
+                    if child.get('name') == book_mark_tpl_name:
+                        await TemplateExtraInfo.create(
+                            template_doc_id = template_id,
+                            bookmark_data_id = bookmark_data.id,
+                            has_tr = 1
+                        )
+                        
+                        # 反过来更新BookmarkData的table_structure字段，添加has_tr标识
+                        updated_table_structure = bookmark_data.table_structure
+                        updated_table_structure['has_tr'] = 1
+                        # 更新BookmarkData记录
+                        bookmark_data.table_structure = updated_table_structure
+                        await bookmark_data.save()
+
             
                 
         for child in bookmark['children']:
@@ -135,9 +154,24 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
 
     # 模版内容
     doc = DocxTemplate(template_file_steam)
+    has_tr_syntax = False
     try:
         doc = DocxTemplate(template_file_steam)
         context_vars = doc.get_undeclared_template_variables()
+        
+        # 检测是否有tr语法并提取变量
+        has_tr_syntax = extract_tr_variables(template_file_steam)
+        
+        # 保存tr语法检测结果到TemplateExtraInfo表
+        # await TemplateExtraInfo.update_or_create(
+        #     template_doc_id=template_id,
+        #     defaults={
+        #         'has_tr': 1 if has_tr_syntax else 0,
+        #         'is_del': 0
+        #     }
+        # )
+        
+        
     except jinja2.exceptions.TemplateSyntaxError as e:
         print(e)
         raise APIException(ErrorCode.INVALID_TEMPLATE_FIELD)
@@ -153,20 +187,7 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     tables = await get_table_structure_by_template_name(template_id=template_id, template_name=name, connection=connection)
     if tables:
         for table in tables:
-            # table_fields = []
-            # table_dict = {
-            #     'table_name': None,
-            #     'table_fields': []
-            # }
             table_structure = json.loads(table.get('table_structure'))
-            # table_dict['table_name'] = table_structure.get('table_name')
-            # headers = table_structure.get('headers')
-            # if len(headers) == 1:
-            #     for h in headers[0]:
-            #         table_fields.append(h)
-            # else:
-            #     table_fields = ["-".join(map(str, group)) for group in zip(*headers)]
-            # table_dict['table_fields'] = table_fields
             table_list.append(table_structure)
 
 
@@ -208,6 +229,12 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
             py_lines.append(f"    '{base_name}': ['{vars_str}']{comma}\n")
         
         py_lines.append("}\n")
+    
+    # 添加 tr 变量信息到生成的文件中
+    # if has_tr_syntax and tr_variables:
+    #     py_lines.append("\n# tr语法变量列表\n")
+    #     py_lines.append(f"tr_variables = {tr_variables}\n")
+    #     py_lines.append(f"has_tr_syntax = {has_tr_syntax}\n")
     
     # 字段渲染表格
     py_lines.append("table_fields = ")
