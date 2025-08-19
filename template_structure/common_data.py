@@ -4,6 +4,7 @@ data = {
     "光度模式": {"fill_type": 0, 'get_type': 0, 'position': ['luminosityMode']},
     "光谱带宽": {"fill_type": 0, 'get_type': 0, 'position': ['spectrumBandwidth']},
     "光谱扫描图片": {"fill_type": 0, 'get_type': 0, 'position': ['spectrumScanImage']},
+    "时间扫描图片": {"fill_type": 0, 'get_type': 0, 'position': ['timeScanImage']},
     "原始数据": {"fill_type": 0, 'get_type': 0, 'position': ['originalData']},
     "增益": {"fill_type": 0, 'get_type': 0, 'position': ['gain']},
     "扫描范围": {"fill_type": 0, 'get_type': 0, 'position': ['scanRange']},

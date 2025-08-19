@@ -30,6 +30,7 @@ class InputSchema(BaseModel):
     report_template_id: int = Field(None, description='报告模板id')
     original_template_id: int = Field(None, description='原始模板id')
     task_id: str = Field(..., description='任务id')
+    sample_id: str = Field(..., description='样品id')
 
 class OutSchema(BaseModel):
     pass
@@ -42,17 +43,18 @@ async def export_docx(data: InputSchema):
     if not report_template_id and not original_template_id:
         raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
     task_id = data.task_id
+    sample_id = data.sample_id
     if report_template_id:
         report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(report_template_id)
         fill_data_instance_report = FillDataUtils(report_template_name, template_id=report_template_id)
-        report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id)
+        report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id)
         doc_report = Document(report_doc_steam_obj)
         lock_table_width_on_document(doc_report)
 
     if original_template_id:
         original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(original_template_id)
         fill_data_instance_original = FillDataUtils(original_template_name, template_id=original_template_id)
-        original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id)
+        original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id)
         doc_original = Document(original_doc_stream_obj)
         lock_table_width_on_document(doc_original)
 

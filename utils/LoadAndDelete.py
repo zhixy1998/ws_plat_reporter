@@ -251,7 +251,7 @@ class AnalysisBookMark:
             if node['type'] == TemplateBookMarkType.sheet.value:
                 name = node['name']
                 
-                if '_' in name:
+                if '_' in name and 'tpl' not in name:
                     # 子标签，如 "数据表格_序号"
                     main_name, sub_name = name.split('_', 1)
                     if main_name not in table_groups:
