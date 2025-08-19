@@ -1,10 +1,11 @@
-import base64
+import base64, json
 from io import BytesIO
 from docx import Document
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 from app.template_doc.model.template_doc import TemplateDoc
+from app.db import execute_safe_sql
 
 
 async def get_doc_obj_by_template_id(template_id: int):
@@ -138,3 +139,47 @@ def extract_tr_variables(template_input):
     print(f"TR语法检测结果: {has_tr_syntax}")
     
     return has_tr_syntax
+
+
+class GetDataFromDatabase:
+    def __init__(self, task_id):
+        self.task_id = task_id
+        self.sample_key_list = []
+        self.original_calculation_data_list = []
+        self.measure_data_id_list = []
+    
+    async def get_original_data(self):
+        measure_task_sql = "SELECT sample_key FROM t_measure_task WHERE id = %s"
+        measure_task_sql_result = await execute_safe_sql(measure_task_sql, [self.task_id], return_dict=True)
+        if measure_task_sql_result:
+            sample_key_list_json = measure_task_sql_result[0].get('sample_key')
+            if sample_key_list_json:
+                sample_key_list = json.loads(sample_key_list_json)
+                for sample_key_dict in sample_key_list:
+                    if sample_key_dict.get('isTested') == '1' and sample_key_dict.get('deleteType') == '0':
+                        self.sample_key_list.append(sample_key_dict.get('specimenKey'))
+        if self.sample_key_list:
+            for sample_key in self.sample_key_list:
+                measure_data_sql = "SELECT id, original_calculation_data, serial_number FROM t_measure_data WHERE task_id = %s and sample_key = %s order by serial_number desc limit 1"
+                measure_data_sql_result = await execute_safe_sql(measure_data_sql, [self.task_id, sample_key], return_dict=True)
+                if measure_data_sql_result:
+                    original_calculation_data = measure_data_sql_result[0].get('original_calculation_data')
+                    self.original_calculation_data_list.append(json.loads(original_calculation_data))
+                self.measure_data_id_list.append(measure_data_sql_result[0].get('id'))
+        return self.original_calculation_data_list
+    
+    async def get_analysis_data(self):
+        analysis_data_sql = "select analysis_result from t_measure_analysis_data where task_id = %s and measure_data_id = %s and sample_key = %s order by data_version desc limit 1"
+        analysis_data_sql_result = await execute_safe_sql(analysis_data_sql, [self.task_id, self.measure_data_id, self.sample_key], return_dict=True)
+        if analysis_data_sql_result:
+            analysis_result = analysis_data_sql_result[0].get('analysis_result')
+            self.analysis_result = analysis_result
+            return analysis_result
+            
+        
+
+
+         
+
+        
+

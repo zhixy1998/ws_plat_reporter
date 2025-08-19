@@ -23,6 +23,7 @@ load_dotenv(override=True)
 class FillDataUtils():
     def __init__(self, name, template_id):
         self.name = name
+        self.sample_id = None
         private_mod = None
         self.template_id = template_id
         self.common_val = None   # 代表通用数据接口返回的数据
@@ -31,8 +32,9 @@ class FillDataUtils():
         self.python_jinja_mapping = {}
         self.table_contexts = {}
 
-    async def fill_data(self, doc_stream, task_id):
 
+    async def fill_data(self, doc_stream, task_id, sample_id):
+        self.sample_id = sample_id
         template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}")
@@ -356,7 +358,7 @@ class FillDataUtils():
             return doc_stream
     
     def get_common_table_data(self, table_name: str, task_id: str) -> dict:
-        template_common_url = os.getenv('TEMPLATE_COMMON_TABLE_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&reportName=' + table_name
+        template_common_url = os.getenv('TEMPLATE_COMMON_TABLE_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&reportName=' + table_name + "&sampleId=" + urllib.parse.quote(str(self.sample_id), safe='')
         print(f"DEBUG: 请求URL: {template_common_url}")
         print(f"DEBUG: 原始task_id: {repr(task_id)}")
         try:
