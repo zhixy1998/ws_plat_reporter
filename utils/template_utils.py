@@ -39,6 +39,7 @@ def add_section_page_break(document):
     # 设置段落为 section break (next page)
     p._p.get_or_add_pPr()
     sectPr = OxmlElement('w:sectPr')
+    # 设置分页类型
     type_ = OxmlElement('w:type')
     type_.set(qn('w:val'), 'nextPage')
     sectPr.append(type_)
