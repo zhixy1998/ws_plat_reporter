@@ -62,7 +62,7 @@ async def export_docx(data: InputSchema):
         # 清理第一个文档末尾，避免空白页
         clean_document_for_merge(doc_report)
         
-        add_section_page_break(doc_report)
+        # add_section_page_break(doc_report)
         
         # 清理第二个文档，避免空白页
         clean_document_for_merge(doc_original)

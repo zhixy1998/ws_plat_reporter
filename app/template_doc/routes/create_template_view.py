@@ -37,7 +37,13 @@ async def create_template_view(
     file: UploadFile = File(..., description='模板文件')
     ):
     try:
-        name = name if name else file.filename.split('.')[0]
+        original_file_name = file.filename
+        if '.docx' in original_file_name:
+            name = original_file_name.split('.docx')[0]
+        elif '.doc' in original_file_name:
+            name = original_file_name.split('.doc')[0] 
+        else:
+            raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
         if await TemplateDocBase.get_or_none(name=name, is_del=0):
             raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
         content = await file.read()
