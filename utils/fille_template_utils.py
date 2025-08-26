@@ -17,6 +17,7 @@ from constants.template_constant import TemplateBookMarkType
 # from app.template_doc.model.bookmark_data import BookmarkData
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from constants.template_constant import GetTypeConstant, FillTypeConstant, StructureType
+from utils.table_data_processor import TableDataProcessor, GetHeaderAndData
 
 load_dotenv(override=True)
 
@@ -33,7 +34,7 @@ class FillDataUtils():
         self.table_contexts = {}
 
 
-    async def fill_data(self, doc_stream, task_id, sample_id):
+    async def fill_data(self, doc_stream, task_id, sample_id=None):
         self.sample_id = sample_id
         template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
@@ -107,14 +108,14 @@ class FillDataUtils():
                 if int(item.get('fill_type')) == FillTypeConstant.bookmark.value:
                     get_data_from_database_bookmark.append({k:item})
 
-        if get_data_from_common_data_jinja:
-            # 检查是否有表格需要单独tpl对象渲染，如果有，合并context
-            if hasattr(self.private_mod, 'table_jinja_values'):
-                table_jinja_values = self.private_mod.table_jinja_values
-                # table_jinja_and_num_mapping = {}
-                # for context_name, text_list in table_jinja_values.items():
-                #     table_jinja_and_num_mapping[context_name] = len(text_list)
-                self.table_contexts = self.get_context(table_jinja_values)
+        # if get_data_from_common_data_jinja:
+        #     # 检查是否有表格需要单独tpl对象渲染，如果有，合并context
+        #     if hasattr(self.private_mod, 'table_jinja_values'):
+        #         table_jinja_values = self.private_mod.table_jinja_values
+        #         # table_jinja_and_num_mapping = {}
+        #         # for context_name, text_list in table_jinja_values.items():
+        #         #     table_jinja_and_num_mapping[context_name] = len(text_list)
+        #         self.table_contexts = self.get_context(table_jinja_values)
             
         if get_data_from_common_data_bookmark:
             pass
@@ -126,16 +127,35 @@ class FillDataUtils():
             pass
         if get_data_from_database_bookmark:
             pass
+
+        origin_header_real_header_mapping = {} # {'模版本来的表头': '实际表头'} 
+        table_data_processor = TableDataProcessor(self.name)
+        if not hasattr(table_data_processor.handler_instance, 'HEADER_M_MAPPING'):
+            raise APIException(error=ErrorCode.TABLE_DATA_HANDLER_NOT_FOUND)
+        HEADER_M_MAPPING = table_data_processor.handler_instance.HEADER_M_MAPPING  # 每个私有文件都要声明的
+        TABLE_NAME = table_data_processor.handler_instance.TABLE_NAME
+        get_header_and_data_class_instance = GetHeaderAndData(task_id)
+        await get_header_and_data_class_instance._get_all_headers()
+        self.HEADER_M_MAPPING = HEADER_M_MAPPING
+        for origin_header, m in HEADER_M_MAPPING.items():
+            get_real_header_bool, real_header = await get_header_and_data_class_instance.get_header(m)
+            if get_real_header_bool:
+                origin_header = TABLE_NAME + '_' + origin_header
+                origin_header_real_header_mapping[origin_header] = real_header if real_header else origin_header
+        # 把原来的表头替换成真实的表头
+        for name, value in origin_header_real_header_mapping.items():
+            doc_stream = fill_word_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
         
+
         # 处理表格
         for table_info in private_data_table_fields:
             table_name = table_info.get('table_name')
+            common_table_val = self.get_common_table_data(table_name, task_id)
             if table_name in common_table_info_dict: 
                 # 如果表格名字在通用表格名称里（就是接口已经定义的）
                 # 就通过 通过表格接口传递参数获取
                 table_header_data_mapping = common_table_info_dict.get(table_name)
                 table_header_data_mapping = self.filter_table_header(table_info.get('headers'), table_header_data_mapping)
-                common_table_val = self.get_common_table_data(table_name, task_id)
                 if hasattr(self.private_mod, 'handle_endpoint_data_to_table_row'):
                     row_list = common_table_val = self.private_mod.handle_endpoint_data_to_table_row(table_header_data_mapping, common_table_val)
                 else:
@@ -159,7 +179,7 @@ class FillDataUtils():
 
 
                 
-        doc_stream = await self.common_fill_data_by_jinja(doc_stream, additional_context=self.table_contexts)
+        doc_stream = await self.common_fill_data_by_jinja(doc_stream)
         doc_stream = self.insert_header_page_number(doc_stream)
         return doc_stream
 
@@ -464,28 +484,28 @@ class FillDataUtils():
         output_stream.seek(0)
         return output_stream
     
-    def get_context(self, table_jinja_values):
-        fake_table_jinja_contexts = {}
-        if hasattr(self.private_mod, 'fake_table_jinja_contexts'):
-            fake_table_jinja_contexts = self.private_mod.fake_table_jinja_contexts
-        contexts = {}
-        for context_name, children_list in table_jinja_values.items():
-            context = self.get_one_context(context_name, children_list)
-            if not context and fake_table_jinja_contexts.get(context_name): # 如果没有取到数据，并且写了假数据，就用假数据代替
-                context = self.fill_fake_context_data(children_list, fake_table_jinja_contexts.get(context_name))
-            contexts.update(context)
-        return contexts
+    # def get_context(self, table_jinja_values):
+    #     fake_table_jinja_contexts = {}
+    #     if hasattr(self.private_mod, 'fake_table_jinja_contexts'):
+    #         fake_table_jinja_contexts = self.private_mod.fake_table_jinja_contexts
+    #     contexts = {}
+    #     for context_name, children_list in table_jinja_values.items():
+    #         context = self.get_one_context(context_name, children_list)
+    #         if not context and fake_table_jinja_contexts.get(context_name): # 如果没有取到数据，并且写了假数据，就用假数据代替
+    #             context = self.fill_fake_context_data(children_list, fake_table_jinja_contexts.get(context_name))
+    #         contexts.update(context)
+    #     return contexts
     
-    def get_one_context(self, context_name, children_list):
-        """
-        这个字段负责具体表格的每个变量如何获取，
-        比如 这9个数据
-        ['减空白后吸光度_0', '减空白后吸光度_1', '减空白后吸光度_2', '减空白后吸光度_3', '减空白后吸光度_4', '减空白后吸光度_5', '减空白后吸光度_6', '减空白后吸光度_7', '减空白后吸光度_8'
-        先根据task_id去数据库中查询context_name 怎么获取，
-        然后获取到 9个数据。
-        然后返回一个字典，key是children_list中的值，value是获取到的数据。
-        """
-        return {}
+    # def get_one_context(self, context_name, children_list):
+    #     """
+    #     这个字段负责具体表格的每个变量如何获取，
+    #     比如 这9个数据
+    #     ['减空白后吸光度_0', '减空白后吸光度_1', '减空白后吸光度_2', '减空白后吸光度_3', '减空白后吸光度_4', '减空白后吸光度_5', '减空白后吸光度_6', '减空白后吸光度_7', '减空白后吸光度_8'
+    #     先根据task_id去数据库中查询context_name 怎么获取，
+    #     然后获取到 9个数据。
+    #     然后返回一个字典，key是children_list中的值，value是获取到的数据。
+    #     """
+    #     return {}
 
     def fill_fake_context_data(self, children_list, fake_context_list):
         context = {}

@@ -31,3 +31,5 @@ class ErrorCode(Enum):
     AT_LEAST_ONE_TEMPLATE_ID =  Error(1009, zh='至少传入一个模版id')
     TEMPLATE_SETTING_NOT_EXIST = Error(10010, zh='模版设置不存在文件不存在')
     PRIVATE_MOD_IMPORT_ERROR = Error(10011, zh='模版私有配置导入失败')
+    TABLE_DATA_HANDLER_NOT_FOUND = Error(10012, zh='模版私有配置中没有TableDataHandler')
+
