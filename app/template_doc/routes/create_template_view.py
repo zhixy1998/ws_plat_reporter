@@ -39,13 +39,17 @@ async def create_template_view(
     try:
         original_file_name = file.filename
         if '.docx' in original_file_name:
-            name = original_file_name.split('.docx')[0]
+            docx_name = original_file_name.split('.docx')[0]
         elif '.doc' in original_file_name:
-            name = original_file_name.split('.doc')[0] 
+            docx_name = original_file_name.split('.doc')[0] 
         else:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
-        if await TemplateDocBase.get_or_none(name=name, is_del=0):
-            raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
+        if name:
+            if await TemplateDocBase.get_or_none(name=name, is_del=0):
+                raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
+        else:
+            if await TemplateDocBase.get_or_none(name=docx_name, is_del=0):
+                raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
         content = await file.read()
 
         # 检测文件格式并自动转换DOC到DOCX
