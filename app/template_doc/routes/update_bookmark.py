@@ -1,31 +1,33 @@
 # 标准库导入
-import base64
 import os
-import subprocess
-import tempfile
 import time
+import base64
+import tempfile
+import subprocess
 from io import BytesIO
 from typing import Dict, List, Optional
 
 # 第三方库导入
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from fastapi.responses import StreamingResponse
 
 # 本地应用导入
 from app.db import execute_safe_sql
-from constants.template_constant import TemplateBookMarkType
-from exceptions.command_exception import APIException
 from exceptions.error import ErrorCode
-from utils.EditDocxXML import fill_word_bookmark
-from utils.fille_template_utils import FillDataUtils
-from utils.handle_header_footer import set_header_footer
-from utils.LoadAndDelete import delete_bookmark_content
-from utils.template_utils import get_doc_obj_by_template_id
-from ..model.template_bookmark import TemplateBookmark
-from ..model.template_doc import TemplateDoc
-from .create_template_view import create_template
 from utils.log_decorator import log_response
+from ..model.template_doc import TemplateDoc
+from utils.EditDocxXML import fill_word_bookmark
+from .create_template_view import create_template
+from ..model.custom_bookmark import CustomBookmark
+from utils.fille_template_utils import FillDataUtils
+from exceptions.command_exception import APIException
+from ..model.template_bookmark import TemplateBookmark
+from utils.LoadAndDelete import delete_bookmark_content
+from utils.handle_header_footer import set_header_footer
+from utils.template_utils import get_doc_obj_by_template_id
+from constants.template_constant import TemplateBookMarkType
+
 
 router = APIRouter()
 
@@ -44,6 +46,9 @@ class InputSchema(BaseModel):
     footer: BookmarkItem = Field(None, description='页脚')
     operation_type: int = Field(None, description='操作类型 0: 预览 1:另存为 2: 保存')
     name: str = Field(None, description='模板名称 当另存为的时候传入')
+    note: str = Field(None, description="备注")
+    project_name: str = Field(None, description="动态项目名称")
+
 
 
 class DataSchema(BaseModel):
@@ -124,7 +129,21 @@ async def update_bookmark(data: InputSchema):
     footer_info = data.footer
     if footer_info:
         set_header_footer(doc, footer_text=footer_info.value, footer_font_name=footer_info.font, footer_font_size=footer_info.font_size)
+    
+    custom_info ={}
+    #更新返回值的项目名和备注
+    if data.project_name:
+        custom_info["project_name"] = data.project_name
+    if data.note:
+         custom_info["note"]=data.note
 
+    # 更新bookmark_custom 数据库
+    await CustomBookmark.update_custom_bookmark(
+        template_id=data.template_id,
+        note=data.note, 
+        project_name=data.project_name,
+        header=data.header,
+        footer=data.footer)
 
     # 保存为 BytesIO 返回
     output_stream = BytesIO()
@@ -151,7 +170,7 @@ async def update_bookmark(data: InputSchema):
             await TemplateBookmark.filter(id=bookmark.get('id')).update(font=bookmark.get('font'), font_size=bookmark.get('font_size'))
         for del_bookmark_name in del_bookmark_name_list:
             await TemplateBookmark.filter(template_doc_id = data.template_id, name=del_bookmark_name).update(is_del=1)
-    return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': show_base64_str}}
+    return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': show_base64_str},'custom_info':custom_info}
     # 返回文件
     # return StreamingResponse(content=BytesIO(pdf_raw_bytes), media_type="application/pdf", headers={
     #     "Content-Disposition": "attachment; filename=converted.pdf"
@@ -203,7 +222,7 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
         # 转换 docx 为 pdf，LibreOffice 会自动输出到 tmpdir 中
         try:
             result = subprocess.run([
-                "libreoffice",
+                'soffice',
                 "--headless",
                 "--convert-to", "pdf",
                 "--outdir", tmpdir,
