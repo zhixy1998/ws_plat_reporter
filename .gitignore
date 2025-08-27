@@ -44,5 +44,5 @@ coverage.xml
 docs/_build/
 .vscode
 /venv
-./myenv
-./idea
+/myenv
+/.idea
