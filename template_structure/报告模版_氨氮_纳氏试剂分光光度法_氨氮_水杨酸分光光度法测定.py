@@ -65,10 +65,22 @@ class TableDataHandler:
         "吸光度": "V8",
         "校正吸光度": "V6"
     }
-    TABLE_NAME = '小表格'
+    TABLE_NAME_MAP = {
+       '氨氮含量':'小表格',
+       '吸光度':'小表格',
+       '校正吸光度':'小表格'
+    }
+
+    TEMPLATE_INFO_MAP = {
+        '小表格': {
+            'tpl_type': 1,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
+            'column_count': 7
+        }
+    }
     
     def __init__(self):
-        pass
+        # TABLE_NAME_MAP_REVERSE = {'小表格': ['氨氮含量', '吸光度', '校正吸光度']}
+        self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
     
     def handle_氨氮含量(self, data, context, row_index=0):
         """处理序号列的逻辑"""
@@ -81,5 +93,5 @@ class TableDataHandler:
     def handle_校正吸光度(self, data, context):
         """处理T(min)列"""
         return data.get('m3', '')
-    
+
 

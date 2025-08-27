@@ -33,6 +33,29 @@ class FillDataUtils():
         self.python_jinja_mapping = {}
         self.table_contexts = {}
 
+    def convert_tel_val_data_to_rows(self, tel_val_data_list):
+        """
+        将tel_val_data_list转换为行格式
+        输入: {'水样体积': ['6', '7'], '空白试验吸光度': ['4', '6'], ...}
+        输出: [{'水样体积': '6', '空白试验吸光度': '4', ...}, {'水样体积': '7', '空白试验吸光度': '6', ...}]
+        """
+        if not tel_val_data_list:
+            return []
+        
+        # 找到最长的数据列表长度
+        max_length = max(len(values) for values in tel_val_data_list.values()) if tel_val_data_list else 0
+        
+        # 构建行数据
+        rows = []
+        for i in range(max_length):
+            row = {}
+            for key, values in tel_val_data_list.items():
+                # 如果下标溢出，使用空字符串
+                row[key] = values[i] if i < len(values) else ''
+            rows.append(row)
+        
+        return rows
+
 
     async def fill_data(self, doc_stream, task_id, sample_id=None):
         self.sample_id = sample_id
@@ -133,18 +156,59 @@ class FillDataUtils():
         if not hasattr(table_data_processor.handler_instance, 'HEADER_M_MAPPING'):
             raise APIException(error=ErrorCode.TABLE_DATA_HANDLER_NOT_FOUND)
         HEADER_M_MAPPING = table_data_processor.handler_instance.HEADER_M_MAPPING  # 每个私有文件都要声明的
-        TABLE_NAME = table_data_processor.handler_instance.TABLE_NAME
+        TABLE_NAME_MAP = table_data_processor.handler_instance.TABLE_NAME_MAP
+        TEMPLATE_INFO_MAP = table_data_processor.handler_instance.TEMPLATE_INFO_MAP
         get_header_and_data_class_instance = GetHeaderAndData(task_id)
         await get_header_and_data_class_instance._get_all_headers()
         self.HEADER_M_MAPPING = HEADER_M_MAPPING
+        l = []
         for origin_header, m in HEADER_M_MAPPING.items():
             get_real_header_bool, real_header = await get_header_and_data_class_instance.get_header(m)
+            headerIdentity = get_header_and_data_class_instance.m_data_key
             if get_real_header_bool:
-                origin_header = TABLE_NAME + '_' + origin_header
-                origin_header_real_header_mapping[origin_header] = real_header if real_header else origin_header
+                bookmark_name = TABLE_NAME_MAP.get(origin_header) + '_' + origin_header
+                origin_header_real_header_mapping[bookmark_name] = real_header if real_header else origin_header # old_header 标签名字
+                """
+                identity: 用来查数据的标识符
+                real_header: 真正的表头。
+                m: 这个字段的标识
+                bookmark_name: 标签名字
+                tel_val: 表格循环的字段
+                比如 表格打上标签 "数据表格" 
+                    bookmark_name=表头="数据表格_序号" 
+                    tel_val="序号"
+                """
+                l.append({'identity': headerIdentity, 'real_header': real_header, 'm': m, 'bookmark_name': bookmark_name, 'tel_val': origin_header})
         # 把原来的表头替换成真实的表头
-        for name, value in origin_header_real_header_mapping.items():
+        for name, value in origin_header_real_header_mapping.items(): # name就是标签名字
             doc_stream = fill_word_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
+        get_header_and_data_class_instance.header_identity_map_list = l
+        await get_header_and_data_class_instance.get_data()
+        tel_val_data_list = get_header_and_data_class_instance.tel_val_data_list
+        tpl_context = {}
+        for template_name, template_info in TEMPLATE_INFO_MAP.items():
+            if template_info.get('tpl_type') == 1:
+                column_count = template_info.get('column_count')
+                # 每个单元格一个tpl对象，就是横向表格那种
+                TABLE_NAME_MAP_REVERSE = table_data_processor.handler_instance.TABLE_NAME_MAP_REVERSE
+                if TABLE_NAME_MAP_REVERSE.get(template_name):
+                    for tel_val in TABLE_NAME_MAP_REVERSE.get(template_name):
+                        if tel_val in tel_val_data_list:
+                            tpl_val_data = tel_val_data_list.get(tel_val)
+                            for i in range(len(tpl_val_data)):
+                                tpl_context[tel_val + '_' + str(i)] = tpl_val_data[i]
+            if template_info.get('tpl_type') == 2:
+                TABLE_NAME_MAP_REVERSE = table_data_processor.handler_instance.TABLE_NAME_MAP_REVERSE
+                if TABLE_NAME_MAP_REVERSE.get(template_name):
+                    new_tpl_val_data = {}
+                    for tel_val in TABLE_NAME_MAP_REVERSE.get(template_name):
+                        if tel_val in tel_val_data_list:
+                            new_tpl_val_data[tel_val] = tel_val_data_list.get(tel_val)
+                    rows = self.convert_tel_val_data_to_rows(new_tpl_val_data)
+                    # 通过docxtpl循环语法渲染
+                    tpl_context[template_name + '_rows'] = rows
+
+        self.table_contexts.update(tpl_context)
         
 
         # 处理表格
@@ -164,22 +228,22 @@ class FillDataUtils():
                 # table_name实际就是表格名字
                 current_table_column_widths = table_info.get('column_width')
                 doc_stream = fill_word_bookmark(doc_stream, table_name, row_list, bookmark_type, specific_column_widths=current_table_column_widths)
-            else:
-                if 'has_tr' in table_info:  # 这个代表这个表格是用了tr表格渲染的语法
-                    sheet_bookmark = await TemplateBookmark.get(name=table_name, template_doc_id=self.template_id, is_del=0)
-                    # 递归获取所有子标签，组成一维列表，排除包含'_tpl'的标签
-                    all_child_bookmarks = await self.get_all_child_bookmarks(sheet_bookmark.id)
-                    # 过滤掉包含'_tpl'的标签
-                    filtered_bookmarks = [b for b in all_child_bookmarks if '_tpl' not in b.name]
-                    filtered_bookmark_names = [b.name.split(table_name + '_')[1] for b in filtered_bookmarks]
-                    # 现在拿到了所有的需要批量获取的tpl变量。
-                    tr_context = self.get_tr_context(table_name, filtered_bookmark_names)
-                    self.table_contexts.update(tr_context)
-                    # print(f"表格 {table_name} 的tr变量: {filtered_bookmark_names}")
+            # else:
+                # if 'has_tr' in table_info:  # 这个代表这个表格是用了tr表格渲染的语法
+                #     sheet_bookmark = await TemplateBookmark.get(name=table_name, template_doc_id=self.template_id, is_del=0)
+                #     # 递归获取所有子标签，组成一维列表，排除包含'_tpl'的标签
+                #     all_child_bookmarks = await self.get_all_child_bookmarks(sheet_bookmark.id)
+                #     # 过滤掉包含'_tpl'的标签
+                #     filtered_bookmarks = [b for b in all_child_bookmarks if '_tpl' not in b.name]
+                #     filtered_bookmark_names = [b.name.split(table_name + '_')[1] for b in filtered_bookmarks]
+                #     # 现在拿到了所有的需要批量获取的tpl变量。
+                #     tr_context = self.get_tr_context(table_name, filtered_bookmark_names)
+                #     self.table_contexts.update(tr_context)
+                #     # print(f"表格 {table_name} 的tr变量: {filtered_bookmark_names}")
 
 
                 
-        doc_stream = await self.common_fill_data_by_jinja(doc_stream)
+        doc_stream = await self.common_fill_data_by_jinja(doc_stream, additional_context=self.table_contexts)
         doc_stream = self.insert_header_page_number(doc_stream)
         return doc_stream
 

@@ -5,7 +5,7 @@
 
 python_template_var = {
     "备注": {"fill_type": 0},
-    "数据表格_rows": {"fill_type": 0}
+    "数据表格_rows": {"fill_type": 0},
 }
 table_fields = [
     {
@@ -45,19 +45,36 @@ class TableDataHandler:
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING = {
-        "样品编号": "m1",  # 序号列
-        "水样体积": "m2",
-        "空白试验吸光度": "m3",
-        "水样吸光度": "m4",
-        "标准曲线上氨氮质量": "m5",
-        "水样氨氮质量浓度": "m6",
-        "平均值": "m7"
+        "样品编号": "A1",  # 序号列
+        "水样体积": "V6",
+        "空白试验吸光度": "V7",
+        "水样吸光度": "V8",
+        "标准曲线上氨氮质量": "V5",
+        "水样氨氮质量浓度": "V5",
+        "平均值": "V5"
     }
 
-    TABLE_NAME = '数据表格'
+    TABLE_NAME_MAP = {
+        '样品编号': '数据表格',
+        '水样体积': '数据表格',
+        '空白试验吸光度': '数据表格',
+        '水样吸光度': '数据表格',
+        '标准曲线上氨氮质量': '数据表格',
+        '水样氨氮质量浓度': '数据表格',
+        '平均值': '数据表格'
+    }
+
+    TEMPLATE_INFO_MAP = {
+            '数据表格': {
+             'tpl_type': 2,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
+             'column_count': None
+            }
+        }
+
     
     def __init__(self):
-        pass
+        # TABLE_NAME_MAP_REVERSE = {'数据表格': ['样品编号', '水样体积', '空白试验吸光度', '水样吸光度', '标准曲线上氨氮质量', '水样氨氮质量浓度', '平均值']}
+        self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
     
     def handle_样品编号(self, data, context, row_index=0):
         """处理序号列的逻辑"""
@@ -86,4 +103,3 @@ class TableDataHandler:
     def handle_平均值(self, data, context):
         """处理T(min)列"""
         return data.get('m7', '')
-    

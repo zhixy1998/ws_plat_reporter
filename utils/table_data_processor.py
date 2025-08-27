@@ -91,6 +91,9 @@ class GetHeaderAndData():
         self.map_relation = None
         self.m_data_key = None # 用来找m的数据的key
         # 注意：不能在__init__中调用异步方法，需要手动调用 await instance._get_all_headers()
+        self.header_identity_map_list = []
+        self.tel_val_data_list = {} # {tel_val: []}
+        self.measure_data_id = None
     
     async def _get_all_headers(self):
         table_info_sql = "SELECT method_key, sample_key, table_info FROM t_measure_task WHERE id = %s and is_delete = 0"
@@ -98,8 +101,10 @@ class GetHeaderAndData():
         if table_info_sql_result:
             # 修复：直接使用查询结果，不需要json.loads
             result_row = table_info_sql_result[0]
+            
             self.method_key = result_row.get('method_key')
-            self.sample_key = result_row.get('sample_key')
+            if result_row.get('sample_key'):
+                self.sample_key = json.loads(result_row.get('sample_key'))
             
             # table_info可能是字符串，需要解析
             table_info_raw = result_row.get('table_info')
@@ -153,9 +158,61 @@ class GetHeaderAndData():
             if self.all_headers:
                 for header_info in self.all_headers:
                     if header_info.get('identity') == m:
-                        return True, header_info.get('name')
+                        self.m_data_key = header_info.get('identity')
+                        return True, header_info.get('printTitle')
         # 如果都没找到，返回None或空字符串
         return False, None
+    
+    async def get_data(self):
+        for sample_key_map in self.sample_key:
+            sample_key = sample_key_map.get('specimenKey')
+            if sample_key:
+                # 1 先从样品表去数据
+                sample_data_sql = "SELECT * FROM t_measure_sample WHERE id = %s"
+                sample_data_sql_result = await execute_safe_sql(sample_data_sql, [sample_key], return_dict=True)
+                if sample_data_sql_result:
+                    sample_data = sample_data_sql_result[0]
+                    new_col_data = sample_data.get('new_col_data')                    
+                    if new_col_data:
+                        new_col_data = json.loads(new_col_data)
+                        for header_identity_map in self.header_identity_map_list:
+                            tel_val = header_identity_map.get('tel_val')
+                            identity = header_identity_map.get('identity')
+                            if identity in new_col_data:
+                                self.tel_val_data_list.setdefault(tel_val, []).append(new_col_data.get(identity))             
+                # 2 从测量数据表取数据 
+                measure_data_sql = "SELECT * FROM t_measure_data WHERE task_id = %s and sample_key = %s order by serial_number desc limit 1" 
+                measure_data_sql_result = await execute_safe_sql(measure_data_sql, [self.task_id, sample_key], return_dict=True) 
+                if measure_data_sql_result:
+                    measure_data = measure_data_sql_result[0]
+                    self.measure_data_id = measure_data.get('id')
+                    original_calculation_data = json.loads(measure_data.get('original_calculation_data'))
+                    result_original_calculation_data = [o for o in original_calculation_data if o.get('identity') == 'result']
+                    if result_original_calculation_data:
+                        for result_original_calculation_data_one in result_original_calculation_data:
+                            if result_original_calculation_data_one.get('data'):
+                                original_data = result_original_calculation_data_one.get('data')
+                                for header_identity_map in self.header_identity_map_list:
+                                    tel_val = header_identity_map.get('tel_val')
+                                    identity = header_identity_map.get('identity')
+                                    if identity in original_data:
+                                        self.tel_val_data_list.setdefault(tel_val, []).append(original_data.get(identity))             
+                # 3 从分析数据表取数据
+                analysis_result_list = await self.get_analysis_data(sample_key) 
+                if analysis_result_list:
+                    analysis_result_list = json.loads(analysis_result_list)
+                    for analysis_result_one in analysis_result_list:
+                        if analysis_result_one:
+                            key = analysis_result_one.get('resultIdentity') + '_' + analysis_result_one.get('formulaText')
+                            for header_identity_map in self.header_identity_map_list:
+                                tel_val = header_identity_map.get('tel_val')
+                                identity = header_identity_map.get('identity')
+                                if identity == key:
+                                    self.tel_val_data_list.setdefault(tel_val, []).append(analysis_result_one.get('countValue'))             
+                        
+
+
+    
 
     async def get_original_data(self):
         measure_task_sql = "SELECT sample_key FROM t_measure_task WHERE id = %s"
@@ -177,10 +234,11 @@ class GetHeaderAndData():
                 self.measure_data_id_list.append(measure_data_sql_result[0].get('id'))
         return self.original_calculation_data_list
     
-    async def get_analysis_data(self):
-        analysis_data_sql = "select analysis_result from t_measure_analysis_data where task_id = %s and measure_data_id = %s and sample_key = %s order by data_version desc limit 1"
-        analysis_data_sql_result = await execute_safe_sql(analysis_data_sql, [self.task_id, self.measure_data_id, self.sample_key], return_dict=True)
-        if analysis_data_sql_result:
-            analysis_result = analysis_data_sql_result[0].get('analysis_result')
-            self.analysis_result = analysis_result
+    async def get_analysis_data(self, sample_key):
+        if self.measure_data_id:
+            analysis_data_sql = "select analysis_result from t_measure_analysis_data where task_id = %s and measure_data_id = %s and sample_key = %s order by data_version desc limit 1"
+            analysis_data_sql_result = await execute_safe_sql(analysis_data_sql, [self.task_id, self.measure_data_id, sample_key], return_dict=True)
+            if analysis_data_sql_result:
+                analysis_result = analysis_data_sql_result[0].get('analysis_result')
+                self.analysis_result = analysis_result
             return analysis_result
