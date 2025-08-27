@@ -47,16 +47,14 @@ async def get_bookmark(template_id: int, type: Optional[int] = None):
     
     # 把带标题两个字的标签过滤掉
     bookmarks = [bm for bm in bookmarks if "标题" not in bm.get('name')]
-    
     # 按 type 分组
     grouped = {}
     for item in bookmarks:
         item_type = item.get('type', 'unknown')
         grouped.setdefault(item_type, []).append(item)
     result = {item_type: build_tree(bookmarks_list) for item_type, bookmarks_list in grouped.items()}
-    # return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': result}}
-    # # 对每个类型的书签树进行处理
-    processed_result = {item_type: process_tree(bookmarks_tree) for item_type, bookmarks_tree in result.items()}
+    # 对每个类型的书签树进行处理 
+    processed_result = {item_type: process_tree(bookmarks_tree) for item_type, bookmarks_tree in result.items()} 
     return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': processed_result}}
 
 
