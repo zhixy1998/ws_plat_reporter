@@ -50,6 +50,7 @@ async def create_template_view(
         else:
             if await TemplateDocBase.get_or_none(name=docx_name, is_del=0):
                 raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
+            name = docx_name
         content = await file.read()
 
         # 检测文件格式并自动转换DOC到DOCX

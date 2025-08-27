@@ -30,7 +30,7 @@ class InputSchema(BaseModel):
     report_template_id: int = Field(None, description='报告模板id')
     original_template_id: int = Field(None, description='原始模板id')
     task_id: str = Field(..., description='任务id')
-    sample_id: str = Field(..., description='样品id')
+    sample_id: str = Field(None, description='样品id')
 
 class OutSchema(BaseModel):
     pass
