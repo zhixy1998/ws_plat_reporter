@@ -17,6 +17,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
         doc = Document(doc)
 
     found = False
+    replaced_count = 0
     # 遍历文档主体段落
     for paragraph in doc.paragraphs:
         for element in paragraph._p:
@@ -37,7 +38,8 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                     for element in paragraph._p:
                         if element.tag.endswith('bookmarkStart'):
                             name = element.get(qn('w:name'))
-                            if name == bookmark_name:
+                            if name == bookmark_name and replaced_count == 0:
+                                replaced_count += 1
                                 found = True
                                 if value:
                                     remove_following_runs(paragraph, element)
@@ -75,7 +77,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
         found = try_global_bookmark_fill(doc, bookmark_name, value, value_type, font=font, font_size=font_size, specific_column_widths=specific_column_widths)
 
     if not found:
-        print(f"⚠ 没有找到书签: {bookmark_name}")
+        pass  # 没有找到书签
 
     output_stream = BytesIO()
     doc.save(output_stream)

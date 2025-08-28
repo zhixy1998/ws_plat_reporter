@@ -4,5 +4,6 @@ from .custom_bookmark import CustomBookmark
 from .template_doc_base import TemplateDocBase
 from .template_bookmark import TemplateBookmark
 from .template_extra_info import TemplateExtraInfo
+from .bookmark_data import BookmarkData
 
 
