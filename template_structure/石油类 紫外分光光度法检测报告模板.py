@@ -73,7 +73,7 @@ class TableDataHandler:
     }
     
     def __init__(self):
-        # TABLE_NAME_MAP_REVERSE = {'小表格': ['氨氮含量', '吸光度', '校正吸光度']}
+        # TABLE_NAME_MAP_REVERSE = {'表格1': ['吸光值', '石油类标准溶液']}
         self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
     
     def handle_吸光值(self, data, context, row_index=0):

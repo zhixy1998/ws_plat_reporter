@@ -123,7 +123,8 @@ class TableDataHandler:
     }
     
     def __init__(self):
-        # TABLE_NAME_MAP_REVERSE = {'表格1': ['校正吸光度', '吸光度', '亚硝酸盐氮浓度']}
+        # TABLE_NAME_MAP_REVERSE = {'表格1': ['校正吸光度', '吸光度', '亚硝酸盐氮浓度'],
+        # '表格2': ['样品编号', '水样体积', '空白试验吸光度', '试份溶液吸光度', '亚硝酸盐氮含量', '平均值']}
         self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
     
     def handle_氨氮含量(self, data, context, row_index=0):
@@ -137,3 +138,30 @@ class TableDataHandler:
     def handle_校正吸光度(self, data, context):
         """处理T(min)列"""
         return data.get('m3', '')
+    
+
+    def handle_样品编号(self, data, context, row_index=0):
+        """处理序号列的逻辑"""
+        return str(row_index + 1)    
+    #表格二所有的handle
+    def handle_水样体积(self, data, context):
+        """处理检测时间和对应的吸光值列"""
+        return data.get('m2', '')
+    
+    def handle_空白试验吸光度(self, data, context):
+        """处理检测时间和对应的吸光值列"""
+        return data.get('m2', '')
+    
+    def handle_试份溶液吸光度(self, data, context):
+        """处理检测时间和对应的吸光值列"""
+        return data.get('m2', '')
+    
+    def handle_亚硝酸盐氮含量(self, data, context):
+        """处理检测时间和对应的吸光值列"""
+        return data.get('m2', '')
+    
+    def handle_平均值(self, data, context):
+        """处理检测时间和对应的吸光值列"""
+        return data.get('m2', '')
+    
+    
