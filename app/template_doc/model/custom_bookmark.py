@@ -52,12 +52,7 @@ class CustomBookmark(Model):
             APIException: 当模板基础记录不存在时抛出异常
         """
         try:
-            # 首先验证关联的TemplateDoc是否存在
-            template_doc = await TemplateDoc.get_or_none(id=template_id)
-            if template_doc is None:
-                raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
-            
-            # 查找是否已存在关联记录`template_doc_id`
+            # 查找是否已存在记录
             bookmark_custom = await CustomBookmark.get_or_none(template_doc_id=template_id)
             if bookmark_custom is None:
                 # 如果不存在，则创建新记录并维护外键关系
