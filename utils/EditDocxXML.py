@@ -182,10 +182,12 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None, speci
             # b. 如果书签在普通段落里，在段落后插入表格，但保留原段落
             p_element.addnext(tbl._element)
             # 不删除原段落，只清理书签相关的内容
+            remove_following_runs(paragraph, bookmark_element)
 
 def remove_following_runs(paragraph, bookmark_element):
     start_found = False
     elements_to_remove = []
+    bookmark_id = bookmark_element.get(qn('w:id'))
 
     for element in paragraph._p:
         if element == bookmark_element:
@@ -195,7 +197,8 @@ def remove_following_runs(paragraph, bookmark_element):
         if not start_found:
             continue
 
-        if element.tag.endswith('bookmarkEnd'):
+        # 只在找到匹配ID的bookmarkEnd时停止
+        if element.tag.endswith('bookmarkEnd') and element.get(qn('w:id')) == bookmark_id:
             break
 
         if element.tag.endswith('r'):
@@ -203,7 +206,6 @@ def remove_following_runs(paragraph, bookmark_element):
 
     for el in elements_to_remove:
         paragraph._p.remove(el)
-
 
 def set_bookmark_run_style(doc, paragraph, bookmark_name, font=None, font_size=None):
     # 1. 找到所有 bookmarkStart 和 bookmarkEnd
