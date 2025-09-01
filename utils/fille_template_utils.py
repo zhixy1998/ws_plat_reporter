@@ -181,6 +181,7 @@ class FillDataUtils():
                 l.append({'identity': headerIdentity, 'real_header': real_header, 'm': m, 'bookmark_name': bookmark_name, 'tel_val': origin_header})
         # 把原来的表头替换成真实的表头
         for name, value in origin_header_real_header_mapping.items(): # name就是标签名字
+            template_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=self.template_id, name=name)
             doc_stream = fill_word_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
         get_header_and_data_class_instance.header_identity_map_list = l
         await get_header_and_data_class_instance.get_data()
