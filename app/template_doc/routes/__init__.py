@@ -17,7 +17,7 @@ from .get_template_extra_info import router as get_template_extra_info_router
 from .del_template_view import router as del_template_router
 from .get_template_industry import router as get_template_industry_router
 from .export_original_report_doc_view import router as export_original_report_doc_router
-from .test_url import router as test_url_router
+from .debug_url import router as debug_url_router
 
 router.include_router(create_template_router, prefix='', tags=['导入模板'])
 router.include_router(export_doc_router, prefix='', tags=['替换书签, 导出word'])
