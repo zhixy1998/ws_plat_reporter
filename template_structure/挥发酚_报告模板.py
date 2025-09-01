@@ -4,30 +4,30 @@
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
 python_template_var = {
-    "仪器名称": {"fill_type": 0},
-    "温度": {"fill_type": 0},
-    "检测日期": {"fill_type": 0},
-    "检测项目": {"fill_type": 0},
-    "a": {"fill_type": 0},
-    "检测项目1": {"fill_type": 0},
-    "回归方程": {"fill_type": 0},
-    "溶液浓度": {"fill_type": 0},
+    "b": {"fill_type": 0},
     "r": {"fill_type": 0},
-    "备注": {"fill_type": 0},
+    "检测依据": {"fill_type": 0},
+    "检测项目": {"fill_type": 0},
     "湿度": {"fill_type": 0},
     "仪器编号": {"fill_type": 0},
-    "检测依据": {"fill_type": 0},
+    "回归方程": {"fill_type": 0},
+    "检测项目1": {"fill_type": 0},
+    "溶液浓度": {"fill_type": 0},
+    "a": {"fill_type": 0},
     "计算公式": {"fill_type": 0},
+    "检测日期": {"fill_type": 0},
+    "温度": {"fill_type": 0},
     "检测项目2": {"fill_type": 0},
+    "备注": {"fill_type": 0},
     "标准溶液及编号": {"fill_type": 0},
-    "b": {"fill_type": 0}
+    "仪器名称": {"fill_type": 0}
 }
 
 # 表格字段分组
 table_jinja_values = {
+    '校正吸光度': ['校正吸光度_0', '校正吸光度_1', '校正吸光度_2', '校正吸光度_3', '校正吸光度_4', '校正吸光度_5', '校正吸光度_6', '校正吸光度_7'],
     '吸光度': ['吸光度_0', '吸光度_1', '吸光度_2', '吸光度_3', '吸光度_4', '吸光度_5', '吸光度_6', '吸光度_7'],
-    '挥发酚质量': ['挥发酚质量_0', '挥发酚质量_1', '挥发酚质量_2', '挥发酚质量_3', '挥发酚质量_4', '挥发酚质量_5', '挥发酚质量_6', '挥发酚质量_7'],
-    '校正吸光度': ['校正吸光度_0', '校正吸光度_1', '校正吸光度_2', '校正吸光度_3', '校正吸光度_4', '校正吸光度_5', '校正吸光度_6', '校正吸光度_7']
+    '挥发酚质量': ['挥发酚质量_0', '挥发酚质量_1', '挥发酚质量_2', '挥发酚质量_3', '挥发酚质量_4', '挥发酚质量_5', '挥发酚质量_6', '挥发酚质量_7']
 }
 table_fields = [
     {
@@ -79,15 +79,12 @@ class TableDataHandler:
     }
     
     def __init__(self):
-        # TABLE_NAME_MAP_REVERSE = {'表格': ['吸光值', '石油类标准溶液']}
         self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
     
     def handle_吸光度(self, data, context, row_index=0):
-        """处理序号列的逻辑"""
         return str(row_index + 1)
     def handle_挥发酚质量(self, data, context, row_index=0):
-        """处理序号列的逻辑"""
         return str(row_index + 1)
     def handle_校正吸光度(self, data, context):
-        """处理检测时间和对应的吸光值列"""
         return data.get('m2', '')
+    
