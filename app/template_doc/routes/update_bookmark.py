@@ -162,7 +162,7 @@ async def update_bookmark(data: InputSchema):
     # 为显示创建流（处理docxtpl标识）
     show_output_stream = BytesIO(doc_raw_bytes)
     show_output_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=show_output_stream)
-    show_base64_str, _ = file_stream_to_pdf_base64(show_output_stream)
+    show_base64_str = convert_docx_to_images_base64(show_output_stream)
     
     # 为保存创建流（保持原始内容）
     save_output_stream = BytesIO(doc_raw_bytes)
@@ -204,6 +204,49 @@ def get_update_bookmark(real_id_font_mapping: Dict[int, BookmarkItem], input_boo
                 i_dict['id'] = i.bm_id
                 update_book_mark.append(i_dict)
     return update_book_mark
+
+def convert_docx_to_images_base64(file_stream) -> List[str]:
+    """
+    将Word文档转换为图片列表，返回base64编码列表
+    适用于预览功能，保持格式完整性
+    """
+    doc_raw_bytes = file_stream.read()
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        docx_path = os.path.join(tmpdir, "input.docx")
+        
+        # 保存docx文件
+        with open(docx_path, "wb") as f:
+            f.write(doc_raw_bytes)
+        
+        try:
+            # 使用LibreOffice转换为图片（PNG格式保持高质量）
+            result = subprocess.run([
+                'soffice',
+                "--headless",
+                "--convert-to", "png",
+                "--outdir", tmpdir,
+                docx_path
+            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+            
+            # 收集所有生成的图片并转换为base64
+            image_base64_list = []
+            png_files = sorted([f for f in os.listdir(tmpdir) if f.endswith('.png')])
+            
+            for filename in png_files:
+                img_path = os.path.join(tmpdir, filename)
+                with open(img_path, "rb") as img_file:
+                    img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+                    image_base64_list.append(f"data:image/png;base64,{img_base64}")
+            
+            return image_base64_list
+            
+        except subprocess.CalledProcessError as e:
+            print(f"LibreOffice转换失败: {e}")
+            return []
+        except Exception as e:
+            print(f"转换过程出错: {e}")
+            return []
 
 def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
     """
