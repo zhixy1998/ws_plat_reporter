@@ -208,8 +208,11 @@ class FillDataUtils():
                     rows = self.convert_tel_val_data_to_rows(new_tpl_val_data)
                     # 通过docxtpl循环语法渲染
                     tpl_context[template_name + '_rows'] = rows
-
-        self.table_contexts.update(tpl_context)
+        if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
+            grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
+            self.table_contexts.update(grouped_context)
+        else:
+            self.table_contexts.update(tpl_context)
         
 
         # 处理表格
@@ -243,7 +246,7 @@ class FillDataUtils():
                 #     # print(f"表格 {table_name} 的tr变量: {filtered_bookmark_names}")
 
 
-                
+        print(self.table_contexts)
         doc_stream = await self.common_fill_data_by_jinja(doc_stream, additional_context=self.table_contexts)
         doc_stream = self.insert_header_page_number(doc_stream)
         return doc_stream
