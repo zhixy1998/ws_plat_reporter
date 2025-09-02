@@ -18,6 +18,7 @@ from constants.template_constant import TemplateBookMarkType
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from constants.template_constant import GetTypeConstant, FillTypeConstant, StructureType
 from utils.table_data_processor import TableDataProcessor, GetHeaderAndData
+from app.template_doc.model.custom_bookmark import CustomBookmark
 
 load_dotenv(override=True)
 
@@ -57,7 +58,7 @@ class FillDataUtils():
         return rows
 
 
-    async def fill_data(self, doc_stream, task_id, sample_id=None):
+    async def fill_data(self, doc_stream, task_id, sample_id=None, template_id=None):
         self.sample_id = sample_id
         template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
@@ -208,9 +209,19 @@ class FillDataUtils():
                     rows = self.convert_tel_val_data_to_rows(new_tpl_val_data)
                     # 通过docxtpl循环语法渲染
                     tpl_context[template_name + '_rows'] = rows
+        if template_id is not None:
+            custom_bookmark=await CustomBookmark.get_custom_bookmark(template_id=template_id)
+            if custom_bookmark.note:
+                tpl_context['备注']=custom_bookmark.note
+            if custom_bookmark.project_name:
+                tpl_context['检测项目']=custom_bookmark.project_name
 
-        self.table_contexts.update(tpl_context)
-        
+        if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
+            grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
+            self.table_contexts.update(grouped_context)
+        else:
+            self.table_contexts.update(tpl_context)
+
 
         # 处理表格
         for table_info in private_data_table_fields:
