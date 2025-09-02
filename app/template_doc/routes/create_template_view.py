@@ -73,7 +73,7 @@ async def create_template_view(
         content_base64 = base64.b64encode(content).decode('utf-8')
         # 存入数据库
         try:
-            await create_template(name, content_base64, content, template_type=template_type)
+            template_id = await create_template(name, content_base64, content, template_type=template_type)
         except BadZipFile:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT) 
     except APIException as e:
@@ -83,9 +83,9 @@ async def create_template_view(
         traceback.print_exc()
         # 返回统一错误
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
-    return {'code': 200, 'message': '模板保存成功'}
+    return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
 
-async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0):
+async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0) -> int:
     async with in_transaction() as connection:
         create_info = {
             'name': name,
@@ -104,7 +104,7 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
         for book_mark in book_markets:
             await recursion_create_bookmark(book_mark, template.id)     
         await create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), connection=connection)
-
+        return template.id
 
 
 async def recursion_create_bookmark(bookmark, template_id, parent_id=None):

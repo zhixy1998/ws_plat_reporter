@@ -1,4 +1,4 @@
-import pytest
+import pytest,sys
 import os
 import uuid
 from app.db import init_db  # ✅ 导入你现有的数据库初始化方法
@@ -36,6 +36,7 @@ def test_upload_template_success(client, request):
     assert response.status_code == 200
     result = response.json()
     assert result["code"] == 200
+    print('create_result==============', result)
     # 尝试保存模板ID，供后续用例读取
     try:
         template_id = (
@@ -49,6 +50,3 @@ def test_upload_template_success(client, request):
         pass
     
     print(f"✅ 测试完成: 模板上传成功")
-
-
-
