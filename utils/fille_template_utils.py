@@ -209,12 +209,12 @@ class FillDataUtils():
                     rows = self.convert_tel_val_data_to_rows(new_tpl_val_data)
                     # 通过docxtpl循环语法渲染
                     tpl_context[template_name + '_rows'] = rows
-        if template_id is not None:
-            custom_bookmark=await CustomBookmark.get_custom_bookmark(template_id=template_id)
-            if custom_bookmark.note:
-                tpl_context['备注']=custom_bookmark.note
-            if custom_bookmark.project_name:
-                tpl_context['检测项目']=custom_bookmark.project_name
+        # if template_id is not None:
+        #     custom_bookmark = await CustomBookmark.get_custom_bookmark(template_id=template_id)
+        #     if custom_bookmark.note:
+        #         tpl_context['备注']=custom_bookmark.note
+        #     if custom_bookmark.project_name:
+        #         tpl_context['检测项目']=custom_bookmark.project_name
 
         if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
             grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
