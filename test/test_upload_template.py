@@ -46,6 +46,7 @@ def test_upload_template_success(client, request):
         )
         if template_id:
             request.config.cache.set("template_id", str(template_id))
+            request.config.cache.set("template_name", template_name)
     except Exception:
         pass
     

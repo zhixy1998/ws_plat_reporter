@@ -3,7 +3,7 @@ from tortoise.models import Model
 from .template_doc_base import TemplateDocBase
 
 class TemplateDoc(TemplateDocBase):
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=255)
     type = fields.SmallIntField(default=0, help_text="模板类型 常量 TemplateType")
     industry_type = fields.CharField(max_length=255, null=True, help_text="行业类型")

@@ -13,7 +13,6 @@ def test_get_bookmarks_simple(client, request):
     response = client.get(f"/template/get_bookmark?template_id={template_id}")
 
     result = response.json()
-    print('result==============', result)
     assert result["code"] == 200
 
     print(f"✅ 书签测试成功: 模板ID {template_id} 的API响应正常")
