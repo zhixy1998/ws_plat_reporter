@@ -46,8 +46,8 @@ class InputSchema(BaseModel):
     footer: BookmarkItem = Field(None, description='页脚')
     operation_type: int = Field(None, description='操作类型 0: 预览 1:另存为 2: 保存')
     name: str = Field(None, description='模板名称 当另存为的时候传入')
-    note: str = Field(None, description="备注")
-    project_name: str = Field(None, description="动态项目名称")
+    note: BookmarkItem = Field(None, description='备注')
+    project_name: BookmarkItem = Field(None, description='动态项目名称')
 
 
 
@@ -104,15 +104,23 @@ async def update_bookmark(data: InputSchema):
     doc = await get_doc_obj_by_template_id(template_id=data.template_id)
     for bookmark_name in del_bookmark_name_list:
         doc_stream = delete_bookmark_content(doc=doc, bookmark_name=bookmark_name, output_path=None)
-
+        
     # 处理标题 
+    title_value=None
+    subtitle_value=None
     title_bookmark_instance = await TemplateBookmark.filter(template_doc_id=data.template_id, id__in=title_list_id, is_del = 0)
     for bookmark in title_bookmark_instance:
-        name = bookmark.name
-        value = title_list_id_info_mapping[bookmark.id].value
-        bookmark_type = bookmark.type
-        doc_stream = fill_word_bookmark(doc, name, value, bookmark_type)
-    
+        if bookmark.name == '标题':
+            title_name = bookmark.name
+            title_value = title_list_id_info_mapping[bookmark.id].value
+            title_bookmark_type = bookmark.type
+            doc_stream = fill_word_bookmark(doc, title_name, title_value, title_bookmark_type)
+        elif bookmark.name == '副标题':
+            subtitle_name = bookmark.name
+            subtitle_value = title_list_id_info_mapping[bookmark.id].value
+            subtitle_bookmark_type = bookmark.type
+            doc_stream = fill_word_bookmark(doc, subtitle_name, subtitle_value, subtitle_bookmark_type)
+
     # 处理替换修改字体和字体大小
     update_bookmark_list = get_update_bookmark(bookmark_id_font_mapping, [*data.bookmark_list, *data.title_list])
     for bookmark in update_bookmark_list:
@@ -133,18 +141,24 @@ async def update_bookmark(data: InputSchema):
     custom_info ={}
     #更新返回值的项目名和备注
     if data.project_name:
-        custom_info["project_name"] = data.project_name
+        custom_info["project_name"] = data.project_name.value
     if data.note:
-         custom_info["note"]=data.note
-    
+         custom_info["note"]=data.note.value
+    # if data.project_name:
+    #     custom_info["project_name"] = data.project_name
+    # if data.note:
+    #      custom_info["note"]=data.note
+
     #更新数据库CustomBookmark
     try:
         result = await CustomBookmark.update_custom_bookmark(
         template_id=data.template_id,
-        note=data.note, 
-        project_name=data.project_name,
+        note=data.note.value if data.note else None, 
+        project_name=data.project_name.value if data.project_name else None,
         header=data.header.value if data.header else None,
-        footer=data.footer.value if data.footer else None)
+        footer=data.footer.value if data.footer else None,
+        title=title_value if title_value else None,
+        subtitle=subtitle_value if subtitle_value else None)
         if not result:
             print("Warning: Custom bookmark update returned False")
         # 根据业务需求决定是否继续执行或抛出异常
@@ -161,6 +175,7 @@ async def update_bookmark(data: InputSchema):
     
     # 为显示创建流（处理docxtpl标识）
     show_output_stream = BytesIO(doc_raw_bytes)
+    # show_output_stream= FillDataUtils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
     show_output_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=show_output_stream, custom_info=custom_info)
 
     show_base64_str = convert_docx_to_images_base64(show_output_stream)
@@ -177,7 +192,7 @@ async def update_bookmark(data: InputSchema):
             await TemplateBookmark.filter(id=bookmark.get('id')).update(font=bookmark.get('font'), font_size=bookmark.get('font_size'))
         for del_bookmark_name in del_bookmark_name_list:
             await TemplateBookmark.filter(template_doc_id = data.template_id, name=del_bookmark_name).update(is_del=1)
-    return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': show_base64_str},'custom_info':custom_info}
+    return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': show_base64_str}}
     # 返回文件
     # return StreamingResponse(content=BytesIO(pdf_raw_bytes), media_type="application/pdf", headers={
     #     "Content-Disposition": "attachment; filename=converted.pdf"
