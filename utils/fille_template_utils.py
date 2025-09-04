@@ -324,7 +324,7 @@ class FillDataUtils():
 
 
     @staticmethod
-    def fill_template_jinja_blank(doc_stream):
+    def fill_template_jinja_blank(doc_stream, custom_info=None):
         """
         获取docxtpl模板中所有未填充的Jinja变量，并将它们填充为空字符串
         
@@ -344,11 +344,18 @@ class FillDataUtils():
             # 获取模板中所有未声明的变量
             undeclared_vars = tpl.get_undeclared_template_variables()
             
-
-            # 为所有未声明的变量创建空字符串映射
             blank_context = {}
             for var in undeclared_vars:
                 blank_context[var] = ""
+
+            if custom_info:
+                for i in undeclared_vars:
+                    if i in['检测项目', '项目名称']:
+                        blank_context[i] = custom_info.get('project_name')
+                    if i in ['备注', '注释']:
+                        blank_context[i] = custom_info.get('note')
+
+            # 为所有未声明的变量创建空字符串映射
 
             # 如果没有未声明的变量，直接返回原文档
             if not blank_context:
