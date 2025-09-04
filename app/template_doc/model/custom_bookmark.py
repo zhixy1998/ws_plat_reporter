@@ -17,40 +17,26 @@ class CustomBookmark(Model):
     footer = fields.TextField(description="页脚", null=True)
     note = fields.TextField(description="备注", null=True)
     project_name = fields.CharField(max_length=255, description="动态项目名称", null=True)
-    # 与 template_doc 建立虚拟外键关系
+    title = fields.TextField(description="标题", null=True)
+    subtitle = fields.TextField(description="副标题", null=True)
+    #和template_doc 建立虚拟外键关系
     template_doc_id = fields.IntField(description="关联的模板基础ID")
 
     class Meta:
         table = "bookmark_custom"
 
 
-    #根据模板id获取表格信息
+    #根据模板id获取信息
     async def get_custom_bookmark(template_id: int):
         bookmark_custom = await CustomBookmark.get_or_none(template_doc_id=template_id)
         if not bookmark_custom:
-            raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
+            raise APIException(ErrorCode.TEMPLATE_PRIVATE_CONFIG_NOT_FOUND)
         return bookmark_custom
     
-
     # 根据参数更新数据库数据并维护外键
-    async def update_custom_bookmark(template_id: int, note: str = None, project_name: str = None, 
-                                   header: str = None, footer: str = None) -> bool:
-        """
-        根据模板ID更新或创建BookmarkCustom记录，维护与TemplateDocBase的虚拟外键关系
-
-        Args:
-            template_id (int): 关联的模板基础ID（外键）
-            note (str, optional): 备注信息
-            project_name (str, optional): 项目名称
-            header (str, optional): 页眉内容
-            footer (str, optional): 页脚内容
-
-        Returns:
-            bool: 操作成功返回True，失败返回False
-
-        Raises:
-            APIException: 当模板基础记录不存在时抛出异常
-        """
+    async def update_custom_bookmark(template_id: int,note: str = None, project_name: str = None, 
+                                   header: str = None, footer: str = None,title: str=None,
+                                   subtitle :str=None) -> bool:
         try:
             # 查找是否已存在记录
             bookmark_custom = await CustomBookmark.get_or_none(template_doc_id=template_id)
@@ -61,7 +47,9 @@ class CustomBookmark(Model):
                     note=note,
                     project_name=project_name,
                     header=header,
-                    footer=footer
+                    footer=footer,
+                    subtitle=subtitle,
+                    title=title
                 )
             else:
                 # 如果存在，则更新记录
@@ -73,6 +61,10 @@ class CustomBookmark(Model):
                     bookmark_custom.header = header
                 if footer is not None:
                     bookmark_custom.footer = footer
+                if title is not None:
+                    bookmark_custom.title = title
+                if subtitle is not None:
+                    bookmark_custom.subtitle = subtitle
                 await bookmark_custom.save()
             return True
         except Exception as e:

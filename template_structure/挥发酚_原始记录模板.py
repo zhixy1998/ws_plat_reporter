@@ -4,8 +4,8 @@
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
 python_template_var = {
-    "备注": {"fill_type": 0},
-    "表格1_rows": {"fill_type": 0}
+    "表格1_rows": {"fill_type": 0},
+    "备注": {"fill_type": 0}
 }
 table_fields = [
     {

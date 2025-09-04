@@ -32,4 +32,5 @@ class ErrorCode(Enum):
     TEMPLATE_SETTING_NOT_EXIST = Error(10010, zh='模版设置不存在文件不存在')
     PRIVATE_MOD_IMPORT_ERROR = Error(10011, zh='模版私有配置导入失败')
     TABLE_DATA_HANDLER_NOT_FOUND = Error(10012, zh='模版私有配置中没有TableDataHandler')
+    TEMPLATE_PRIVATE_CONFIG_NOT_FOUND = Error(10013, zh='模版私有配置不存在')
 

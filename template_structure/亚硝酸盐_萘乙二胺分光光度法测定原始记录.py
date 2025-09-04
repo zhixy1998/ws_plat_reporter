@@ -5,8 +5,8 @@
 
 python_template_var = {
     "备注": {"fill_type": 0},
-    "表格2_rows": {"fill_type": 0},
-    "空白试验吸光度": {"fill_type": 0}
+    "空白试验吸光度": {"fill_type": 0},
+    "表格2_rows": {"fill_type": 0}
 }
 table_fields = [
     {
