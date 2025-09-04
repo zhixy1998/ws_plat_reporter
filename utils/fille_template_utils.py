@@ -7,8 +7,7 @@ import requests
 from docx import Document
 from docx.shared import Cm
 from docx.oxml.ns import qn
-from docxtpl import InlineImage
-from docxtpl import DocxTemplate
+from docxtpl import InlineImage, DocxTemplate
 from docx.oxml import OxmlElement
 from exceptions.error import ErrorCode
 from utils.EditDocxXML import fill_word_bookmark
@@ -285,15 +284,10 @@ class FillDataUtils():
                         await self.handle_children(private_k, get_desc.get('children'), value_list, connect_str=get_desc.get('connect_str', ''))
                 else:
                     self.python_jinja_mapping[private_k] = ''
-        max_len_val_blank = ''
-        for v in value_list:
-            if v and len(v) > len(max_len_val_blank):
-                max_len_val_blank = len(v) * ' '
-
         for k, v in self.python_jinja_mapping.items():
             # print(k, v)
             if v == '':
-                self.python_jinja_mapping[k] = max_len_val_blank
+                self.python_jinja_mapping[k] = ' '
         intermediate_stream = self.fill_template_by_jinja(tpl, additional_context)
         return intermediate_stream
 
@@ -404,7 +398,6 @@ class FillDataUtils():
         if additional_context:
             final_context.update(additional_context)
             # print("Merged context:", final_context)
-        
         # 处理python jinja语法变量
         tpl.render(context=final_context)
         # 写入内存流，返回
@@ -412,7 +405,7 @@ class FillDataUtils():
         tpl.save(output_stream)
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
         
-        # 后处理：移除表格中的空行
+        # 移除表格中的空行
         output_stream = self.remove_empty_table_rows(output_stream)
         
         return output_stream
