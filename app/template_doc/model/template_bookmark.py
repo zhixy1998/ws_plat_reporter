@@ -2,7 +2,7 @@ from tortoise import fields
 from tortoise.models import Model
 
 class TemplateBookmark(Model):
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     parent_id = fields.IntField(null=True)
     template_doc_id = fields.IntField()
     name = fields.CharField(max_length=255)

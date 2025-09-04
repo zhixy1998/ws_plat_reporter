@@ -1,0 +1,1 @@
+TOTAL_TEMPLATE_URL = "/template/get_total_template"

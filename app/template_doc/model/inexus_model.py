@@ -3,7 +3,7 @@ from tortoise import fields, models
 
 class T_GmpPermission(models.Model):
     """系统权限表"""
-    id = fields.CharField(pk=True, max_length=64, description='主键id')
+    id = fields.CharField(primary_key=True, max_length=64, description='主键id')
     device_type_id = fields.IntField(null=True, description='仪器类型id')
     sid = fields.IntField(null=True, description='权限序号')
     permission_name = fields.CharField(max_length=255, null=True, description='权限名称')
@@ -16,7 +16,7 @@ class T_GmpPermission(models.Model):
 
     class Meta:
         table = "t_gmp_permission"
-        # primary_key = "id" # Tortoise ORM 默认会将 pk=True 的字段作为主键
+        # primary_key = "id" # Tortoise ORM 默认会将 primary_key=True 的字段作为主键
 
     def __str__(self):
         return f"Permission: {self.permission_name}"
@@ -24,7 +24,7 @@ class T_GmpPermission(models.Model):
 
 class T_GmpUserGroup(models.Model):
     """用户组表"""
-    id = fields.CharField(pk=True, max_length=64, description='主键id')
+    id = fields.CharField(primary_key=True, max_length=64, description='主键id')
     user_type = fields.CharField(max_length=255, null=True, description='组名称')
     password_valid = fields.IntField(null=True, description='密码时效性，0，不设置为0，以天为单位')
     password_rule = fields.CharField(max_length=200, null=True, description='密码复杂度')
@@ -47,7 +47,7 @@ class T_GmpUserGroup(models.Model):
 
 
 class T_InsAutoInjector(models.Model):
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     device_serial_number = fields.CharField(max_length=32, description='仪器序列号')
     message_port = fields.CharField(max_length=10, null=True, description='通信端口')
     connect_status = fields.SmallIntField(null=True, description='联机状态') # tinyint(2)
@@ -69,7 +69,7 @@ class T_InsAutoInjector(models.Model):
 
 class T_InsCalibrationConfig(models.Model):
     """校正类型默认表，记录不同仪器所具备的校正类型"""
-    id = fields.IntField(pk=True) # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True) # AUTO_INCREMENT
     calibration_name = fields.CharField(max_length=255, null=True)
     calibration_type = fields.IntField(null=True)
     device_type = fields.CharField(max_length=255, null=True)
@@ -83,7 +83,7 @@ class T_InsCalibrationConfig(models.Model):
 
 class T_InsCalibrationParam(models.Model):
     """校正类型对应的参数表"""
-    id = fields.IntField(pk=True) # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True) # AUTO_INCREMENT
     calibration_type = fields.IntField(null=True)
     param_name = fields.CharField(max_length=64, null=True)
     param = fields.CharField(max_length=64, null=True)
@@ -98,7 +98,7 @@ class T_InsCalibrationParam(models.Model):
 
 class T_InsCalibrationTemp(models.Model):
     """校正参数记录表"""
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     device_serial_number = fields.CharField(max_length=64, null=True)
     calibration_type = fields.IntField(null=True)
     param = fields.CharField(max_length=255, null=True)
@@ -114,7 +114,7 @@ class T_InsCalibrationTemp(models.Model):
 
 class T_InsCalibrationValue(models.Model):
     """参数类型和默认值表"""
-    id = fields.IntField(pk=True) # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True) # AUTO_INCREMENT
     param_id = fields.IntField(null=True)
     param_key = fields.CharField(max_length=64, null=True)
     param_value = fields.CharField(max_length=10, null=True)
@@ -125,7 +125,7 @@ class T_InsCalibrationValue(models.Model):
 
 class T_InsConfigSetting(models.Model):
     """仪器系统配置"""
-    id = fields.CharField(pk=True, max_length=64, description='主键id')
+    id = fields.CharField(primary_key=True, max_length=64, description='主键id')
     device_serial_number = fields.CharField(max_length=255, null=True)
     is_time_startup = fields.SmallIntField(null=True, description='是否自动开机') # tinyint(4)
     startup_time = fields.CharField(max_length=20, null=True, description='自动开机时间')
@@ -143,7 +143,7 @@ class T_InsConfigSetting(models.Model):
 
 class T_InsInfoTemp(models.Model):
     """设备信息表"""
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     device_serial_number = fields.CharField(max_length=64, null=True)
     device_ip = fields.CharField(max_length=64, null=True)
     connect_status = fields.SmallIntField(null=True) # tinyint(4)
@@ -162,7 +162,7 @@ class T_InsInfoTemp(models.Model):
 
 class T_InsInitTemp(models.Model):
     """自检任务表"""
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     device_info_id = fields.CharField(max_length=64, null=True)
     device_serial_number = fields.CharField(max_length=64, null=True, description='序列号')
     init_task_num = fields.IntField(null=True, description='初始化条目')
@@ -178,7 +178,7 @@ class T_InsInitTemp(models.Model):
 
 class T_IntInjectionTrayParam(models.Model):
     """进样盘参数表"""
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     device_serial_number = fields.CharField(max_length=31, null=True, description='仪器序列号')
     panel = fields.CharField(max_length=10, null=True, description='盘区设定')
     is_selected = fields.SmallIntField(null=True, description='是否选中') # tinyint(4)
@@ -195,7 +195,7 @@ class T_IntInjectionTrayParam(models.Model):
 
 class T_MeasureAnalysisData(models.Model):
     """分析数据表"""
-    id = fields.CharField(pk=True, max_length=36, description='分析数据id')
+    id = fields.CharField(primary_key=True, max_length=36, description='分析数据id')
     analysis_name = fields.CharField(max_length=255, null=True, description='分析名称')
     task_id = fields.CharField(max_length=255, null=True, description='测量任务id')
     sample_key = fields.CharField(max_length=255, null=True, description='样品id')
@@ -215,7 +215,7 @@ class T_MeasureAnalysisData(models.Model):
 
 class T_MeasureData(models.Model):
     """测量数据表"""
-    id = fields.CharField(pk=True, max_length=36, description='测量数据id')
+    id = fields.CharField(primary_key=True, max_length=36, description='测量数据id')
     task_id = fields.CharField(max_length=255, null=True, description='测量任务id')
     sample_key = fields.CharField(max_length=255, null=True, description='样品Key')
     instrument_data = fields.JSONField(null=True, description='仪器数据') # json
@@ -237,7 +237,7 @@ class T_MeasureData(models.Model):
 
 class T_MeasureMethod(models.Model):
     """测量方法表"""
-    id = fields.CharField(pk=True, max_length=36, description='方法id')
+    id = fields.CharField(primary_key=True, max_length=36, description='方法id')
     preprocess_key = fields.CharField(max_length=768, null=True, description='前处理Key')
     multiple_calculation_formula_key = fields.CharField(max_length=768, null=True, description='多个计算公式Key')
     project_item_key = fields.CharField(max_length=255, null=True, description='所属项目Key(当选用的是公共方法则项目key为空)')
@@ -258,7 +258,7 @@ class T_MeasureMethod(models.Model):
 
 class T_MeasureProject(models.Model):
     """项目表"""
-    id = fields.CharField(pk=True, max_length=36, description='项目id')
+    id = fields.CharField(primary_key=True, max_length=36, description='项目id')
     project_name = fields.CharField(max_length=255, null=True, description='项目名称')
     create_time = fields.DatetimeField(null=True, description='创建时间')
     creator_key = fields.CharField(max_length=255, null=True, description='创建人Key')
@@ -275,7 +275,7 @@ class T_MeasureProject(models.Model):
 
 class T_MeasureSample(models.Model):
     """样品信息表"""
-    id = fields.CharField(pk=True, max_length=36, description='样品id')
+    id = fields.CharField(primary_key=True, max_length=36, description='样品id')
     sample_number = fields.CharField(max_length=255, null=True, description='样品编号')
     sample_type = fields.CharField(max_length=255, null=True, description='样品类型(0.空白样品,1.标准样品)')
     sample_kind = fields.CharField(max_length=255, null=True, description='样品种类(0.标准样品 1.未知样品)')
@@ -295,7 +295,7 @@ class T_MeasureSample(models.Model):
 
 class T_MeasureTask(models.Model):
     """测量任务表"""
-    id = fields.CharField(pk=True, max_length=36, description='任务id')
+    id = fields.CharField(primary_key=True, max_length=36, description='任务id')
     user_id = fields.CharField(max_length=50, null=True, description='用户id')
     task_name = fields.CharField(max_length=255, null=True, description='任务名称')
     create_time = fields.DatetimeField(null=True, description='创建时间')
@@ -314,7 +314,7 @@ class T_MeasureTask(models.Model):
 
 class T_ReportCalculationFormulas(models.Model):
     """计算公式表"""
-    id = fields.IntField(pk=True) # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True) # AUTO_INCREMENT
     detection_id = fields.CharField(max_length=50, description='标准标识')
     result_identity = fields.CharField(max_length=50, description='结果标识')
     result_name = fields.CharField(max_length=100, description='结果名称')
@@ -350,7 +350,7 @@ class T_ReportCalculationFormulas(models.Model):
 
 class T_ReportQualityControl(models.Model):
     """质量控制表"""
-    id = fields.IntField(pk=True) # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True) # AUTO_INCREMENT
     detection_id = fields.CharField(max_length=50, description='标准标识')
     control_type = fields.CharField(max_length=50, null=True, description='质控类型')
     control_description = fields.TextField(null=True, description='质控描述')
@@ -365,7 +365,7 @@ class T_ReportQualityControl(models.Model):
 
 class T_ReportRoundingRules(models.Model):
     """修约表"""
-    id = fields.IntField(pk=True) # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True) # AUTO_INCREMENT
     detection_id = fields.CharField(max_length=100, description='标准标识')
     result_identity = fields.CharField(max_length=50, null=True, description='结果标识')
     rounding_type = fields.CharField(max_length=50, description='修约类型')
@@ -379,7 +379,7 @@ class T_ReportRoundingRules(models.Model):
 
 class T_ReportStandardDetection(models.Model):
     """标准信息表"""
-    id = fields.IntField(pk=True) # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True) # AUTO_INCREMENT
     standard_identity = fields.CharField(max_length=150, description='标准标识')
     industry = fields.CharField(max_length=50, description='行业')
     detection_type = fields.CharField(max_length=50, description='检测类型')
@@ -403,7 +403,7 @@ class T_ReportStandardDetection(models.Model):
 
 class T_ReportStandardPretreatment(models.Model):
     """标准前处理表"""
-    id = fields.IntField(pk=True) # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True) # AUTO_INCREMENT
     detection_id = fields.CharField(max_length=100, description='标准标识id')
     pretreatment_description = fields.TextField(null=True, description='前处理描述')
 
@@ -414,7 +414,7 @@ class T_ReportStandardPretreatment(models.Model):
 
 class T_ReportUpgradeVersion(models.Model):
     """升级版本记录表"""
-    id = fields.IntField(pk=True, description='主键') # AUTO_INCREMENT
+    id = fields.IntField(primary_key=True, description='主键') # AUTO_INCREMENT
     version = fields.CharField(max_length=50, unique=True, description='版本号（如v2.1.3）')
     update_description = fields.TextField(null=True)
     create_time = fields.DatetimeField(auto_now_add=True, description='创建时间') # DEFAULT CURRENT_TIMESTAMP
@@ -426,7 +426,7 @@ class T_ReportUpgradeVersion(models.Model):
 
 class T_SysconfigUser(models.Model):
     """系统用户表"""
-    id = fields.CharField(pk=True, max_length=64, description='主键id')
+    id = fields.CharField(primary_key=True, max_length=64, description='主键id')
     user_name = fields.CharField(max_length=100, unique=True, description='用户名（账号）')
     password = fields.CharField(max_length=50, description='密码')
     token = fields.CharField(max_length=500, null=True, description='记录当前token')
@@ -456,7 +456,7 @@ class T_SysconfigUser(models.Model):
 
 class T_SystemAlgorithmConf(models.Model):
     """系统算法配置表"""
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     integrating_sphere_k = fields.CharField(max_length=20, null=True, description='透过率门限系数k')
     transmittance_k = fields.CharField(max_length=20, null=True, description='积分球门限系数k')
     abs_k = fields.CharField(max_length=10, null=True, description='Abs门限系数k')
@@ -470,7 +470,7 @@ class T_SystemAlgorithmConf(models.Model):
 
 
 class T_SystemBusinessParam(models.Model):
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     peak_interval = fields.CharField(max_length=20, null=True, description='峰间距')
     peak_valley_diff = fields.CharField(max_length=20, null=True, description='峰谷差')
     create_time = fields.DatetimeField(null=True, description='创建时间')
@@ -484,7 +484,7 @@ class T_SystemBusinessParam(models.Model):
 
 class T_SystemDatabase(models.Model):
     """系统数据库配置"""
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     global_port = fields.CharField(max_length=10, null=True)
     fast_login_switch = fields.BooleanField(null=True, description='快捷登录开关') # bit(1)
     main_database_ip = fields.CharField(max_length=20, null=True)
@@ -506,7 +506,7 @@ class T_SystemDatabase(models.Model):
 
 class T_SystemLogSwitch(models.Model):
     """系统日志开关配置"""
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     dev_usage_total_switch = fields.BooleanField(null=True, description='设备使用统计总开关') # bit(1)
     stat_usage_enabled = fields.BooleanField(null=True, description='仪器使用率统计开关') # bit(1)
     stat_user_enabled = fields.BooleanField(null=True, description='用户使用率统计开关') # bit(1)
@@ -524,7 +524,7 @@ class T_SystemLogSwitch(models.Model):
 
 
 class T_SystemManage(models.Model):
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     language = fields.CharField(max_length=20, null=True, description='语言')
     remote_control = fields.BooleanField(null=True, description='是否允许远程控制') # bit(1)
     remote_control_num = fields.IntField(null=True, description='远程控制数量上限')
@@ -542,7 +542,7 @@ class T_SystemManage(models.Model):
 
 
 class T_SystemPanelConf(models.Model):
-    id = fields.CharField(pk=True, max_length=64)
+    id = fields.CharField(primary_key=True, max_length=64)
     method_list_switch = fields.BooleanField(null=True, description='方法列表面板开关') # bit(1)
     project_statistics_switch = fields.BooleanField(null=True, description='项目统计面板开关') # bit(1)
     create_time = fields.DatetimeField(null=True, description='创建时间')
@@ -556,7 +556,7 @@ class T_SystemPanelConf(models.Model):
 
 class T_SystemRole(models.Model):
     """系统角色表"""
-    id = fields.CharField(pk=True, max_length=64, description='主键id')
+    id = fields.CharField(primary_key=True, max_length=64, description='主键id')
     system_role_name = fields.CharField(max_length=20, null=True, description='系统角色名')
     system_role_num = fields.IntField(null=True, description='系统角色序号')
     permission_list = fields.TextField(null=True, description='角色权限')
@@ -571,7 +571,7 @@ class T_SystemRole(models.Model):
 
 class T_SystemUserGroupManage(models.Model):
     """用户组表"""
-    id = fields.CharField(pk=True, max_length=64, description='主键id')
+    id = fields.CharField(primary_key=True, max_length=64, description='主键id')
     group_name = fields.CharField(max_length=255, null=True, description='组名称')
     group_no = fields.CharField(max_length=32, description='组编号')
     group_desc = fields.CharField(max_length=200, null=True, description='组描述')
@@ -590,7 +590,7 @@ class T_SystemUserGroupManage(models.Model):
 
 class T_SystemUserManage(models.Model):
     """系统用户表"""
-    id = fields.CharField(pk=True, max_length=64, description='主键id')
+    id = fields.CharField(primary_key=True, max_length=64, description='主键id')
     user_name = fields.CharField(max_length=100, unique=True, description='用户名（账号）')
     password = fields.CharField(max_length=50, description='密码')
     token = fields.CharField(max_length=500, null=True, description='记录当前token')
@@ -621,7 +621,7 @@ class T_SystemUserManage(models.Model):
 
 class T_SystemUserPermission(models.Model):
     """系统权限表"""
-    id = fields.CharField(pk=True, max_length=64, description='主键id')
+    id = fields.CharField(primary_key=True, max_length=64, description='主键id')
     sid = fields.IntField(unique=True, description='权限序号') # AUTO_INCREMENT and UNIQUE KEY sid_index
     permission_name = fields.CharField(max_length=255, null=True, description='权限名称')
     permission_type = fields.CharField(max_length=255, null=True, description='权限类型')

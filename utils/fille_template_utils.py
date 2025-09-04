@@ -7,8 +7,7 @@ import requests
 from docx import Document
 from docx.shared import Cm
 from docx.oxml.ns import qn
-from docxtpl import InlineImage
-from docxtpl import DocxTemplate
+from docxtpl import InlineImage, DocxTemplate
 from docx.oxml import OxmlElement
 from exceptions.error import ErrorCode
 from utils.EditDocxXML import fill_word_bookmark
@@ -209,12 +208,12 @@ class FillDataUtils():
                     rows = self.convert_tel_val_data_to_rows(new_tpl_val_data)
                     # 通过docxtpl循环语法渲染
                     tpl_context[template_name + '_rows'] = rows
-        if template_id is not None:
-            custom_bookmark=await CustomBookmark.get_custom_bookmark(template_id=template_id)
-            if custom_bookmark.note:
-                tpl_context['备注']=custom_bookmark.note
-            if custom_bookmark.project_name:
-                tpl_context['检测项目']=custom_bookmark.project_name
+        # if template_id is not None:
+        #     custom_bookmark = await CustomBookmark.get_custom_bookmark(template_id=template_id)
+        #     if custom_bookmark.note:
+        #         tpl_context['备注']=custom_bookmark.note
+        #     if custom_bookmark.project_name:
+        #         tpl_context['检测项目']=custom_bookmark.project_name
 
         if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
             grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
@@ -285,15 +284,10 @@ class FillDataUtils():
                         await self.handle_children(private_k, get_desc.get('children'), value_list, connect_str=get_desc.get('connect_str', ''))
                 else:
                     self.python_jinja_mapping[private_k] = ''
-        max_len_val_blank = ''
-        for v in value_list:
-            if v and len(v) > len(max_len_val_blank):
-                max_len_val_blank = len(v) * ' '
-
         for k, v in self.python_jinja_mapping.items():
             # print(k, v)
             if v == '':
-                self.python_jinja_mapping[k] = max_len_val_blank
+                self.python_jinja_mapping[k] = ' '
         intermediate_stream = self.fill_template_by_jinja(tpl, additional_context)
         return intermediate_stream
 
@@ -330,7 +324,7 @@ class FillDataUtils():
 
 
     @staticmethod
-    def fill_template_jinja_blank(doc_stream):
+    def fill_template_jinja_blank(doc_stream, custom_info=None):
         """
         获取docxtpl模板中所有未填充的Jinja变量，并将它们填充为空字符串
         
@@ -350,11 +344,18 @@ class FillDataUtils():
             # 获取模板中所有未声明的变量
             undeclared_vars = tpl.get_undeclared_template_variables()
             
-
-            # 为所有未声明的变量创建空字符串映射
             blank_context = {}
             for var in undeclared_vars:
                 blank_context[var] = ""
+
+            if custom_info:
+                for i in undeclared_vars:
+                    if i in['检测项目', '项目名称']:
+                        blank_context[i] = custom_info.get('project_name')
+                    if i in ['备注', '注释']:
+                        blank_context[i] = custom_info.get('note')
+
+            # 为所有未声明的变量创建空字符串映射
 
             # 如果没有未声明的变量，直接返回原文档
             if not blank_context:
@@ -404,7 +405,6 @@ class FillDataUtils():
         if additional_context:
             final_context.update(additional_context)
             # print("Merged context:", final_context)
-        
         # 处理python jinja语法变量
         tpl.render(context=final_context)
         # 写入内存流，返回
@@ -412,7 +412,7 @@ class FillDataUtils():
         tpl.save(output_stream)
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
         
-        # 后处理：移除表格中的空行
+        # 移除表格中的空行
         output_stream = self.remove_empty_table_rows(output_stream)
         
         return output_stream

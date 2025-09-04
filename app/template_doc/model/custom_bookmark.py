@@ -12,7 +12,7 @@ from .template_doc import TemplateDoc
 
 
 class CustomBookmark(Model):
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     header = fields.TextField(description="页眉", null=True)
     footer = fields.TextField(description="页脚", null=True)
     note = fields.TextField(description="备注", null=True)

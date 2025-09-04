@@ -161,7 +161,8 @@ async def update_bookmark(data: InputSchema):
     
     # 为显示创建流（处理docxtpl标识）
     show_output_stream = BytesIO(doc_raw_bytes)
-    show_output_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=show_output_stream)
+    show_output_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=show_output_stream, custom_info=custom_info)
+
     show_base64_str = convert_docx_to_images_base64(show_output_stream)
     
     # 为保存创建流（保持原始内容）
@@ -181,6 +182,7 @@ async def update_bookmark(data: InputSchema):
     # return StreamingResponse(content=BytesIO(pdf_raw_bytes), media_type="application/pdf", headers={
     #     "Content-Disposition": "attachment; filename=converted.pdf"
     # })
+
 
 def file_stream_to_pdf_base64(file_stream):
     doc_raw_bytes = file_stream.read()

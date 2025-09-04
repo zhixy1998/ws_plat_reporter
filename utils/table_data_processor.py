@@ -203,12 +203,15 @@ class GetHeaderAndData():
                     analysis_result_list = json.loads(analysis_result_list)
                     for analysis_result_one in analysis_result_list:
                         if analysis_result_one:
-                            key = analysis_result_one.get('resultIdentity') + '_' + analysis_result_one.get('formulaText')
-                            for header_identity_map in self.header_identity_map_list:
-                                tel_val = header_identity_map.get('tel_val')
-                                identity = header_identity_map.get('identity')
-                                if identity == key:
-                                    self.tel_val_data_list.setdefault(tel_val, []).append(analysis_result_one.get('countValue'))             
+                            result_identity = analysis_result_one.get('resultIdentity')
+                            formula_text = analysis_result_one.get('formulaText')
+                            if result_identity and formula_text:
+                                key = result_identity + '_' + formula_text
+                                for header_identity_map in self.header_identity_map_list:
+                                    tel_val = header_identity_map.get('tel_val')
+                                    identity = header_identity_map.get('identity')
+                                    if identity == key:
+                                        self.tel_val_data_list.setdefault(tel_val, []).append(analysis_result_one.get('countValue'))             
                         
 
 
@@ -241,4 +244,5 @@ class GetHeaderAndData():
             if analysis_data_sql_result:
                 analysis_result = analysis_data_sql_result[0].get('analysis_result')
                 self.analysis_result = analysis_result
-            return analysis_result
+                return analysis_result
+            return None
