@@ -36,7 +36,7 @@ async def get_template_content(template_id: int):
     doc_stream = BytesIO(content_bytes)
     
     # 2. 使用FillDataUtils去除docxtpl标识符
-    cleaned_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=doc_stream)
+    cleaned_stream = FillDataUtils.fill_template_jinja_custom_info(doc_stream=doc_stream)
     
     # 3. 读取处理后的内容并重新编码为base64
     cleaned_stream.seek(0)

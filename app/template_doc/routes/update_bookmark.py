@@ -105,21 +105,16 @@ async def update_bookmark(data: InputSchema):
     for bookmark_name in del_bookmark_name_list:
         doc_stream = delete_bookmark_content(doc=doc, bookmark_name=bookmark_name, output_path=None)
         
+
     # 处理标题 
-    title_value=None
-    subtitle_value=None
+    title=None
+    subtitle=None
     title_bookmark_instance = await TemplateBookmark.filter(template_doc_id=data.template_id, id__in=title_list_id, is_del = 0)
     for bookmark in title_bookmark_instance:
-        if bookmark.name == '标题':
-            title_name = bookmark.name
-            title_value = title_list_id_info_mapping[bookmark.id].value
-            title_bookmark_type = bookmark.type
-            doc_stream = fill_word_bookmark(doc, title_name, title_value, title_bookmark_type)
-        elif bookmark.name == '副标题':
-            subtitle_name = bookmark.name
-            subtitle_value = title_list_id_info_mapping[bookmark.id].value
-            subtitle_bookmark_type = bookmark.type
-            doc_stream = fill_word_bookmark(doc, subtitle_name, subtitle_value, subtitle_bookmark_type)
+        name = bookmark.name
+        value = title_list_id_info_mapping[bookmark.id].value
+        bookmark_type = bookmark.type
+        doc_stream = fill_word_bookmark(doc, name, value, bookmark_type)
 
     # 处理替换修改字体和字体大小
     update_bookmark_list = get_update_bookmark(bookmark_id_font_mapping, [*data.bookmark_list, *data.title_list])
@@ -140,14 +135,14 @@ async def update_bookmark(data: InputSchema):
     
     custom_info ={}
     #更新返回值的项目名和备注
-    # if data.project_name:
-    #     custom_info["project_name"] = data.project_name.value
-    # if data.note:
-    #      custom_info["note"]=data.note.value
     if data.project_name:
-        custom_info["project_name"] = data.project_name
+        custom_info["project_name"] = data.project_name.value
     if data.note:
-         custom_info["note"]=data.note
+         custom_info["note"]=data.note.value
+    # if data.project_name:
+    #     custom_info["project_name"] = data.project_name
+    # if data.note:
+    #      custom_info["note"]=data.note
 
     #更新数据库CustomBookmark
     try:
@@ -157,8 +152,8 @@ async def update_bookmark(data: InputSchema):
         project_name=data.project_name.value if data.project_name else None,
         header=data.header.value if data.header else None,
         footer=data.footer.value if data.footer else None,
-        title=title_value if title_value else None,
-        subtitle=subtitle_value if subtitle_value else None)
+        title=title if title else None,
+        subtitle=subtitle if subtitle else None)
         if not result:
             print("Warning: Custom bookmark update returned False")
         # 根据业务需求决定是否继续执行或抛出异常
