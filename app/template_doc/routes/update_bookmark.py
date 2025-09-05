@@ -140,14 +140,14 @@ async def update_bookmark(data: InputSchema):
     
     custom_info ={}
     #更新返回值的项目名和备注
-    if data.project_name:
-        custom_info["project_name"] = data.project_name.value
-    if data.note:
-         custom_info["note"]=data.note.value
     # if data.project_name:
-    #     custom_info["project_name"] = data.project_name
+    #     custom_info["project_name"] = data.project_name.value
     # if data.note:
-    #      custom_info["note"]=data.note
+    #      custom_info["note"]=data.note.value
+    if data.project_name:
+        custom_info["project_name"] = data.project_name
+    if data.note:
+         custom_info["note"]=data.note
 
     #更新数据库CustomBookmark
     try:
@@ -176,7 +176,7 @@ async def update_bookmark(data: InputSchema):
     # 为显示创建流（处理docxtpl标识）
     show_output_stream = BytesIO(doc_raw_bytes)
     # show_output_stream= FillDataUtils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
-    show_output_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=show_output_stream, custom_info=custom_info)
+    show_output_stream = FillDataUtils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
 
     show_base64_str = convert_docx_to_images_base64(show_output_stream)
     

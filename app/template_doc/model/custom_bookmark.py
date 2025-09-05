@@ -30,7 +30,8 @@ class CustomBookmark(Model):
     async def get_custom_bookmark(template_id: int):
         bookmark_custom = await CustomBookmark.get_or_none(template_doc_id=template_id)
         if not bookmark_custom:
-            raise APIException(ErrorCode.TEMPLATE_PRIVATE_CONFIG_NOT_FOUND)
+            return None
+            #raise APIException(ErrorCode.TEMPLATE_PRIVATE_CONFIG_NOT_FOUND)
         return bookmark_custom
     
     # 根据参数更新数据库数据并维护外键

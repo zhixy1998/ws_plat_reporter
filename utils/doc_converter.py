@@ -6,6 +6,8 @@ DOC到DOCX转换工具
 
 import os
 import tempfile
+import platform
+import subprocess
 import subprocess
 from io import BytesIO
 from pathlib import Path
@@ -23,6 +25,37 @@ def detect_file_format(file_content: bytes) -> str:
     else:
         return 'unknown'
 
+ # 判断当前操作系统
+def get_libreoffice_command(temp_dir: str, doc_path: str) -> list:
+    """
+    根据操作系统类型返回相应的LibreOffice转换命令
+    Args:
+        temp_dir: 输出目录路径
+        doc_path: 输入DOC文件路径
+    Returns:
+        命令参数列表
+    """
+    system = platform.system()
+    if system == 'Windows':
+        command = [
+            'soffice', 
+            '--headless', 
+            '--convert-to', 'docx',
+            '--outdir', temp_dir,
+            doc_path
+        ]
+    elif system in ['Darwin', 'Linux']:  # macOS 或 Linux
+        command = [
+            'libreoffice', 
+            '--headless', 
+            '--convert-to', 'docx',
+            '--outdir', temp_dir,
+            doc_path
+        ]
+    else:
+        raise ValueError(f"不支持本机操作系统,请另存为.docx文件后再保存: {system}")
+    return command
+
 def convert_doc_to_docx_libreoffice(doc_content: bytes) -> BytesIO:
     """
     使用LibreOffice转换DOC文件到DOCX
@@ -39,14 +72,15 @@ def convert_doc_to_docx_libreoffice(doc_content: bytes) -> BytesIO:
             print(f"🔄 使用LibreOffice转换DOC文件...")
             
             # LibreOffice命令行转换
-            cmd = [
-                'libreoffice',
-                '--headless',
-                '--convert-to', 'docx',
-                '--outdir', temp_dir,
-                doc_path
-            ]
-            
+            cmd=get_libreoffice_command(temp_dir,doc_path)
+            # cmd = [
+            #     'soffice',
+            #     #'libreoffice',
+            #     '--headless',
+            #     '--convert-to', 'docx',
+            #     '--outdir', temp_dir,
+            #     doc_path
+            # ]
             result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -72,7 +106,8 @@ def convert_doc_to_docx_libreoffice(doc_content: bytes) -> BytesIO:
             
     except subprocess.TimeoutExpired:
         raise Exception("LibreOffice转换超时（30秒）")
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        print(e)
         raise Exception("LibreOffice未安装，请安装LibreOffice")
     except Exception as e:
         raise Exception(f"LibreOffice转换失败: {str(e)}")
