@@ -33,4 +33,5 @@ class ErrorCode(Enum):
     PRIVATE_MOD_IMPORT_ERROR = Error(10011, zh='模版私有配置导入失败')
     TABLE_DATA_HANDLER_NOT_FOUND = Error(10012, zh='模版私有配置中没有TableDataHandler')
     TEMPLATE_PRIVATE_CONFIG_NOT_FOUND = Error(10013, zh='模版私有配置不存在')
+    TABLE_DATA_CUSTOM_BOOKMARK_NOT_FOUND= Error(10014, zh='模版私有配置中没有custom_bookmark')
 

@@ -208,7 +208,7 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     # 分离普通变量和带索引的变量
     normal_vars = []
     indexed_vars = {}
-    
+
     for var in context:
         # 检查是否是带索引的变量（如：标准溶液加入体积_0）
         if '_' in var and var.split('_')[-1].isdigit():
@@ -248,6 +248,17 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     #     py_lines.append(f"has_tr_syntax = {has_tr_syntax}\n")
     
     # 字段渲染表格
+    custom_bookmark = {
+       'project_name' : '项目名称',
+        'note':'备注',
+    }
+    # 添加 custom_bookmark 到生成的文件中
+    py_lines.append("\n# 字段渲染表格\n")
+    py_lines.append("custom_bookmark = {\n")
+    for key, values in custom_bookmark.items():
+        py_lines.append(f"    '{key}':'{values}',\n")
+    py_lines.append("}\n\n")
+    
     py_lines.append("table_fields = ")
     # 使用更安全的方式处理中文字符，确保编码正确
     table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False, separators=(',', ': '))
