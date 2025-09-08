@@ -58,33 +58,8 @@ class FillDataUtils():
 
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, template_id=None):
+        common_val = self.get_common_data_by_endpoint(task_id)
         self.sample_id = sample_id
-        template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
-        # print(f"DEBUG: 请求URL: {template_common_url}")
-        # print(f"DEBUG: 原始task_id: {repr(task_id)}")
-        try:
-            res = requests.get(template_common_url, timeout=5)
-            if res.status_code == 200:
-                try:
-                    res_json = res.json()
-                    if res_json.get('code') == 200:
-                        common_val = res_json.get('data')
-                    else:
-                        common_val = {}
-                except Exception as e:
-                    print(e)
-                    common_val = {}
-            else:
-                print("请求通用数据失败, url:", template_common_url)
-                common_val = {}
-        except requests.exceptions.Timeout:
-            print(f"请求超时，跳过: {template_common_url}")
-            common_val = {}
-        except Exception as e:
-            print(f"请求异常，跳过: {e}")
-            common_val = {}
-        
-        self.common_val = common_val
         # 先加载通用数据
         module_name = "template_structure." + 'common_data'  # 比如 name = "my_template"
         common_mod = importlib.import_module(module_name)
@@ -130,15 +105,6 @@ class FillDataUtils():
                     get_data_from_database_jinja.append({k:item})
                 if int(item.get('fill_type')) == FillTypeConstant.bookmark.value:
                     get_data_from_database_bookmark.append({k:item})
-
-        # if get_data_from_common_data_jinja:
-        #     # 检查是否有表格需要单独tpl对象渲染，如果有，合并context
-        #     if hasattr(self.private_mod, 'table_jinja_values'):
-        #         table_jinja_values = self.private_mod.table_jinja_values
-        #         # table_jinja_and_num_mapping = {}
-        #         # for context_name, text_list in table_jinja_values.items():
-        #         #     table_jinja_and_num_mapping[context_name] = len(text_list)
-        #         self.table_contexts = self.get_context(table_jinja_values)
             
         if get_data_from_common_data_bookmark:
             pass
@@ -161,7 +127,7 @@ class FillDataUtils():
         get_header_and_data_class_instance = GetHeaderAndData(task_id)
         await get_header_and_data_class_instance._get_all_headers()
         self.HEADER_M_MAPPING = HEADER_M_MAPPING
-        l = []
+        temp_header_identity_map_list = []
         for origin_header, m in HEADER_M_MAPPING.items():
             get_real_header_bool, real_header = await get_header_and_data_class_instance.get_header(m)
             headerIdentity = get_header_and_data_class_instance.m_data_key
@@ -178,18 +144,18 @@ class FillDataUtils():
                     bookmark_name=表头="数据表格_序号" 
                     tel_val="序号"
                 """
-                l.append({'identity': headerIdentity, 'real_header': real_header, 'm': m, 'bookmark_name': bookmark_name, 'tel_val': origin_header})
+                temp_header_identity_map_list.append({'identity': headerIdentity, 'real_header': real_header, 'm': m, 'bookmark_name': bookmark_name, 'tel_val': origin_header})
         # 把原来的表头替换成真实的表头
         for name, value in origin_header_real_header_mapping.items(): # name就是标签名字
-            template_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=self.template_id, name=name)
+            # template_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=self.template_id, name=name)
             doc_stream = fill_word_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
-        get_header_and_data_class_instance.header_identity_map_list = l
+        get_header_and_data_class_instance.header_identity_map_list = temp_header_identity_map_list
         await get_header_and_data_class_instance.get_data()
         tel_val_data_list = get_header_and_data_class_instance.tel_val_data_list
         tpl_context = {}
         for template_name, template_info in TEMPLATE_INFO_MAP.items():
             if template_info.get('tpl_type') == 1:
-                column_count = template_info.get('column_count')
+                # column_count = template_info.get('column_count')
                 # 每个单元格一个tpl对象，就是横向表格那种
                 TABLE_NAME_MAP_REVERSE = table_data_processor.handler_instance.TABLE_NAME_MAP_REVERSE
                 if TABLE_NAME_MAP_REVERSE.get(template_name):
@@ -259,6 +225,34 @@ class FillDataUtils():
         return doc_stream
 
 
+    def get_common_data_by_endpoint(self, task_id):
+        template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
+        # print(f"DEBUG: 请求URL: {template_common_url}")
+        # print(f"DEBUG: 原始task_id: {repr(task_id)}")
+        try:
+            res = requests.get(template_common_url, timeout=5)
+            if res.status_code == 200:
+                try:
+                    res_json = res.json()
+                    if res_json.get('code') == 200:
+                        common_val = res_json.get('data')
+                    else:
+                        common_val = {}
+                except Exception as e:
+                    print(e)
+                    common_val = {}
+            else:
+                print("请求通用数据失败, url:", template_common_url)
+                common_val = {}
+        except requests.exceptions.Timeout:
+            print(f"请求超时，跳过: {template_common_url}")
+            common_val = {}
+        except Exception as e:
+            print(f"请求异常，跳过: {e}")
+            common_val = {}
+        
+        self.common_val = common_val
+        return common_val
 
     # 通用数据的jinja填充数据
     async def common_fill_data_by_jinja(self, doc_stream, additional_context=None):

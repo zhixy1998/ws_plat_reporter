@@ -11,6 +11,7 @@ from utils.template_utils import get_doc_obj_by_template_id
 from utils.get_bookmark_text import get_bookmark_text
 from utils.handle_header_footer import get_header_footer_font_info
 from utils.log_decorator import log_response
+from app.template_doc.model.custom_bookmark import CustomBookmark
 
 router = APIRouter()
 
@@ -22,6 +23,7 @@ class DataSchema(BaseModel):
     title_list: Optional[List[Dict[str, Union[str, int]]]] = Field(None, description='报告名称')
     header: Dict[str, Union[str, int, None]] = Field(None, description='页眉')
     footer: Dict[str, Union[str, int, None]] = Field(None, description='页脚')
+    note: Dict[str, Union[str, int, None]] = Field(None, description='备注')
 
 
 class OutSchema(BaseModel):
@@ -42,9 +44,32 @@ async def update_template(template_id: int):
     for title_bookmark_info in title_bookmark_info_list:
         title_content = get_bookmark_text(doc, title_bookmark_info.get('name'))
         title_content_value_list.append({ **title_bookmark_info, 'value': title_content})
+        
+    
+    
 
     header_and_footer_info = get_header_footer_font_info(doc) 
 
     header_and_footer_info['title_list'] = title_content_value_list
 
+
+    # 获取备注
+    template_name = template_instance.name
+    bookmark_custom_instances = await CustomBookmark.get_or_none(template_doc_id=template_id)
+
+    module_name = "template_structure." + template_name
+    try:
+        private_mod = importlib.import_module(module_name)
+    except Exception as e:
+        private_mod = None
+    if private_mod and hasattr(private_mod, 'special_bookmark'):
+        note_bookmark_name = private_mod.special_bookmark.get('note')
+    else:
+        note_bookmark_name = '备注'
+    note_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=template_id, name=note_bookmark_name, is_del=0)
+    if note_bookmark_instance:
+        note_dict = {'bm_id': note_bookmark_instance.id, 'font': note_bookmark_instance.font, 
+        'font_size': note_bookmark_instance.font_size, 'name': note_bookmark_instance.name, 
+        'value': bookmark_custom_instances.note if bookmark_custom_instances else ''}
+        header_and_footer_info['note'] = note_dict
     return {'code': 200, 'message': '获取页眉页脚标题成功', 'data': header_and_footer_info}

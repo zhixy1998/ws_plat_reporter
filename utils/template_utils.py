@@ -88,59 +88,6 @@ def clean_document_for_merge(doc):
     
     return doc
 
-def extract_tr_variables(template_input):
-    """
-    从DocxTemplate的{%tr %}语法中提取变量名
-        
-    参数：
-    template_input: 可以是字符串(XML内容)或BytesIO对象(docx文件流)
-        
-    例如：
-    {%tr for row in rows %}
-    {{ row.序号 }}	{{ row.样品编号 }}	{{ row.取样体积 }}
-    {%tr endfor %}
-        
-    返回：(是否有tr语法, 变量列表)
-    """
-    import re
-    import zipfile
-    
-    # 如果输入是BytesIO对象，先获取XML内容
-    if isinstance(template_input, BytesIO):
-        template_input.seek(0)  # 重置流位置
-        try:
-            # 直接从docx文件中提取document.xml内容
-            with zipfile.ZipFile(template_input, 'r') as docx_zip:
-                # 读取document.xml文件
-                template_content = docx_zip.read('word/document.xml').decode('utf-8')
-        except Exception as e:
-            print(f"提取XML内容失败: {e}")
-            return False, []
-    else:
-        template_content = template_input
-        
-    # 简单高效的检测：只检查关键字是否存在
-    content_lower = template_content.lower()
-    
-    # 检查是否包含tr语法的关键组件
-    has_percent = '{%' in content_lower
-    has_tr = 'tr' in content_lower
-    has_for = 'for' in content_lower
-    has_in = 'in' in content_lower
-    has_rows = 'rows' in content_lower
-    has_endfor = 'endfor' in content_lower
-    
-    has_tr_syntax = has_percent and has_tr and has_for and has_in and has_rows and has_endfor
-    
-    print(f"TR语法检测: {has_percent=}, {has_tr=}, {has_for=}, {has_in=}, {has_rows=}, {has_endfor=}")
-    print(f"综合判断: {has_tr_syntax}")
-    
-    # 只返回是否检测到tr语法，不提取变量名
-    # 变量名通过表头书签获取，确保书签名与row.xxx中的xxx一致
-    print(f"TR语法检测结果: {has_tr_syntax}")
-    
-    return has_tr_syntax
-
 
 class GetDataFromDatabase:
     def __init__(self, task_id):
