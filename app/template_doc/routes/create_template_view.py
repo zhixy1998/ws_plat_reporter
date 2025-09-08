@@ -18,7 +18,6 @@ from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType, TemplateType
 from app.db import execute_safe_sql
 from utils.log_decorator import log_response
-from utils.template_utils import extract_tr_variables
 
 router = APIRouter()
 
@@ -132,12 +131,6 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
                 book_mark_tpl_name = bookmark_name + '_tpl' # 这个代表这个表格有tpl横向表格
                 for child in bookmark.get("children"):
                     if child.get('name') == book_mark_tpl_name:
-                        await TemplateExtraInfo.create(
-                            template_doc_id = template_id,
-                            bookmark_data_id = bookmark_data.id,
-                            has_tr = 1
-                        )
-                        
                         # 反过来更新BookmarkData的table_structure字段，添加has_tr标识
                         updated_table_structure = bookmark_data.table_structure
                         updated_table_structure['has_tr'] = 1
@@ -165,24 +158,9 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
 
     # 模版内容
     doc = DocxTemplate(template_file_steam)
-    has_tr_syntax = False
     try:
         doc = DocxTemplate(template_file_steam)
         context_vars = doc.get_undeclared_template_variables()
-        
-        # 检测是否有tr语法并提取变量
-        has_tr_syntax = extract_tr_variables(template_file_steam)
-        
-        # 保存tr语法检测结果到TemplateExtraInfo表
-        # await TemplateExtraInfo.update_or_create(
-        #     template_doc_id=template_id,
-        #     defaults={
-        #         'has_tr': 1 if has_tr_syntax else 0,
-        #         'is_del': 0
-        #     }
-        # )
-        
-        
     except jinja2.exceptions.TemplateSyntaxError as e:
         print(e)
         raise APIException(ErrorCode.INVALID_TEMPLATE_FIELD)

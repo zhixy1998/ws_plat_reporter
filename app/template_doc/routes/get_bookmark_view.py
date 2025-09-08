@@ -54,8 +54,8 @@ async def get_bookmark(template_id: int, type: Optional[int] = None):
         grouped.setdefault(item_type, []).append(item)
     result = {item_type: build_tree(bookmarks_list) for item_type, bookmarks_list in grouped.items()}
     # 对每个类型的书签树进行处理 
-    processed_result = {item_type: process_tree(bookmarks_tree) for item_type, bookmarks_tree in result.items()} 
-    return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': processed_result}}
+    # processed_result = {item_type: process_tree(bookmarks_tree) for item_type, bookmarks_tree in result.items()} 
+    return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': result}}
 
 
 

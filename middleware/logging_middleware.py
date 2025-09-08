@@ -19,7 +19,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # 生成唯一请求ID
-        request_id = str(uuid.uuid4())[:8]
+        request_id = str(uuid.uuid4()).replace("-", "")[:16]
         start_time = time.time()
         
         # 获取请求信息
