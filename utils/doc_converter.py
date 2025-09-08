@@ -26,12 +26,13 @@ def detect_file_format(file_content: bytes) -> str:
         return 'unknown'
 
  # 判断当前操作系统
-def get_libreoffice_command(temp_dir: str, doc_path: str) -> list:
+def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
     """
     根据操作系统类型返回相应的LibreOffice转换命令
     Args:
         temp_dir: 输出目录路径
         doc_path: 输入DOC文件路径
+        convert-to: 目标文件格式
     Returns:
         命令参数列表
     """
@@ -40,7 +41,7 @@ def get_libreoffice_command(temp_dir: str, doc_path: str) -> list:
         command = [
             'soffice', 
             '--headless', 
-            '--convert-to', 'docx',
+            '--convert-to', aim,
             '--outdir', temp_dir,
             doc_path
         ]
@@ -48,7 +49,7 @@ def get_libreoffice_command(temp_dir: str, doc_path: str) -> list:
         command = [
             'libreoffice', 
             '--headless', 
-            '--convert-to', 'docx',
+            '--convert-to', aim,
             '--outdir', temp_dir,
             doc_path
         ]
@@ -72,7 +73,7 @@ def convert_doc_to_docx_libreoffice(doc_content: bytes) -> BytesIO:
             print(f"🔄 使用LibreOffice转换DOC文件...")
             
             # LibreOffice命令行转换
-            cmd=get_libreoffice_command(temp_dir,doc_path)
+            cmd=get_libreoffice_command(temp_dir,doc_path,'docx')
             # cmd = [
             #     'soffice',
             #     #'libreoffice',

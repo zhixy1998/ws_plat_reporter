@@ -26,6 +26,7 @@ from ..model.template_bookmark import TemplateBookmark
 from utils.LoadAndDelete import delete_bookmark_content
 from utils.handle_header_footer import set_header_footer
 from utils.template_utils import get_doc_obj_by_template_id
+from utils.doc_converter import get_libreoffice_command
 from constants.template_constant import TemplateBookMarkType
 
 
@@ -233,13 +234,8 @@ def convert_docx_to_images_base64(file_stream) -> List[str]:
         
         try:
             # 使用LibreOffice转换为图片（PNG格式保持高质量）
-            result = subprocess.run([
-                'soffice',
-                "--headless",
-                "--convert-to", "png",
-                "--outdir", tmpdir,
-                docx_path
-            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+            cmd=get_libreoffice_command(tmpdir,docx_path,'png')
+            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
             
             # 收集所有生成的图片并转换为base64
             image_base64_list = []
@@ -282,15 +278,8 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
 
         # 转换 docx 为 pdf，LibreOffice 会自动输出到 tmpdir 中
         try:
-            result = subprocess.run([
-                'soffice',
-                "--headless",
-                "--convert-to", "pdf",
-                "--outdir", tmpdir,
-                docx_path
-            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-            
-
+            cmd=get_libreoffice_command(tmpdir,docx_path,'pdf')
+            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"LibreOffice 转换失败: {e.stderr.decode()}")
         except subprocess.TimeoutExpired:
