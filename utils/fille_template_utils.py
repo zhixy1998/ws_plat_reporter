@@ -10,7 +10,7 @@ from docx.oxml.ns import qn
 from docxtpl import InlineImage, DocxTemplate
 from docx.oxml import OxmlElement
 from exceptions.error import ErrorCode
-from utils.EditDocxXML import fill_word_bookmark
+from utils.EditDocxXML import fill_word_bookmark, try_global_replace_bookmark
 from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType
 # from app.template_doc.model.bookmark_data import BookmarkData
@@ -148,7 +148,7 @@ class FillDataUtils():
         # 把原来的表头替换成真实的表头
         for name, value in origin_header_real_header_mapping.items(): # name就是标签名字
             # template_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=self.template_id, name=name)
-            doc_stream = fill_word_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
+            doc_stream = try_global_replace_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
         get_header_and_data_class_instance.header_identity_map_list = temp_header_identity_map_list
         await get_header_and_data_class_instance.get_data()
         tel_val_data_list = get_header_and_data_class_instance.tel_val_data_list
