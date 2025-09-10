@@ -339,3 +339,112 @@ def set_table_width(tbl, width_cm=8):
     jc = OxmlElement('w:jc')
     jc.set(qn('w:val'), 'center')  # 居中对齐
     tblPr.insert(2, jc)
+
+def try_global_replace_bookmark(doc, bookmark_name: str, new_text: str, font: Optional[str] = None, font_size: Optional[int] = None):
+    """
+    全局查找书签，彻底删除书签范围内的所有内容（包括空格 run），然后插入新文本。
+    保留 bookmarkStart 和 bookmarkEnd 标记。
+    支持字体和字号设置。
+    修复：确保删除所有 <w:r> 元素，包括只含空格的 run，并处理 xml:space="preserve"。
+    
+    :param doc: Document 对象
+    :param bookmark_name: 书签名称
+    :param new_text: 要替换的新文本
+    :param font: 字体名称（可选）
+    :param font_size: 字号（Pt，可选）
+    :return: BytesIO 输出流（更新后的文档）
+    """
+    if isinstance(doc, BytesIO):
+        doc.seek(0)
+        doc = Document(doc)
+
+    doc_element = doc.part._element
+    bookmark_starts = doc_element.xpath('.//*[local-name()="bookmarkStart"]')
+
+    found = False
+    for start_elem in bookmark_starts:
+        name = start_elem.get(qn('w:name'))
+        if name == bookmark_name:
+            bm_id = start_elem.get(qn('w:id'))
+            if bm_id is None:
+                continue
+
+            # 找到对应的 bookmarkEnd
+            bookmark_ends = doc_element.xpath('.//*[local-name()="bookmarkEnd"]')
+            end_elem = None
+            for end in bookmark_ends:
+                if end.get(qn('w:id')) == bm_id:
+                    end_elem = end
+                    break
+
+            if end_elem is None:
+                continue
+
+            # 找到上级段落元素 <w:p>
+            p_elem = start_elem.getparent()
+            while p_elem is not None and p_elem.tag != qn('w:p'):
+                p_elem = p_elem.getparent()
+            if p_elem is None:
+                continue
+
+            # 彻底删除 start_elem 到 end_elem 之间的所有 <w:r> 元素（包括空格 run）
+            current = start_elem.getnext()
+            elements_to_remove = []
+            while current is not None and current != end_elem:
+                # 只删除 <w:r> 元素（runs），包括那些只含空格的
+                if current.tag.endswith('r'):  # <w:r>
+                    # 检查是否只含空格（可选，但确保删除所有）
+                    has_only_spaces = True
+                    for child in current.getchildren():
+                        if child.tag.endswith('t') and child.text and child.text.strip():  # 非空非空格文本
+                            has_only_spaces = False
+                            break
+                    if has_only_spaces or True:  # 删除所有 runs，确保彻底
+                        elements_to_remove.append(current)
+                current = current.getnext()
+
+            # 删除收集的元素
+            for elem in elements_to_remove:
+                p_elem.remove(elem)
+
+            # 插入新 run 包含 new_text（确保无空格问题）
+            new_run_elem = OxmlElement('w:r')
+            new_t_elem = OxmlElement('w:t')
+            new_t_elem.text = new_text.strip()  # 去除前后空格，确保干净
+            new_t_elem.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')  # 保留内部空格如果需要
+            new_run_elem.append(new_t_elem)
+
+            # 应用字体和字号（如果指定）
+            if font or font_size:
+                rPr = OxmlElement('w:rPr')
+                if font:
+                    rFonts = OxmlElement('w:rFonts')
+                    rFonts.set(qn('w:ascii'), font)
+                    rFonts.set(qn('w:hAnsi'), font)
+                    rFonts.set(qn('w:eastAsia'), font)
+                    rPr.append(rFonts)
+                if font_size:
+                    sz = OxmlElement('w:sz')
+                    sz.set(qn('w:val'), str(int(font_size * 2)))  # Pt to half-points，确保整数
+                    szCs = OxmlElement('w:szCs')
+                    szCs.set(qn('w:val'), str(int(font_size * 2)))
+                    rPr.append(sz)
+                    rPr.append(szCs)
+                new_run_elem.append(rPr)
+
+            # 插入到 start_elem 后，确保在正确位置
+            start_index = list(p_elem).index(start_elem)
+            p_elem.insert(start_index + 1, new_run_elem)
+
+            # 验证 end_elem 位置（如果被影响，重新定位，但通常无需）
+            found = True
+            break  # 假设书签唯一，只替换第一个匹配
+
+    if not found:
+        print(f"未找到书签: {bookmark_name}")
+
+    # 保存并返回 BytesIO 流，与 fill_word_bookmark 一致
+    output_stream = BytesIO()
+    doc.save(output_stream)
+    output_stream.seek(0)
+    return output_stream

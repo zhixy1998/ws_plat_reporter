@@ -246,3 +246,26 @@ class GetHeaderAndData():
                 self.analysis_result = analysis_result
                 return analysis_result
             return None
+    
+    async def get_all_m(self):
+        m_list = []
+        measurement_param_info_sql = 'select measurement_param_info from t_measure_method where id = %s'
+        measurement_param_info_sql_result = await execute_safe_sql(measurement_param_info_sql, [self.method_key], return_dict=True)
+        if measurement_param_info_sql_result:
+            measurement_param_info_raw = measurement_param_info_sql_result[0].get('measurement_param_info')
+            # 修复：检查 measurement_param_info 是否为空
+            if measurement_param_info_raw:
+                # 如果是字符串，需要解析JSON
+                if isinstance(measurement_param_info_raw, str):
+                    measurement_param_info = json.loads(measurement_param_info_raw)
+                else:
+                    measurement_param_info = measurement_param_info_raw
+                
+                sample_input_params = measurement_param_info.get('sampleInputParams', [])
+                for sample_input_param in sample_input_params:
+                    m_list.append(sample_input_param.get('resultIdentity'))
+            # 修复：检查 self.all_headers 是否为空
+        if self.all_headers:
+            for header_info in self.all_headers:
+                m_list.append(header_info.get('identity'))
+        return m_list
