@@ -25,10 +25,9 @@ from exceptions.command_exception import APIException
 from ..model.template_bookmark import TemplateBookmark
 from utils.LoadAndDelete import delete_bookmark_content
 from utils.handle_header_footer import set_header_footer
-from utils.template_utils import get_doc_obj_by_template_id
+from utils.template_utils import get_doc_obj_by_template_id,get_doc_name_and_doc_stream_obj
 from utils.doc_converter import get_libreoffice_command
 from constants.template_constant import TemplateBookMarkType
-
 
 router = APIRouter()
 
@@ -172,7 +171,9 @@ async def update_bookmark(data: InputSchema):
     # 为显示创建流（处理docxtpl标识）
     show_output_stream = BytesIO(doc_raw_bytes)
     # show_output_stream= FillDataUtils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
-    show_output_stream = FillDataUtils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
+    report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(data.template_id)
+    fill_data_instance_report = FillDataUtils(report_template_name, template_id=data.template_id)
+    show_output_stream = fill_data_instance_report.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
 
     show_base64_str = convert_docx_to_images_base64(show_output_stream)
     

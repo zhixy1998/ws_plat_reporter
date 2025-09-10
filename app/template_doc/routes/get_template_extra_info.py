@@ -1,4 +1,4 @@
-
+import importlib
 from typing import List, Dict, Union, Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
@@ -62,8 +62,8 @@ async def update_template(template_id: int):
         private_mod = importlib.import_module(module_name)
     except Exception as e:
         private_mod = None
-    if private_mod and hasattr(private_mod, 'special_bookmark'):
-        note_bookmark_name = private_mod.special_bookmark.get('note')
+    if private_mod and hasattr(private_mod, 'custom_bookmark'):
+        note_bookmark_name = private_mod.custom_bookmark['note']
     else:
         note_bookmark_name = '备注'
     note_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=template_id, name=note_bookmark_name, is_del=0)
