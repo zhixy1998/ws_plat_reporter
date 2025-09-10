@@ -18,6 +18,7 @@ from .del_template_view import router as del_template_router
 from .get_template_industry import router as get_template_industry_router
 from .export_original_report_doc_view import router as export_original_report_doc_router
 from .debug_url import router as debug_url_router
+from .get_m import router as get_m_router
 
 router.include_router(create_template_router, prefix='', tags=['导入模板'])
 router.include_router(export_doc_router, prefix='', tags=['替换书签, 导出word'])
@@ -34,4 +35,5 @@ router.include_router(get_template_extra_info_router, prefix='', tags=['获取�
 router.include_router(del_template_router, prefix='', tags=['删除模板'])
 router.include_router(get_template_industry_router, prefix='', tags=['获取模板行业'])
 router.include_router(export_original_report_doc_router, prefix='', tags=['导出原始报告和原始记录'])
+router.include_router(get_m_router, prefix='', tags=['获取m'])
 # router.include_router(test_url_router, prefix='', tags=['测试'])
