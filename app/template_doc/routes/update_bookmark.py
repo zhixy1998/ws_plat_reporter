@@ -177,7 +177,7 @@ async def update_bookmark(data: InputSchema):
     
     # 为保存创建流（保持原始内容）
     save_output_stream = BytesIO(doc_raw_bytes)
-    base64_str, _ = file_stream_to_pdf_base64(file_stream=save_output_stream)
+    base64_str, _ = file_stream_to_base64(file_stream=save_output_stream)
 
     if operation_type == 1: # 另存为
         await create_template(data.name, base64_str, doc_raw_bytes)
@@ -194,10 +194,9 @@ async def update_bookmark(data: InputSchema):
     # })
 
 
-def file_stream_to_pdf_base64(file_stream):
+def file_stream_to_base64(file_stream):
     doc_raw_bytes = file_stream.read()
-    pdf_raw_bytes = convert_docx_to_pdf(doc_raw_bytes)
-    base64_str = base64.b64encode(pdf_raw_bytes).decode("utf-8")
+    base64_str = base64.b64encode(doc_raw_bytes).decode("utf-8")
     return base64_str, doc_raw_bytes
 
 
