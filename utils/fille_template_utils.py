@@ -184,7 +184,8 @@ class FillDataUtils():
         if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
             grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
             self.table_contexts.update(grouped_context)
-        else:
+        # else:
+        if tpl_context:
             self.table_contexts.update(tpl_context)
 
 
@@ -633,91 +634,82 @@ class FillDataUtils():
     # @staticmethod
     # def fill_template_jinja_custom_info(doc_stream, custom_info=None):
     #     """
-    #     处理Word文档中的表格模板变量，根据custom_info填充内容并设置格式
-        
+    #     处理 Word 文档中的表格模板变量，根据 custom_info 填充内容并设置格式（基于书签定位）
+
     #     Args:
-    #         doc_stream: Word文档的BytesIO流
-    #         custom_info: 包含项目名称和备注信息的字典
-            
+    #         doc_stream: Word 文档的 BytesIO 流
+    #         custom_info: 包含书签 id、内容、字体信息的字典
+    #         示例：
+    #             custom_info = {
+    #                 "project_name": {
+    #                     "bm_id": "230",
+    #                     "value": "测试项目",
+    #                     "font": "黑体",
+    #                     "font_size": 14
+    #                 },
+    #                 "note": {
+    #                     "bm_id": "229",
+    #                     "value": "这是一个测试项目",
+    #                     "font": "宋体",
+    #                     "font_size": 12
+    #                 }
+    #             }
+
     #     Returns:
-    #         填充后的文档BytesIO流
+    #         填充后的文档 BytesIO 流
     #     """
     #     try:
     #         from docxtpl import DocxTemplate
     #         from io import BytesIO
     #         from docx.shared import Pt
-            
-    #         # 创建DocxTemplate对象
+
+    #         # 加载模板
     #         tpl = DocxTemplate(doc_stream)
-            
-    #         # 获取模板中所有未声明的变量
+
+    #         # 找到模板中未声明的变量
     #         undeclared_vars = tpl.get_undeclared_template_variables()
-            
-    #         # 准备上下文数据
-    #         context = {}
-    #         for var in undeclared_vars:
-    #             context[var] = ""  # 默认空值
-            
-    #         # 根据custom_info填充内容
+
+    #         # 上下文（默认填空字符串）
+    #         context = {var: "" for var in undeclared_vars}
+
+    #         # 根据 custom_info 填充内容
     #         if custom_info:
-    #             # 处理项目名称
-    #             if 'project_name' in custom_info:
-    #                 project_item = custom_info['project_name']
-    #                 # 查找所有可能匹配的变量名
+    #             for key, item in custom_info.items():
     #                 for var in undeclared_vars:
-    #                     if var in ['项目名称', 'project_name']:
-    #                         context[var] = project_item.value
-                
-    #             # 处理备注
-    #             if 'note' in custom_info:
-    #                 note_item = custom_info['note']
-    #                 # 查找所有可能匹配的变量名
-    #                 for var in undeclared_vars:
-    #                     if var in ['备注', 'note']:
-    #                         context[var] = note_item.value
-            
+    #                     if var in [key, item.get("name", "")]:
+    #                         context[var] = item.get("value", "")
+
     #         # 渲染模板
     #         tpl.render(context)
-            
-    #         # 渲染后设置格式
+
+    #         # 渲染后根据书签定位修改格式
     #         if custom_info:
-    #             # 处理项目名称格式
-    #             if 'project_name' in custom_info:
-    #                 project_item = custom_info['project_name']
-    #                 # 遍历所有表格
-    #                 for table in tpl.docx.tables:
-    #                     for row in table.rows:
-    #                         for cell in row.cells:
-    #                             for paragraph in cell.paragraphs:
-    #                                 for run in paragraph.runs:
-    #                                     # 检查是否包含项目名称内容
-    #                                     if project_item.value in run.text:
-    #                                         run.font.name = project_item.font
-    #                                         run.font.size = Pt(project_item.font_size)
-                
-    #             # 处理备注格式
-    #             if 'note' in custom_info:
-    #                 note_item = custom_info['note']
-    #                 # 遍历所有表格
-    #                 for table in tpl.docx.tables:
-    #                     for row in table.rows:
-    #                         for cell in row.cells:
-    #                             for paragraph in cell.paragraphs:
-    #                                 for run in paragraph.runs:
-    #                                     # 检查是否包含备注内容
-    #                                     if note_item.value in run.text:
-    #                                         run.font.name = note_item.font
-    #                                         run.font.size = Pt(note_item.font_size)
-            
-    #         # 保存到新的BytesIO流
+    #             for table in tpl.docx.tables:
+    #                 for row in table.rows:
+    #                     for cell in row.cells:
+    #                         for paragraph in cell.paragraphs:
+    #                             # 遍历段落中的书签
+    #                             for bookmark_start in paragraph._element.xpath(".//w:bookmarkStart"):
+    #                                 bookmark_name = bookmark_start.get(
+    #                                     "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}name"
+    #                                 )
+
+    #                                 for key, item in custom_info.items():
+    #                                     if str(item["bm_id"]) == bookmark_name:
+    #                                         for run in paragraph.runs:
+    #                                             if item.get("value") and item["value"] in run.text:
+    #                                                 if item.get("font"):
+    #                                                     run.font.name = item["font"]
+    #                                                 if item.get("font_size"):
+    #                                                     run.font.size = Pt(item["font_size"])
+
+    #         # 保存为新流
     #         output_stream = BytesIO()
     #         tpl.save(output_stream)
     #         output_stream.seek(0)
-            
     #         return output_stream
-            
+
     #     except Exception as e:
-    #         # 出错时返回原文档
     #         print(f"处理文档时出错: {e}")
     #         doc_stream.seek(0)
     #         return doc_stream
