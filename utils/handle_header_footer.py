@@ -16,12 +16,12 @@ def get_header_footer_font_info(doc: Document):
     return {
         "header": {
             "value": header_text,
-            "font": header_info["font"],
+            "font": header_info.get("font") or '宋体',
             "font_size": header_info["font_size"]
         },
         "footer": {
             "value": footer_text,
-            "font": footer_info["font"],
+            "font": footer_info.get("font") or '宋体',
             "font_size": footer_info["font_size"]
         }
     }

@@ -33,7 +33,7 @@ class OutSchema(BaseModel):
 
 @router.get('/get_template_extra_info', response_model=OutSchema)
 @log_response
-async def update_template(template_id: int):
+async def get_template_extra_info(template_id: int):
     template_instance = await TemplateDoc.get_or_none(id=template_id)
     if not template_instance:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
@@ -44,12 +44,7 @@ async def update_template(template_id: int):
     for title_bookmark_info in title_bookmark_info_list:
         title_content = get_bookmark_text(doc, title_bookmark_info.get('name'))
         title_content_value_list.append({ **title_bookmark_info, 'value': title_content})
-        
-    
-    
-
     header_and_footer_info = get_header_footer_font_info(doc) 
-
     header_and_footer_info['title_list'] = title_content_value_list
 
 
