@@ -46,8 +46,8 @@ class InputSchema(BaseModel):
     footer: BookmarkItem = Field(None, description='页脚')
     operation_type: int = Field(None, description='操作类型 0: 预览 1:另存为 2: 保存')
     name: str = Field(None, description='模板名称 当另存为的时候传入')
-    note: BookmarkItem = Field(None, description='备注')
-    project_name: BookmarkItem = Field(None, description='动态项目名称')
+    note: Optional[BookmarkItem]= Field(None, description='备注')
+    project_name: Optional[BookmarkItem] = Field(None, description='动态项目名称')
 
 
 
@@ -170,8 +170,11 @@ async def update_bookmark(data: InputSchema):
     
     # 为显示创建流（处理docxtpl标识）
     show_output_stream = BytesIO(doc_raw_bytes)
-    # show_output_stream= FillDataUtils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
-    show_output_stream = FillDataUtils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
+    template_instance = await TemplateDoc.get_or_none(id=data.template_id)
+    template_name = template_instance.name
+    fill_data_utils = FillDataUtils(template_name, data.template_id)
+    blank_table_context = await fill_data_utils.get_blank_table_context(template_name=template_name)
+    show_output_stream = fill_data_utils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info, additional_context=blank_table_context)
 
     show_base64_str = convert_docx_to_images_base64(show_output_stream)
     
