@@ -248,9 +248,9 @@ class FillDataUtils():
                     tpl_context[template_name + '_rows'] = rows
         if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
             grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
-            return doc_stream, grouped_context
+            return grouped_context
         else:
-            return doc_stream, tpl_context
+            return tpl_context
             
         
 
