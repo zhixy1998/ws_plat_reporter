@@ -76,41 +76,60 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
     if not found:
         found = try_global_bookmark_fill(doc, bookmark_name, value, value_type, font=font, font_size=font_size, specific_column_widths=specific_column_widths)
 
-    if not found:
-        pass  # 没有找到书签
-
-    output_stream = BytesIO()
-    doc.save(output_stream)
-    output_stream.seek(0)
-    return output_stream
+    # 保存文档到BytesIO
+    output = BytesIO()
+    doc.save(output)
+    output.seek(0)
+    return output
 
 def insert_value(paragraph, bookmark_element, value, value_type, doc=None, specific_column_widths: Optional[List[int]] = None):
     insert_index = paragraph._element.index(bookmark_element) + 1
 
     if value_type == TemplateBookMarkType.text.value:
-        new_run = paragraph.insert_paragraph_before().add_run(str(value))
-        paragraph._element.insert(insert_index, new_run._element)
+        try:
+            # 修复：直接在当前段落中创建新的run，而不是创建新段落
+            from docx.oxml import OxmlElement
+            new_run_elem = OxmlElement('w:r')
+            new_t_elem = OxmlElement('w:t')
+            new_t_elem.text = str(value)
+            new_t_elem.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+            new_run_elem.append(new_t_elem)
+            
+            # 在书签位置插入新的run元素
+            paragraph._element.insert(insert_index, new_run_elem)
+                
+        except Exception as e:
+            # 降级处理：使用原来的方法
+            new_paragraph = paragraph.insert_paragraph_before()
+            new_paragraph.add_run(str(value))
 
     elif value_type == TemplateBookMarkType.img.value:
         if not value:
             return
-        # 先判断是否带有 data:image/png;base64, 前缀
-        if value.startswith("data:image"):
-            header, b64data = value.split(",", 1)
-        else:
-            b64data = value
+        try:
+            # 先判断是否带有 data:image/png;base64, 前缀
+            if value.startswith("data:image"):
+                header, b64data = value.split(",", 1)
+            else:
+                b64data = value
 
-        image_bytes = base64.b64decode(b64data)
-        image_stream = BytesIO(image_bytes)
-        run = paragraph.add_run()
-        run.add_picture(image_stream, width=Cm(14))  # 自行控制宽度
+            image_bytes = base64.b64decode(b64data)
+            image_stream = BytesIO(image_bytes)
+            run = paragraph.add_run()
+            run.add_picture(image_stream, width=Cm(14))  # 自行控制宽度
+            # print(f"✅ DEBUG: 图片插入成功")
+        except Exception as e:
+            print(f"❌ DEBUG: 图片插入失败: {e}")
 
     elif value_type == TemplateBookMarkType.sheet.value:
+        # print(f"🔧 DEBUG: 处理表格类型")
         if not doc:
-            print("错误：插入表格时缺少'doc'对象。")
+            # print("❌ DEBUG: 错误：插入表格时缺少'doc'对象。")
             return
         if not value:
+            # print(f"⚠️ DEBUG: 表格value为空，跳过")
             return
+        # print(f"🔧 DEBUG: 表格数据: {value}")
         p_element = paragraph._element # 书签所在的段落元素 <w:p>
 
         # 1. 向上查找，判断书签是否在表格内
@@ -141,22 +160,27 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None, speci
         cols = len(table_data[0])
         # 确保列数大于0
         if cols == 0:
-            print(f"警告: 为书签 {bookmark_element.get(qn('w:name'))} 提供的表格数据没有列。")
+            # print(f"❌ DEBUG: 警告: 为书签 {bookmark_element.get(qn('w:name'))} 提供的表格数据没有列。")
             return
+        # print(f"🔧 DEBUG: 创建表格，列数: {cols}")
         tbl = doc.add_table(rows=0, cols=cols)
+        # print(f"✅ DEBUG: 表格创建成功")
         # tbl.style = old_style_name  # 临时注释掉样式设置
         # print(f"🎨 跳过表格样式设置，使用默认样式")
         set_table_border(tbl)
         
         # 先添加所有行数据
-        for row_data in table_data:
+        # print(f"🔧 DEBUG: 开始添加表格行数据，共 {len(table_data)} 行")
+        for row_idx, row_data in enumerate(table_data):
             # 确保每行数据长度与列数一致
             if len(row_data) != cols:
-                 print(f"警告: 行数据 {row_data} 的长度与表格列数 {cols} 不匹配。")
+                #  print(f"⚠️ DEBUG: 警告: 行数据 {row_data} 的长度与表格列数 {cols} 不匹配。")
                  continue # 或者进行其他错误处理
             row_cells = tbl.add_row().cells
             for idx, cell_data in enumerate(row_data):
                 row_cells[idx].text = str(cell_data)
+        #     print(f"🔧 DEBUG: 添加第 {row_idx + 1} 行数据完成")
+        # print(f"✅ DEBUG: 所有表格行数据添加完成")
         
         # 最后设置表格宽度和列宽
         set_table_width(tbl)  # 设置表格整体宽度和对齐
@@ -175,23 +199,32 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None, speci
 
         # 3. 根据情况，替换旧表格或占位段落
         if parent_tbl_elem is not None:
+            # print(f"🔧 DEBUG: 书签在表格内，替换整个旧表格")
             # a. 如果书签在表格里，用新表格替换整个旧表格
             parent_tbl_elem.addnext(tbl._element)
             parent_tbl_elem.getparent().remove(parent_tbl_elem)
+            # print(f"✅ DEBUG: 旧表格替换完成")
         else:
+            # print(f"🔧 DEBUG: 书签在普通段落内，在段落后插入表格")
             # b. 如果书签在普通段落里，在段落后插入表格，但保留原段落
             p_element.addnext(tbl._element)
             # 不删除原段落，只清理书签相关的内容
             remove_following_runs(paragraph, bookmark_element)
+            # print(f"✅ DEBUG: 表格插入完成")
+    else:
+        print(f"⚠️ DEBUG: 未知的value_type: {value_type}")
 
 def remove_following_runs(paragraph, bookmark_element):
+    # print(f"🧹 DEBUG: remove_following_runs 开始执行")
     start_found = False
     elements_to_remove = []
     bookmark_id = bookmark_element.get(qn('w:id'))
+    # print(f"🧹 DEBUG: 书签ID = {bookmark_id}")
 
     for element in paragraph._p:
         if element == bookmark_element:
             start_found = True
+            # print(f"🧹 DEBUG: 找到书签开始元素")
             continue
 
         if not start_found:
@@ -199,13 +232,17 @@ def remove_following_runs(paragraph, bookmark_element):
 
         # 只在找到匹配ID的bookmarkEnd时停止
         if element.tag.endswith('bookmarkEnd') and element.get(qn('w:id')) == bookmark_id:
+            # print(f"🧹 DEBUG: 找到书签结束元素")
             break
 
         if element.tag.endswith('r'):
             elements_to_remove.append(element)
+            # print(f"🧹 DEBUG: 标记要删除的run元素")
 
+    # print(f"🧹 DEBUG: 共找到 {len(elements_to_remove)} 个要删除的元素")
     for el in elements_to_remove:
         paragraph._p.remove(el)
+    # print(f"✅ DEBUG: 删除操作完成")
 
 def set_bookmark_run_style(doc, paragraph, bookmark_name, font=None, font_size=None):
     # 1. 找到所有 bookmarkStart 和 bookmarkEnd
@@ -266,13 +303,17 @@ def set_bookmark_run_style(doc, paragraph, bookmark_name, font=None, font_size=N
 
 # 全局查找书签并填充
 def try_global_bookmark_fill(doc, bookmark_name, value, value_type, font, font_size, specific_column_widths=None):
+    # print(f"🌐 DEBUG: try_global_bookmark_fill 开始执行")
     from docx.oxml import parse_xml
     doc_element = doc.part._element
     bookmarks = doc_element.xpath('.//*[local-name()="bookmarkStart"]')
+    # print(f"🌐 DEBUG: 全局搜索找到 {len(bookmarks)} 个书签")
 
     for bm in bookmarks:
         name = bm.get(qn('w:name'))
+        # print(f"🌐 DEBUG: 检查全局书签: '{name}'")
         if name == bookmark_name:
+            # print(f"✅ DEBUG: 全局搜索找到目标书签 '{bookmark_name}'")
             parent = bm.getparent()
             # 这里不直接插入，而是调用 insert_value ，
             # 传入一个伪造的段落对象来包装 bm 元素方便调用。
@@ -284,11 +325,15 @@ def try_global_bookmark_fill(doc, bookmark_name, value, value_type, font, font_s
             while p_elem is not None and p_elem.tag != qn('w:p'):
                 p_elem = p_elem.getparent()
             if p_elem is None:
+                # print(f"⚠️ DEBUG: 书签不在段落里，无法插入文本或图片")
                 # 书签不在段落里，无法插入文本或图片，直接返回True
                 return True
+            # print(f"🌐 DEBUG: 找到书签所在段落，开始插入值")
             paragraph = Paragraph(p_elem, doc)
             insert_value(paragraph, bm, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
+            # print(f"✅ DEBUG: 全局书签处理完成")
             return True
+    # print(f"❌ DEBUG: 全局搜索未找到书签 '{bookmark_name}'")
     return False
 
 

@@ -46,8 +46,8 @@ class InputSchema(BaseModel):
     footer: BookmarkItem = Field(None, description='页脚')
     operation_type: int = Field(None, description='操作类型 0: 预览 1:另存为 2: 保存')
     name: str = Field(None, description='模板名称 当另存为的时候传入')
-    note: BookmarkItem = Field(None, description='备注')
-    project_name: BookmarkItem = Field(None, description='动态项目名称')
+    note: Optional[BookmarkItem]= Field(None, description='备注')
+    project_name: Optional[BookmarkItem] = Field(None, description='动态项目名称')
 
 
 
@@ -170,16 +170,17 @@ async def update_bookmark(data: InputSchema):
     
     # 为显示创建流（处理docxtpl标识）
     show_output_stream = BytesIO(doc_raw_bytes)
-    # show_output_stream= FillDataUtils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
-    report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(data.template_id)
-    fill_data_instance_report = FillDataUtils(report_template_name, template_id=data.template_id)
-    show_output_stream = fill_data_instance_report.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info)
+    template_instance = await TemplateDoc.get_or_none(id=data.template_id)
+    template_name = template_instance.name
+    fill_data_utils = FillDataUtils(template_name, data.template_id)
+    blank_table_context = await fill_data_utils.get_blank_table_context(template_name=template_name)
+    show_output_stream = fill_data_utils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info, additional_context=blank_table_context)
 
     show_base64_str = convert_docx_to_images_base64(show_output_stream)
     
     # 为保存创建流（保持原始内容）
     save_output_stream = BytesIO(doc_raw_bytes)
-    base64_str, _ = file_stream_to_pdf_base64(file_stream=save_output_stream)
+    base64_str, _ = file_stream_to_base64(file_stream=save_output_stream)
 
     if operation_type == 1: # 另存为
         await create_template(data.name, base64_str, doc_raw_bytes)
@@ -196,10 +197,9 @@ async def update_bookmark(data: InputSchema):
     # })
 
 
-def file_stream_to_pdf_base64(file_stream):
+def file_stream_to_base64(file_stream):
     doc_raw_bytes = file_stream.read()
-    pdf_raw_bytes = convert_docx_to_pdf(doc_raw_bytes)
-    base64_str = base64.b64encode(pdf_raw_bytes).decode("utf-8")
+    base64_str = base64.b64encode(doc_raw_bytes).decode("utf-8")
     return base64_str, doc_raw_bytes
 
 

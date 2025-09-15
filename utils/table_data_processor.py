@@ -114,7 +114,7 @@ class GetHeaderAndData():
                 table_info = table_info_raw
             
             if table_info:
-                self.map_relation = table_info.get('mapRelation')
+                self.map_relation = table_info.get('unknownHead').get('mapRelation')
                 if table_info.get('taskHeads'):
                     self.all_headers = table_info.get('taskHeads')
                 if table_info.get('sampleHeads'):
@@ -146,11 +146,12 @@ class GetHeaderAndData():
                         identify = sample_input_param.get('resultIdentity')
                         break 
         real_header = None 
-        for map_relation_one in self.map_relation:
-            if map_relation_one.get('paramIdentity') == identify:
-                self.m_data_key = map_relation_one.get('headIdentity')
-                real_header = map_relation_one.get('headName') # 用户手输的
-                # return map_relation_one.get('paramName')  # 方法的名字
+        if self.map_relation:
+            for map_relation_one in self.map_relation:
+                if map_relation_one.get('paramIdentity') == identify:
+                    self.m_data_key = map_relation_one.get('headIdentity')
+                    real_header = map_relation_one.get('headName') # 用户手输的
+                    # return map_relation_one.get('paramName')  # 方法的名字
         if real_header:
             return True, real_header
         else:
