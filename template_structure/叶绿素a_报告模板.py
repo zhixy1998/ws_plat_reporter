@@ -4,16 +4,16 @@
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
 python_template_var = {
-    "分析日期": {"fill_type": 0},
-    "检测依据": {"fill_type": 0},
     "备注": {"fill_type": 0},
+    "样品前处理2": {"fill_type": 0},
+    "检测项目": {"fill_type": 0},
+    "计算公式": {"fill_type": 0},
+    "分析日期": {"fill_type": 0},
     "仪器编号": {"fill_type": 0},
     "仪器名称": {"fill_type": 0},
-    "检测项目": {"fill_type": 0},
     "湿度": {"fill_type": 0},
-    "样品前处理2": {"fill_type": 0},
     "温度": {"fill_type": 0},
-    "计算公式": {"fill_type": 0}
+    "检测依据": {"fill_type": 0}
 }
 
 # 字段渲染表格
@@ -24,25 +24,22 @@ custom_bookmark = {
 
 table_fields = []
 
+
+
+
 class TableDataHandler:
     """表格数据处理类，用于处理数据映射和处理逻辑"""
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING = {
-        # "样品编号": "A1",  # 序号列
-        # "水样体积": "V8",
+
     }
     TABLE_NAME_MAP = {
-        # "样品编号":'表格2',  # 序号列
-        # "水样体积": '表格2',
-
+ 
     }
 
     TEMPLATE_INFO_MAP = {
-        # '表格2': {
-        #     'tpl_type': 2,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
-        #     'column_count': None
-        # }
+
     }
     
 

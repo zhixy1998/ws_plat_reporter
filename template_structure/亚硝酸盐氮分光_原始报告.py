@@ -4,8 +4,8 @@
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
 python_template_var = {
-    "备注": {"fill_type": 0},
-    "表格1_rows": {"fill_type": 0}
+    "表格1_rows": {"fill_type": 0},
+    "备注": {"fill_type": 0}
 }
 
 # 字段渲染表格
@@ -33,14 +33,14 @@ table_fields = [
         "row_count": 0,
         "table_name": "表格1",
         "column_width": [
-            1975,
-            1701,
-            2723,
-            1800,
-            1820,
-            1812,
-            1810,
-            1815
+            1971,
+            1700,
+            2722,
+            1799,
+            1819,
+            1811,
+            1811,
+            1823
         ],
         "structure_type": 0
     }
@@ -51,12 +51,12 @@ class TableDataHandler:
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING = {
-        "样品编号": "A1",  # 序号列
+        "样品编号": "V5",  # 序号列
         "取试份体积": "V6",
         "空白试验吸光度": "V6",
-        "色度校正吸光度": 'A1',
-        "试份溶液吸光度": 'A1',
-        '试份溶液校正吸光度': 'A1',
+        "色度校正吸光度": 'V5',
+        "试份溶液吸光度": 'V5',
+        '试份溶液校正吸光度': 'V5',
         '亚硝酸盐氮含量': 'V5' ,  
         '平均值': 'V5'  
     }
@@ -82,8 +82,6 @@ class TableDataHandler:
 
 
     def __init__(self):
-        # TABLE_NAME_MAP_REVERSE = {'表格1': ['样品编号', '水样体积', '萃取液体积', 
-        # '吸光度空白', '吸光度样品', '吸光度对比', '水中石油类的质量浓度', '平均值']}
         self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
     
     def handle_样品编号(self, data, context, row_index=0):

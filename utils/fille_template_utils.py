@@ -116,7 +116,7 @@ class FillDataUtils():
             pass
         if get_data_from_database_bookmark:
             pass
-
+    
         doc_stream, self.table_contexts = await self.get_table_context(doc_stream, task_id)
 
         # 处理表格
@@ -217,10 +217,10 @@ class FillDataUtils():
         if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
             grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
             self.table_contexts.update(grouped_context)
-            return doc_stream, grouped_context
-        else:
+            # return doc_stream, grouped_context
+        if len(tpl_context) > 0:
             self.table_contexts.update(tpl_context)
-            return doc_stream, tpl_context
+        return doc_stream, self.table_contexts
 
     async def get_blank_table_context(self, template_name):
         origin_header_real_header_mapping = {} # {'模版本来的表头': '实际表头'}
