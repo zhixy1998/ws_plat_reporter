@@ -200,33 +200,46 @@ class TableDataHandler:
     
     def get_grouped_context_for_template(self, original_data, group_size=2):
         """
-        为docxtpl模板准备分组上下文数据的便捷方法
-        
+        为docxtpl模板准备分组上下文数据的便捷方法。
+        此函数将原始数据按指定大小分组，并确保组内需要合并的字段值与第一个元素一致。
+
         Args:
-            original_data (list): 原始单行数据列表
-            group_size (int): 分组大小，默认3行一组
-            
+            original_data (list): 原始单行数据列表，每个元素是一个字典。
+            group_size (int): 分组大小，默认为2。
+
         Returns:
-            dict: 可直接用于docxtpl.render()的上下文字典
+            dict: 可直接用于docxtpl.render()的上下文字典。
         """
-        original_data = [
-            # 第1组 (行1-2) - 样品A001
-            {'样品编号': 'A001', '空白试验吸光度': '10ml', '分取水样体积': '1:10', '试份溶液吸光度': '1','校准曲线上查得碘化物量': '0.001', '碘化物质量浓度': '0.123', '平均值': '0.002'},
-            {'样品编号': 'A001', '空白试验吸光度': '20ml', '分取水样体积': '1:10', '试份溶液吸光度': '2','校准曲线上查得碘化物量': '0.003', '碘化物质量浓度': '0.145', '平均值': '0.002'},
+        key = '表格2_rows'
+        if not original_data:
+            return {
+                'grouped_data': [],
+                key: []
+            }
 
-            # 第1组 (行3-4) - 样品A002
-            {'样品编号': 'A002', '空白试验吸光度': '15ml', '分取水样体积': '1:20', '试份溶液吸光度': '3','校准曲线上查得碘化物量': '0.002', '碘化物质量浓度': '0.134', '平均值': '0.003'},
-            {'样品编号': 'B002', '空白试验吸光度': '12ml', '分取水样体积': '1:20', '试份溶液吸光度': '4','校准曲线上查得碘化物量': '0.005', '碘化物质量浓度': '0.189', '平均值': '0.003'},
+        need_equal_filed = ['样品编号', '分取水样体积', '平均值']
+        rows = original_data.get(key)
+        # 1. 按 group_size 对数据进行分组
+        grouped_list = [rows[i:i + group_size] for i in range(0, len(rows), group_size)]
 
-            # 第2组 (行5-6) - 样品B003 
-            {'样品编号': 'B003', '空白试验吸光度': '18ml', '分取水样体积': '1:30', '试份溶液吸光度': '5','校准曲线上查得碘化物量': '0.004', '碘化物质量浓度': '0.201', '平均值': '0.004'},
-            {'样品编号': 'B003', '空白试验吸光度': '25ml', '分取水样体积': '1:30', '试份溶液吸光度': '6','校准曲线上查得碘化物量': '0.003', '碘化物质量浓度': '0.195', '平均值': '0.004'},
+        # 2. 遍历每个分组，统一需要合并的字段值
+        for group in grouped_list:
+            if not group:
+                continue
+            
+            # 获取该组的第一个元素作为参考
+            first_item = group[0]
+            
+            # 从第二个元素开始遍历（如果存在）
+            for i in range(1, len(group)):
+                current_item = group[i]
+                # 将需要统一的字段值设置成与第一个元素相同
+                for field in need_equal_filed:
+                    if field in first_item:
+                        current_item[field] = first_item[field]
 
-        ]
-        group_result = self.group_table_data_for_merge(original_data, group_size)
-        print(group_result['grouped_data'])
-        return {
-            # docxtpl模板中使用的变量名
-            'grouped_data': group_result['grouped_data'],
-            '表格2_rows': group_result['original_data']  # 保持原有变量名兼容性
-        }
+        # 3. 调用现有的 group_table_data_for_merge 方法进行最终的结构转换
+        # 注意：此时传入的 rows 列表已经被修改，其分组字段已对齐
+        group_result = self.group_table_data_for_merge(rows, group_size)
+        original_data['grouped_data'] = group_result['grouped_data']
+        return original_data
