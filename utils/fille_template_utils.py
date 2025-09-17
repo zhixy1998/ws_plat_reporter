@@ -116,7 +116,7 @@ class FillDataUtils():
             pass
         if get_data_from_database_bookmark:
             pass
-    
+
         doc_stream, self.table_contexts = await self.get_table_context(doc_stream, task_id)
 
         # 处理表格
@@ -158,69 +158,73 @@ class FillDataUtils():
     async def get_table_context(self, doc_stream, task_id):
         origin_header_real_header_mapping = {} # {'模版本来的表头': '实际表头'}
         table_data_processor = TableDataProcessor(self.name)
-        if not hasattr(table_data_processor.handler_instance, 'HEADER_M_MAPPING'):
-            raise APIException(error=ErrorCode.TABLE_DATA_HANDLER_NOT_FOUND)
-        HEADER_M_MAPPING = table_data_processor.handler_instance.HEADER_M_MAPPING  # 每个私有文件都要声明的
-        TABLE_NAME_MAP = table_data_processor.handler_instance.TABLE_NAME_MAP
-        TEMPLATE_INFO_MAP = table_data_processor.handler_instance.TEMPLATE_INFO_MAP
-        get_header_and_data_class_instance = GetHeaderAndData(task_id)
-        await get_header_and_data_class_instance._get_all_headers()
-        self.HEADER_M_MAPPING = HEADER_M_MAPPING
-        temp_header_identity_map_list = []
-        for origin_header, m in HEADER_M_MAPPING.items():
-            get_real_header_bool, real_header = await get_header_and_data_class_instance.get_header(m)
-            headerIdentity = get_header_and_data_class_instance.m_data_key
-            if get_real_header_bool:
-                bookmark_name = TABLE_NAME_MAP.get(origin_header) + '_' + origin_header
-                origin_header_real_header_mapping[bookmark_name] = real_header if real_header else origin_header # old_header 标签名字
-                """
-                identity: 用来查数据的标识符
-                real_header: 真正的表头。
-                m: 这个字段的标识
-                bookmark_name: 标签名字
-                tel_val: 表格循环的字段
-                比如 表格打上标签 "数据表格" 
-                    bookmark_name=表头="数据表格_序号" 
-                    tel_val="序号"
-                """
-                temp_header_identity_map_list.append({'identity': headerIdentity, 'real_header': real_header, 'm': m, 'bookmark_name': bookmark_name, 'tel_val': origin_header})
-        # 把原来的表头替换成真实的表头
-        for name, value in origin_header_real_header_mapping.items(): # name就是标签名字
-            # template_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=self.template_id, name=name)
-            doc_stream = fill_word_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
-        get_header_and_data_class_instance.header_identity_map_list = temp_header_identity_map_list
-        await get_header_and_data_class_instance.get_data()
-        tel_val_data_list = get_header_and_data_class_instance.tel_val_data_list
-        tpl_context = {}
-        for template_name, template_info in TEMPLATE_INFO_MAP.items():
-            if template_info.get('tpl_type') == 1:
-                # column_count = template_info.get('column_count')
-                # 每个单元格一个tpl对象，就是横向表格那种
-                TABLE_NAME_MAP_REVERSE = table_data_processor.handler_instance.TABLE_NAME_MAP_REVERSE
-                if TABLE_NAME_MAP_REVERSE.get(template_name):
-                    for tel_val in TABLE_NAME_MAP_REVERSE.get(template_name):
-                        if tel_val in tel_val_data_list:
-                            tpl_val_data = tel_val_data_list.get(tel_val)
-                            for i in range(len(tpl_val_data)):
-                                tpl_context[tel_val + '_' + str(i)] = tpl_val_data[i]
-            if template_info.get('tpl_type') == 2:
-                TABLE_NAME_MAP_REVERSE = table_data_processor.handler_instance.TABLE_NAME_MAP_REVERSE
-                if TABLE_NAME_MAP_REVERSE.get(template_name):
-                    new_tpl_val_data = {}
-                    for tel_val in TABLE_NAME_MAP_REVERSE.get(template_name):
-                        if tel_val in tel_val_data_list:
-                            new_tpl_val_data[tel_val] = tel_val_data_list.get(tel_val)
-                    rows = self.convert_tel_val_data_to_rows(new_tpl_val_data)
-                    # 通过docxtpl循环语法渲染
-                    tpl_context[template_name + '_rows'] = rows
+        table_fields = table_data_processor.get_table_fields()
+        if table_fields:
+            if not hasattr(table_data_processor.handler_instance, 'HEADER_M_MAPPING'):
+                raise APIException(error=ErrorCode.TABLE_DATA_HANDLER_NOT_FOUND)
+            HEADER_M_MAPPING = table_data_processor.handler_instance.HEADER_M_MAPPING  # 每个私有文件都要声明的
+            TABLE_NAME_MAP = table_data_processor.handler_instance.TABLE_NAME_MAP
+            TEMPLATE_INFO_MAP = table_data_processor.handler_instance.TEMPLATE_INFO_MAP
+            get_header_and_data_class_instance = GetHeaderAndData(task_id)
+            await get_header_and_data_class_instance._get_all_headers()
+            self.HEADER_M_MAPPING = HEADER_M_MAPPING
+            temp_header_identity_map_list = []
+            for origin_header, m in HEADER_M_MAPPING.items():
+                get_real_header_bool, real_header = await get_header_and_data_class_instance.get_header(m)
+                headerIdentity = get_header_and_data_class_instance.m_data_key
+                if get_real_header_bool:
+                    bookmark_name = TABLE_NAME_MAP.get(origin_header) + '_' + origin_header
+                    origin_header_real_header_mapping[bookmark_name] = real_header if real_header else origin_header # old_header 标签名字
+                    """
+                    identity: 用来查数据的标识符
+                    real_header: 真正的表头。
+                    m: 这个字段的标识
+                    bookmark_name: 标签名字
+                    tel_val: 表格循环的字段
+                    比如 表格打上标签 "数据表格" 
+                        bookmark_name=表头="数据表格_序号" 
+                        tel_val="序号"
+                    """
+                    temp_header_identity_map_list.append({'identity': headerIdentity, 'real_header': real_header, 'm': m, 'bookmark_name': bookmark_name, 'tel_val': origin_header})
+            # 把原来的表头替换成真实的表头
+            for name, value in origin_header_real_header_mapping.items(): # name就是标签名字
+                # template_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=self.template_id, name=name)
+                doc_stream = fill_word_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
+            get_header_and_data_class_instance.header_identity_map_list = temp_header_identity_map_list
+            await get_header_and_data_class_instance.get_data()
+            tel_val_data_list = get_header_and_data_class_instance.tel_val_data_list
+            tpl_context = {}
+            for template_name, template_info in TEMPLATE_INFO_MAP.items():
+                if template_info.get('tpl_type') == 1:
+                    # column_count = template_info.get('column_count')
+                    # 每个单元格一个tpl对象，就是横向表格那种
+                    TABLE_NAME_MAP_REVERSE = table_data_processor.handler_instance.TABLE_NAME_MAP_REVERSE
+                    if TABLE_NAME_MAP_REVERSE.get(template_name):
+                        for tel_val in TABLE_NAME_MAP_REVERSE.get(template_name):
+                            if tel_val in tel_val_data_list:
+                                tpl_val_data = tel_val_data_list.get(tel_val)
+                                for i in range(len(tpl_val_data)):
+                                    tpl_context[tel_val + '_' + str(i)] = tpl_val_data[i]
+                if template_info.get('tpl_type') == 2:
+                    TABLE_NAME_MAP_REVERSE = table_data_processor.handler_instance.TABLE_NAME_MAP_REVERSE
+                    if TABLE_NAME_MAP_REVERSE.get(template_name):
+                        new_tpl_val_data = {}
+                        for tel_val in TABLE_NAME_MAP_REVERSE.get(template_name):
+                            if tel_val in tel_val_data_list:
+                                new_tpl_val_data[tel_val] = tel_val_data_list.get(tel_val)
+                        rows = self.convert_tel_val_data_to_rows(new_tpl_val_data)
+                        # 通过docxtpl循环语法渲染
+                        tpl_context[template_name + '_rows'] = rows
 
-        if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
-            grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
-            self.table_contexts.update(grouped_context)
-            # return doc_stream, grouped_context
-        if len(tpl_context) > 0:
-            self.table_contexts.update(tpl_context)
-        return doc_stream, self.table_contexts
+            if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
+                grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
+                self.table_contexts.update(grouped_context)
+                return doc_stream, grouped_context
+            else:
+                self.table_contexts.update(tpl_context)
+                return doc_stream, tpl_context
+        else:
+            return doc_stream, {}
 
     async def get_blank_table_context(self, template_name):
         origin_header_real_header_mapping = {} # {'模版本来的表头': '实际表头'}
