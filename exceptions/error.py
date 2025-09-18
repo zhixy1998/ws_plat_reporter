@@ -34,4 +34,7 @@ class ErrorCode(Enum):
     TABLE_DATA_HANDLER_NOT_FOUND = Error(10012, zh='模版私有配置中没有TableDataHandler')
     TEMPLATE_PRIVATE_CONFIG_NOT_FOUND = Error(10013, zh='模版私有配置不存在')
     TABLE_DATA_CUSTOM_BOOKMARK_NOT_FOUND= Error(10014, zh='模版私有配置中没有custom_bookmark')
+    TEMPLATE_FILE_NOT_FOUND = Error(10015, zh='模板文件不存在')
+    TEMPLATE_FILE_ALREADY_EXISTS = Error(10016, zh='新模板文件名已存在')
+    TEMPLATE_UPDATE_FAILED = Error(10017, zh='模板更新失败')
 
