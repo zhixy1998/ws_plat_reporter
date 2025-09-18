@@ -173,6 +173,7 @@ class FillDataUtils():
                 get_real_header_bool, real_header = await get_header_and_data_class_instance.get_header(m)
                 headerIdentity = get_header_and_data_class_instance.m_data_key
                 if get_real_header_bool:
+                    # print('origin_header======================', origin_header)
                     bookmark_name = TABLE_NAME_MAP.get(origin_header) + '_' + origin_header
                     origin_header_real_header_mapping[bookmark_name] = real_header if real_header else origin_header # old_header 标签名字
                     """
