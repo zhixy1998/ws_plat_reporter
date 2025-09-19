@@ -131,6 +131,9 @@ class TableDataHandler:
             'column_count': 7
         }
     }
+
+    standard = ['氨氮含量', '吸光度', '校正吸光度']
+    unknown = ['样品编号', '水样体积', '稀释倍数', '空白试验吸光度', '水样吸光度', '水样中氨氮质量浓度', '平均值']
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'小表格': ['氨氮含量', '吸光度', '校正吸光度']}
