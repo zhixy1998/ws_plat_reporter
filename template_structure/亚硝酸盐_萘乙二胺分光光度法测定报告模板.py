@@ -128,6 +128,9 @@ class TableDataHandler:
             'column_count': 6
         }
     }
+
+    standard = ['校正吸光度', '吸光度', '亚硝酸盐氮浓度']
+    unknown = ['样品编号', '水样体积', '空白试验吸光度', '试份溶液吸光度', '亚硝酸盐氮含量', '平均值']
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {

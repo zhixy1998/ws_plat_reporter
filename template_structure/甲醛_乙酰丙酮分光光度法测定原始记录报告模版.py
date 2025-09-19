@@ -86,6 +86,8 @@ class TableDataHandler:
             },
         }
 
+    standard = ['甲醛含量', '吸光度', '校正吸光度']
+    
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'数据表格': ['校正吸光度', '水样体积', '由标准曲线查得甲醛的质量', '水样吸光度', '水样中甲醛质量浓度', '水样氨氮质量浓度', '平均值']}

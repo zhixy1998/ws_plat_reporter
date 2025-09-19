@@ -81,6 +81,8 @@ class TableDataHandler:
             'column_count': 6
         }
     }
+
+    standard = ['磷酸盐浓度', '吸光值', '校正吸光值']
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'表格': [‘磷酸盐浓度’，'吸光值', '校正吸光值']}

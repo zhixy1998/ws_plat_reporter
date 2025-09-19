@@ -83,6 +83,8 @@ class TableDataHandler:
             'column_count': 6
         }
     }
+
+    standard = ['氮含量', '吸光度', '校正吸光度']
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'表格1': ['校正吸光度', '标准溶液', '吸光度']}

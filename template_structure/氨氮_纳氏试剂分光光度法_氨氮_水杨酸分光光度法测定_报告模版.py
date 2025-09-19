@@ -79,21 +79,23 @@ class TableDataHandler:
             'column_count': 7
         }
     }
+
+    standard = ['氨氮含量', '吸光度', '校正吸光度']
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'小表格': ['氨氮含量', '吸光度', '校正吸光度']}
         self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
     
-    def handle_氨氮含量(self, data, context, row_index=0):
+    def handle_氨氮含量(self, data):
         """处理序号列的逻辑"""
-        return str(row_index + 1)
+        return
     
-    def handle_吸光度(self, data, context):
+    def handle_吸光度(self, data):
         """处理检测时间和对应的吸光值列"""
-        return data.get('m2', '')
+        return
     
-    def handle_校正吸光度(self, data, context):
+    def handle_校正吸光度(self, data):
         """处理T(min)列"""
-        return data.get('m3', '')
+        return
 
 

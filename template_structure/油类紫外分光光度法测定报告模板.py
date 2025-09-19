@@ -68,6 +68,8 @@ class TableDataHandler:
             'column_count': 6
         }
     }
+
+    standard = ['油浓度', '吸光值']
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'小表格': ['吸光值', '标准溶液']}

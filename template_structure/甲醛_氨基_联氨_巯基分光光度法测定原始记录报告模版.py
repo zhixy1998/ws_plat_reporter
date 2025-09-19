@@ -125,6 +125,9 @@ class TableDataHandler:
              'column_count': 7
             }
         }
+    
+    standard = ['甲醛质量', '吸光度']
+    unknown = ['样品编号', '水样体积', '稀释倍数', '水样吸光度', '由标准曲线查得甲醛的质量', '水样中甲醛质量浓度', '平均值']
 
     
     def __init__(self):

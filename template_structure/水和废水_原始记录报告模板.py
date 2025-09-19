@@ -126,6 +126,9 @@ class TableDataHandler:
              'column_count': None
             }
         }
+    
+    standard = ['碘化物量', '吸光度']
+    unknown = ['样品编号', '分取水样体积', '空白试验吸光度', '试份溶液吸光度', '校准曲线上查得碘化物量', '碘化物质量浓度', '平均值']
 
     
     def __init__(self):

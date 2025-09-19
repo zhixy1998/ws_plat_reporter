@@ -77,6 +77,8 @@ class TableDataHandler:
             'column_count': 8
         }
     }
+
+    standard = ['吸光度', '挥发酚质量', '校正吸光度']
     
     def __init__(self):
         self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}

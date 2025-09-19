@@ -70,6 +70,8 @@ class TableDataHandler:
             'column_count': 6
         }
     }
+
+    standard = ['吸光值']
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'小表格': ['吸光值', '吸光度', '校正吸光度']}
