@@ -4,8 +4,17 @@
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
 python_template_var = {
+    "湿度": {"fill_type": 0},
+    "样品前处理2": {"fill_type": 0},
+    "检测项目": {"fill_type": 0},
+    "仪器编号": {"fill_type": 0},
+    "检测依据": {"fill_type": 0},
+    "计算公式": {"fill_type": 0},
+    "表格1_rows": {"fill_type": 0},
     "备注": {"fill_type": 0},
-    "表格1_rows": {"fill_type": 0}
+    "温度": {"fill_type": 0},
+    "分析日期": {"fill_type": 0},
+    "仪器名称": {"fill_type": 0}
 }
 
 # 字段渲染表格
@@ -24,8 +33,6 @@ table_fields = [
                 "稀释倍数",
                 "试样定容体积",
                 "样品提取液体积",
-                "吸光值",
-                "叶绿素a含量",
                 "平均值",
                 "吸光值1",
                 "吸光值2",
@@ -35,25 +42,23 @@ table_fields = [
                 "叶绿素样品"
             ]
         ],
-        "col_count": 14,
+        "col_count": 12,
         "data_rows": [],
         "row_count": 0,
         "table_name": "表格1",
         "column_width": [
             2176,
             1843,
-            1317,
-            1300,
-            1289,
-            4438,
-            2316,
-            1122,
-            1109,
+            1417,
+            1200,
+            1352,
+            1151,
+            1046,
             1110,
             1109,
             1110,
             1110,
-            1206
+            1177
         ],
         "structure_type": 0
     }
@@ -105,8 +110,6 @@ class TableDataHandler:
              'column_count': None
             }
         }
-    
-    
 
     
     def __init__(self):
