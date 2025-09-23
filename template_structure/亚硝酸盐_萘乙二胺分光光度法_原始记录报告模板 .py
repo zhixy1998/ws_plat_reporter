@@ -2,34 +2,33 @@
 # fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
-
 from .common_data import BaseTableDataHandler
 
 python_template_var = {
-    "a": {"fill_type": 0},
-    "温度": {"fill_type": 0},
+    "表格3_rows": {"fill_type": 0},
+    "溶液浓度": {"fill_type": 0},
+    "r": {"fill_type": 0},
     "回归方程": {"fill_type": 0},
     "表格2_rows": {"fill_type": 0},
-    "表格3_rows": {"fill_type": 0},
-    "湿度": {"fill_type": 0},
-    "b": {"fill_type": 0},
-    "溶液浓度": {"fill_type": 0},
-    "检测日期": {"fill_type": 0},
+    "a": {"fill_type": 0},
+    "计算公式": {"fill_type": 0},
     "仪器名称": {"fill_type": 0},
     "样品前处理": {"fill_type": 0},
-    "备注": {"fill_type": 0},
     "检测项目": {"fill_type": 0},
-    "计算公式": {"fill_type": 0},
-    "r": {"fill_type": 0},
     "检测依据": {"fill_type": 0},
+    "温度": {"fill_type": 0},
+    "b": {"fill_type": 0},
+    "备注": {"fill_type": 0},
+    "仪器编号": {"fill_type": 0},
     "标准溶液及编号": {"fill_type": 0},
-    "仪器编号": {"fill_type": 0}
+    "检测日期": {"fill_type": 0},
+    "湿度": {"fill_type": 0}
 }
 
 # 表格字段分组
 table_jinja_values = {
-    '吸光度': ['吸光度_0', '吸光度_1', '吸光度_2', '吸光度_3', '吸光度_4', '吸光度_5'],
     '亚硝酸盐氮浓度': ['亚硝酸盐氮浓度_0', '亚硝酸盐氮浓度_1', '亚硝酸盐氮浓度_2', '亚硝酸盐氮浓度_3', '亚硝酸盐氮浓度_4', '亚硝酸盐氮浓度_5'],
+    '吸光度': ['吸光度_0', '吸光度_1', '吸光度_2', '吸光度_3', '吸光度_4', '吸光度_5'],
     '校正吸光度': ['校正吸光度_0', '校正吸光度_1', '校正吸光度_2', '校正吸光度_3', '校正吸光度_4', '校正吸光度_5']
 }
 
@@ -161,6 +160,17 @@ class TableDataHandler(BaseTableDataHandler):
         "亚硝酸盐氮含量": '表格3',
         '平均值': '表格3'      
     }
+    TABLE_NAME_MAP_REVERSE = {
+        '表格1': ['校正吸光度', '吸光度', '亚硝酸盐氮浓度'],
+        '表格2': ['样品编号', '水样体积', 
+                '空白试验吸光度',  '试份溶液吸光度',
+                 '亚硝酸盐氮含量','平均值'],
+        '表格3': ['样品编号', '水样体积', 
+                '空白试验吸光度',  '试份溶液吸光度',
+                 '亚硝酸盐氮含量','平均值'],
+    }
+
+
 
     TEMPLATE_INFO_MAP = {
         '表格1': {
@@ -177,18 +187,31 @@ class TableDataHandler(BaseTableDataHandler):
         }
     }
     
+    standard = ['亚硝酸盐氮浓度', '吸光度', '校正吸光度']
+    unknown = ['样品编号', '水样体积', 
+                '空白试验吸光度',  '试份溶液吸光度',
+                 '亚硝酸盐氮含量','平均值']
+
+
     def __init__(self):
-        self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
+        # TABLE_NAME_MAP_REVERSE = {'小表格': ['氨氮含量', '吸光度', '校正吸光度']}
+        pass
     
-    def handle_表格1_亚硝酸盐氮浓度(self, data, context, row_index=0):
-        return str(row_index + 1)
+    def handle_亚硝酸盐氮浓度(self, data, m):
+        """处理序号列的逻辑"""
+        real_header, sample_data = self.get_standard_head_and_data(data, m)
+        return real_header, sample_data
     
-    def handle_表格1_吸光度(self, data, context):
-        return data.get('m2', '')
+    def handle_吸光度(self, data, m):
+        """处理检测时间和对应的吸光值列"""
+        real_header, sample_data = self.get_standard_head_and_data(data, m)
+        return real_header, sample_data
     
-    def handle_表格1_校正吸光度(self, data, context):
-        return data.get('m3', '')
-    
+    def handle_校正吸光度(self, data, m):
+        """处理T(min)列"""
+        real_header, sample_data = self.get_standard_head_and_data(data, m)
+        return real_header, sample_data
+
 
     def handle_表格2_样品编号(self, data, context, row_index=0):
         return str(row_index + 1)    

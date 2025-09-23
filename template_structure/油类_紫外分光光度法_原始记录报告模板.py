@@ -2,31 +2,32 @@
 # fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
+from .common_data import BaseTableDataHandler
 
 python_template_var = {
-    "检测依据": {"fill_type": 0},
-    "备注": {"fill_type": 0},
+    "标准溶液及编号": {"fill_type": 0},
+    "表格1_rows": {"fill_type": 0},
+    "检测项目": {"fill_type": 0},
+    "分析日期": {"fill_type": 0},
     "温度": {"fill_type": 0},
+    "标准溶液浓度": {"fill_type": 0},
+    "计算公式": {"fill_type": 0},
     "仪器编号": {"fill_type": 0},
+    "样品前处理": {"fill_type": 0},
     "r": {"fill_type": 0},
-    "仪器名称": {"fill_type": 0},
+    "检测依据": {"fill_type": 0},
     "湿度": {"fill_type": 0},
     "b": {"fill_type": 0},
-    "标准溶液浓度": {"fill_type": 0},
-    "表格1_rows": {"fill_type": 0},
-    "回归方程": {"fill_type": 0},
-    "检测项目": {"fill_type": 0},
-    "标准溶液及编号": {"fill_type": 0},
-    "分析日期": {"fill_type": 0},
+    "备注": {"fill_type": 0},
+    "仪器名称": {"fill_type": 0},
     "a": {"fill_type": 0},
-    "计算公式": {"fill_type": 0},
-    "样品前处理": {"fill_type": 0}
+    "回归方程": {"fill_type": 0}
 }
 
 # 表格字段分组
 table_jinja_values = {
-    '吸光值': ['吸光值_0', '吸光值_1', '吸光值_2', '吸光值_3', '吸光值_4', '吸光值_5'],
-    '油浓度': ['油浓度_0', '油浓度_1', '油浓度_2', '油浓度_3', '油浓度_4', '油浓度_5']
+    '油浓度': ['油浓度_0', '油浓度_1', '油浓度_2', '油浓度_3', '油浓度_4', '油浓度_5'],
+    '吸光值': ['吸光值_0', '吸光值_1', '吸光值_2', '吸光值_3', '吸光值_4', '吸光值_5']
 }
 
 # 字段渲染表格
@@ -57,7 +58,7 @@ table_fields = [
     }
 ]
 
-class TableDataHandler:
+class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
     
     # 简单字段映射：表头名称 -> 数据库字段名
@@ -82,29 +83,46 @@ class TableDataHandler:
         "吸光值": "V6",
     }
 
-    
-
-
-    TABLE_NAME_MAP = {
-        "样品编号":'表格1',  # 序号列
-        "取样量": "表格1",
-        "稀释倍数": "表格1",
-        "油标准的回收量平均值": '表格1',
-        "空白的平均值": '表格1',
-        '油标准加入量': '表格1',
-        '萃取效率系数': '表格1' ,  
-        '正己烷萃取液体积': '表格1' ,
-        '含水率': '表格1' ,
-        '空白0': '表格1' ,
-        '空白1': '表格1' ,
-        '油的浓度': '表格1' ,
-        '空白2': '表格1' ,
-        '油类的含量': '表格1' ,
-        '平均值': '表格1',
-
-        '油浓度':'表格2',
-        '吸光值':'表格2',
+    TABLE_NAME_MAP_REVERSE = {
+        '表格1': ["样品编号", 
+                    "取样量",
+                    "稀释倍数",
+                     "油标准的回收量平均值",
+                    "空白的平均值",
+                    '油标准加入量', 
+                    '萃取效率系数',
+                    '正己烷萃取液体积', 
+                    '含水率',
+                    '空白0',
+                    '空白1',
+                    '油的浓度', 
+                    '空白2',
+                    '油类的含量',
+                    '平均值',],
+        '表格2': ['油浓度', '吸光值',],
     }
+
+
+    # TABLE_NAME_MAP = {
+    #     "样品编号":'表格1',  # 序号列
+    #     "取样量": "表格1",
+    #     "稀释倍数": "表格1",
+    #     "油标准的回收量平均值": '表格1',
+    #     "空白的平均值": '表格1',
+    #     '油标准加入量': '表格1',
+    #     '萃取效率系数': '表格1' ,  
+    #     '正己烷萃取液体积': '表格1' ,
+    #     '含水率': '表格1' ,
+    #     '空白0': '表格1' ,
+    #     '空白1': '表格1' ,
+    #     '油的浓度': '表格1' ,
+    #     '空白2': '表格1' ,
+    #     '油类的含量': '表格1' ,
+    #     '平均值': '表格1',
+
+    #     '油浓度':'表格2',
+    #     '吸光值':'表格2',
+    # }
 
     TEMPLATE_INFO_MAP = {
         '表格1': {
@@ -123,15 +141,18 @@ class TableDataHandler:
     '含水率','空白0','空白1','空白2','油的浓度','油类的含量','平均值']
 
     def __init__(self):
-        self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
-        
-    def handle_吸光值(self, data, context):
-        """处理检测时间和对应的吸光值列"""
-        return data.get('m2', '')
+        # TABLE_NAME_MAP_REVERSE = {'小表格': ['氨氮含量', '吸光度', '校正吸光度']}
+        pass
     
-    def handle_油浓度(self, data, context):
+    def handle_油浓度(self, data, m):
+        """处理序号列的逻辑"""
+        real_header, sample_data = self.get_standard_head_and_data(data, m)
+        return real_header, sample_data
+    
+    def handle_吸光值(self, data, m):
         """处理检测时间和对应的吸光值列"""
-        return data.get('m2', '')
+        real_header, sample_data = self.get_standard_head_and_data(data, m)
+        return real_header, sample_data
 
 
     # def handle_样品编号(self, data, context, row_index=0):

@@ -2,21 +2,20 @@
 # fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
-
 from .common_data import BaseTableDataHandler
 
 python_template_var = {
-    "湿度": {"fill_type": 0},
-    "样品前处理2": {"fill_type": 0},
-    "检测项目": {"fill_type": 0},
-    "仪器编号": {"fill_type": 0},
-    "检测依据": {"fill_type": 0},
-    "计算公式": {"fill_type": 0},
     "表格1_rows": {"fill_type": 0},
+    "湿度": {"fill_type": 0},
+    "仪器编号": {"fill_type": 0},
+    "分析日期": {"fill_type": 0},
+    "检测项目": {"fill_type": 0},
+    "检测依据": {"fill_type": 0},
     "备注": {"fill_type": 0},
     "温度": {"fill_type": 0},
-    "分析日期": {"fill_type": 0},
-    "仪器名称": {"fill_type": 0}
+    "仪器名称": {"fill_type": 0},
+    "样品前处理2": {"fill_type": 0},
+    "计算公式": {"fill_type": 0}
 }
 
 # 字段渲染表格
@@ -67,7 +66,6 @@ table_fields = [
 ]
 
 
-
 class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
     
@@ -89,22 +87,43 @@ class TableDataHandler(BaseTableDataHandler):
         "平均值":"V6"
     }
 
-    TABLE_NAME_MAP = {
-        '样品编号': '表格1',
-        '取样体积': '表格1',
-        '稀释倍数': '表格1',
-        '试样定容体积': '表格1',
-        '样品提取液体积': '表格1',
-        "吸光值":"表格1",
-        '吸光值1': '表格1',
-        '吸光值2': '表格1',
-        "吸光值3":"表格1",
-        "吸光值4":"表格1",
-        "叶绿素a含量": "表格1",
-        "叶绿素试样":"表格1",
-        "叶绿素样品":"表格1",
-        "平均值":"表格1"
+    # TABLE_NAME_MAP = {
+    #     '样品编号': '表格1',
+    #     '取样体积': '表格1',
+    #     '稀释倍数': '表格1',
+    #     '试样定容体积': '表格1',
+    #     '样品提取液体积': '表格1',
+    #     "吸光值":"表格1",
+    #     '吸光值1': '表格1',
+    #     '吸光值2': '表格1',
+    #     "吸光值3":"表格1",
+    #     "吸光值4":"表格1",
+    #     "叶绿素a含量": "表格1",
+    #     "叶绿素试样":"表格1",
+    #     "叶绿素样品":"表格1",
+    #     "平均值":"表格1"
+    # }
+
+    TABLE_NAME_MAP_REVERSE = {
+        '表格1': [
+                '样品编号',
+                '取样体积',
+                '稀释倍数',
+                '试样定容体积',
+                '样品提取液体积',
+                "吸光值"
+                ,'吸光值1'
+                ,'吸光值2'
+                ,"吸光值3"
+                ,"吸光值4"
+                ,"叶绿素a含量"
+                ,"叶绿素试样"
+                ,"叶绿素样品"
+                ,"平均值"
+        ]
+
     }
+
 
     TEMPLATE_INFO_MAP = {
             '表格1': {
@@ -112,10 +131,14 @@ class TableDataHandler(BaseTableDataHandler):
              'column_count': None
             }
         }
-
-    
+    standard = ['亚硝酸盐氮浓度', '吸光度', '校正吸光度']
+    unknown = ['样品编号', '水样体积', 
+                '空白试验吸光度',  '试份溶液吸光度',
+                 '亚硝酸盐氮含量','平均值']
+                
     def __init__(self):
-        self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
+        # TABLE_NAME_MAP_REVERSE = {'小表格': ['氨氮含量', '吸光度', '校正吸光度']}
+        pass
     
     def handle_样品编号(self, data, context, row_index=0):
         return str(row_index + 1)
