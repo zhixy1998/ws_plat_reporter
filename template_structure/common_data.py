@@ -89,3 +89,30 @@ def handle_endpoint_data_to_table_row(table_fields: list, common_table_val) -> l
             row_data.append(v)
         table_row.append(row_data)
     return table_row
+
+
+class BaseTableDataHandler():
+
+    def get_standard_head_and_data(self, data, m):
+        header = None
+        result_standard_data_list = []
+        stand_head_list = data.get('standHeadList')
+        for stand_head in stand_head_list:
+            if stand_head.get('identity') == m:
+                header = stand_head.get('name')
+        standard_data_list = data.get('standDataList')
+        for standard_data in standard_data_list:
+            result_standard_data_list.append(standard_data.get(m))
+        return header, result_standard_data_list
+    
+    def REVERS_TABLE_NAME_MAP(self, TABLE_NAME_MAP):
+        l = {}
+        for book_mark_name, table_name in TABLE_NAME_MAP.items():
+            if table_name not in l:
+                l[table_name] = []
+            l[table_name].append(book_mark_name)
+        return l
+                
+
+        
+        

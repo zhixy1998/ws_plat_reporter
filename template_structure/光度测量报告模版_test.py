@@ -79,7 +79,7 @@ table_fields = [
 ]
 
 
-class TableDataHandler:
+class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理光度测量表格的数据映射和处理逻辑"""
     
     # 简单字段映射：表头名称 -> 数据库字段名

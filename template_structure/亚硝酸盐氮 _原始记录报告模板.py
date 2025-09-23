@@ -3,6 +3,8 @@
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
+from .common_data import BaseTableDataHandler
+
 python_template_var = {
     "检测日期": {"fill_type": 0},
     "检测项目": {"fill_type": 0},
@@ -62,7 +64,12 @@ table_fields = [
     }
 ]
 
+<<<<<<< HEAD:template_structure/亚硝酸盐氮 _原始记录报告模板.py
 class TableDataHandler:
+=======
+
+class TableDataHandler(BaseTableDataHandler):
+>>>>>>> dev:template_structure/亚硝酸盐氮分光_报告模板.py
     """表格数据处理类，用于处理数据映射和处理逻辑"""
     
     # 简单字段映射：表头名称 -> 数据库字段名
