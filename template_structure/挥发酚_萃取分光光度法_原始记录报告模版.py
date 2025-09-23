@@ -3,6 +3,8 @@
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
+from .common_data import BaseTableDataHandler
+
 python_template_var = {
     "前处理1": {"fill_type": 0},
     "前处理2": {"fill_type": 0},

@@ -3,6 +3,8 @@
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
+from .common_data import BaseTableDataHandler
+
 python_template_var = {
     "表格1_rows": {"fill_type": 0},
     "备注": {"fill_type": 0}
@@ -61,7 +63,7 @@ table_fields = [
     }
 ]
 
-class TableDataHandler:
+class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
     
     # 简单字段映射：表头名称 -> 数据库字段名

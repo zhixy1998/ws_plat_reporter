@@ -1,12 +1,9 @@
 
-from typing import List, Optional
-from fastapi import APIRouter, Query
-from ..model.template_doc import TemplateDoc
+import requests
+import os, urllib
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from exceptions.error import ErrorCode
-from exceptions.command_exception import APIException
 from utils.log_decorator import log_response
-from utils.table_data_processor import GetHeaderAndData
 
 router = APIRouter()
 
@@ -17,7 +14,10 @@ class InputSchema(BaseModel):
 @router.post('/get_m')
 @log_response
 async def get_m(data: InputSchema):
-    get_header_and_data_class_instance = GetHeaderAndData(data.task_id)
-    await get_header_and_data_class_instance._get_all_headers()
-    all_m = await get_header_and_data_class_instance.get_all_m()
-    return {'code': 200, 'message': 'success', 'data': all_m}
+    task_id = data.task_id
+    sample_id = data.sample_id
+    template_common_url = os.getenv('TEMPLATE_TABLE_HEAD_DATA_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
+    response = requests.get(template_common_url)
+    res_json = response.json()
+    # print(res_json)
+    return {'code':200, 'message':'success', 'data':res_json.get('data')}
