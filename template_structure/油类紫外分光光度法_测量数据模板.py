@@ -9,6 +9,13 @@ python_template_var = {
     "备注": {"fill_type": 0},
     "数据表格_rows": {"fill_type": 0}
 }
+
+# 字段渲染表格
+custom_bookmark = {
+    'project_name':'项目名称',
+    'note':'备注',
+}
+
 table_fields = [
     {
         "has_tr": 1,
@@ -28,7 +35,7 @@ table_fields = [
                 "平均值",
                 "吸光值空白",
                 "吸光值样品",
-                "吸光值平均"
+                "吸光值对比"
             ]
         ],
         "col_count": 15,
@@ -37,10 +44,10 @@ table_fields = [
         "table_name": "数据表格",
         "column_width": [
             2370,
-            937,
-            925,
-            925,
-            925,
+            1156,
+            706,
+            1049,
+            801,
             925,
             925,
             925,
@@ -55,7 +62,12 @@ table_fields = [
         "structure_type": 0
     }
 ]
+<<<<<<< HEAD:template_structure/油类紫外分光光度法测定原始记录模板.py
 class TableDataHandler(BaseTableDataHandler):
+=======
+
+class TableDataHandler:
+>>>>>>> f9145f729d72c5ae0f6e61163102efc285284fa5:template_structure/油类紫外分光光度法_测量数据模板.py
     """表格数据处理类，用于处理数据映射和处理逻辑"""
     
     # 简单字段映射：表头名称 -> 数据库字段名
@@ -63,18 +75,18 @@ class TableDataHandler(BaseTableDataHandler):
         "样品编号": "A1",  # 序号列
         "取样量": "V6",
         "稀释倍数":'V7',
-        "本底加油标准的回收量平均值": 'A1',
-        "本底加分析空白的平均值": 'A1',
-        '油标准加入量': 'A1',
+        "本底加油标准的回收量平均值": 'V7',
+        "本底加分析空白的平均值": 'V8',
+        '油标准加入量': 'V6',
         '萃取效率系数': 'V5' ,  
         '正己烷萃取液体积': 'V5'  ,
         '风干样的含水率': 'V5',
         '吸光值空白': 'V5',
         '吸光值样品': 'V5',
-        '吸光值平均': 'V5',
+        '吸光值对比': 'V5',
         '从标准曲线查出油的浓度': 'V5',
         '沉积物干样中油类的含量': 'V5',
-        '平均值': 'V5'
+        '平均值': 'V8'
     }
 
     TABLE_NAME_MAP = {
@@ -89,7 +101,7 @@ class TableDataHandler(BaseTableDataHandler):
         '风干样的含水率': '数据表格',
         '吸光值空白': '数据表格',
         '吸光值样品': '数据表格',
-        '吸光值平均': '数据表格',
+        '吸光值对比': '数据表格',
         '从标准曲线查出油的浓度': '数据表格',
         '沉积物干样中油类的含量': '数据表格',
         '平均值': '数据表格'
@@ -140,7 +152,7 @@ class TableDataHandler(BaseTableDataHandler):
         return data.get('m5', '') 
     def handle_吸光值样品(self, data, context):
         return data.get('m6', '') 
-    def handle_吸光值平均(self, data, context):
+    def handle_吸光值对比(self, data, context):
         return data.get('m5', '') 
     
     def handle_从标准曲线查出油的浓度(self, data, context):
