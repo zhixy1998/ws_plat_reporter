@@ -1,12 +1,14 @@
-import os, base64, re
-import importlib
-from io import BytesIO
-import stat
-from dotenv import load_dotenv
-import urllib.parse
-import requests
-from typing import List, Dict
+import os
 
+import re
+import base64
+import importlib
+import urllib.parse
+from io import BytesIO
+from typing import List, Dict
+from dotenv import load_dotenv
+
+import requests
 from docx import Document
 from docx.shared import Cm
 from docx.oxml.ns import qn
@@ -15,14 +17,13 @@ from docxtpl import InlineImage, DocxTemplate
 
 from app.db import execute_safe_sql
 from exceptions.error import ErrorCode
+from utils.EditDocxXML import fill_word_bookmark
 from constants.template_constant import MeasureType
 from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType
-from app.template_doc.model.custom_bookmark import CustomBookmark
 from app.template_doc.model.template_bookmark import TemplateBookmark
+from constants.template_constant import GetTypeConstant, FillTypeConstant
 from utils.table_data_processor import TableDataProcessor, GetHeaderAndData
-from utils.EditDocxXML import fill_word_bookmark, try_global_replace_bookmark
-from constants.template_constant import GetTypeConstant, FillTypeConstant, StructureType
 
 load_dotenv(override=True)
 
@@ -129,22 +130,22 @@ class FillDataUtils():
         doc_stream = await self.get_table_context(doc_stream, task_id)
 
         # 处理表格
-        for table_info in private_data_table_fields:
-            table_name = table_info.get('table_name')
-            common_table_val = self.get_common_table_data(table_name, task_id)
-            if table_name in common_table_info_dict:
-                # 如果表格名字在通用表格名称里（就是接口已经定义的）
-                # 就通过 通过表格接口传递参数获取
-                table_header_data_mapping = common_table_info_dict.get(table_name)
-                table_header_data_mapping = self.filter_table_header(table_info.get('headers'), table_header_data_mapping)
-                if hasattr(self.private_mod, 'handle_endpoint_data_to_table_row'):
-                    row_list = common_table_val = self.private_mod.handle_endpoint_data_to_table_row(table_header_data_mapping, common_table_val)
-                else:
-                    row_list = self.handle_endpoint_data_to_table_row(table_header_data_mapping, common_table_val)
-                bookmark_type = TemplateBookMarkType.sheet.value
-                # table_name实际就是表格名字
-                current_table_column_widths = table_info.get('column_width')
-                doc_stream = fill_word_bookmark(doc_stream, table_name, row_list, bookmark_type, specific_column_widths=current_table_column_widths)
+        # for table_info in private_data_table_fields:
+        #     table_name = table_info.get('table_name')
+            # common_table_val = self.get_common_table_data(table_name, task_id)
+            # if table_name in common_table_info_dict:
+            #     # 如果表格名字在通用表格名称里（就是接口已经定义的）
+            #     # 就通过 通过表格接口传递参数获取
+            #     table_header_data_mapping = common_table_info_dict.get(table_name)
+            #     table_header_data_mapping = self.filter_table_header(table_info.get('headers'), table_header_data_mapping)
+            #     if hasattr(self.private_mod, 'handle_endpoint_data_to_table_row'):
+            #         row_list = common_table_val = self.private_mod.handle_endpoint_data_to_table_row(table_header_data_mapping, common_table_val)
+            #     else:
+            #         row_list = self.handle_endpoint_data_to_table_row(table_header_data_mapping, common_table_val)
+            #     bookmark_type = TemplateBookMarkType.sheet.value
+            #     # table_name实际就是表格名字
+            #     current_table_column_widths = table_info.get('column_width')
+            #     doc_stream = fill_word_bookmark(doc_stream, table_name, row_list, bookmark_type, specific_column_widths=current_table_column_widths)
 
         doc_stream = await self.common_fill_data_by_jinja(doc_stream, additional_context=self.table_contexts)
         doc_stream = self.insert_header_page_number(doc_stream)
@@ -373,24 +374,24 @@ class FillDataUtils():
             doc_stream.seek(0)
             return doc_stream
     
-    def get_common_table_data(self, table_name: str, task_id: str) -> dict:
-        template_common_url = os.getenv('TEMPLATE_COMMON_TABLE_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&reportName=' + table_name + "&sampleId=" + urllib.parse.quote(str(self.sample_id), safe='')
-        print(f"DEBUG: 请求URL: {template_common_url}")
-        print(f"DEBUG: 原始task_id: {repr(task_id)}")
-        try:
-            res = requests.get(template_common_url, timeout=5)
-            if res.status_code == 200:
-                common_table_val = res.json().get('data')
-            else:
-                print("请求通用表格数据失败, url:", template_common_url)
-                common_table_val = {}
-        except requests.exceptions.Timeout:
-            print(f"请求超时，跳过: {template_common_url}")
-            common_table_val = {}
-        except Exception as e:
-            print(f"请求异常，跳过: {e}")
-            common_table_val = {}
-        return common_table_val
+    # def get_common_table_data(self, table_name: str, task_id: str) -> dict:
+    #     template_common_url = os.getenv('TEMPLATE_COMMON_TABLE_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&reportName=' + table_name + "&sampleId=" + urllib.parse.quote(str(self.sample_id), safe='')
+    #     print(f"DEBUG: 请求URL: {template_common_url}")
+    #     print(f"DEBUG: 原始task_id: {repr(task_id)}")
+    #     try:
+    #         res = requests.get(template_common_url, timeout=5)
+    #         if res.status_code == 200:
+    #             common_table_val = res.json().get('data')
+    #         else:
+    #             print("请求通用表格数据失败, url:", template_common_url)
+    #             common_table_val = {}
+    #     except requests.exceptions.Timeout:
+    #         print(f"请求超时，跳过: {template_common_url}")
+    #         common_table_val = {}
+    #     except Exception as e:
+    #         print(f"请求异常，跳过: {e}")
+    #         common_table_val = {}
+    #     return common_table_val
     
     def handle_endpoint_data_to_table_row(self, table_fields: list, common_table_val) -> list:
         pass
