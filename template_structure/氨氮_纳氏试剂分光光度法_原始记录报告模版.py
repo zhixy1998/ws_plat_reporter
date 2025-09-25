@@ -130,12 +130,12 @@ class TableDataHandler(BaseTableDataHandler):
         "氨氮含量": "normalConcentration",  # 序号列
         "吸光度": "Abs",
         "校正吸光度": "sumAbs",
-        "样品编号": "V5",
-        "水样体积": "V6",
-        "稀释倍数": "V7",
-        "空白试验吸光度": "V8",
-        "水样吸光度": "V5",
-        "水样中氨氮质量浓度": "V6",
+        "样品编号": "sampleNumber",
+        "水样体积": "2191OJP",
+        "稀释倍数": "1281OYD",
+        "空白试验吸光度": "Abs",
+        "水样吸光度": "sumAbs",
+        "水样中氨氮质量浓度": "V5",
         "平均值": "V7"
     }
     # TABLE_NAME_MAP = {

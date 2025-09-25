@@ -606,12 +606,12 @@ class FillDataUtils():
                         handler = getattr(table_data_processor.handler_instance, 'handle_' + origin_header)
                         real_header, sample_data = handler(self.end_point_header_and_data, m)
                         for index, data in enumerate(sample_data):
-                            tpl_context[origin_header + '_' + str(index)] = data
-                            origin_header_real_header_mapping[origin_header] = real_header if real_header else '' # old_header 标签名字
+                            tpl_context[origin_header + '_' + str(index)] = data if data else ''
+                            origin_header_real_header_mapping[table_name + '_' + origin_header] = real_header if real_header else '' # old_header 标签名字
                     else:
                         # 未知样处理
                         real_header, identity = self.get_unknown_sample_header(m)
-                        origin_header_real_header_mapping[origin_header] = real_header if real_header else ''
+                        origin_header_real_header_mapping[table_name + '_' + origin_header] = real_header if real_header else ''
                         if identity:
                             data = self.get_unknown_sample_data(identity)
                             table_origin_header_data_mapping[origin_header] = data
@@ -760,7 +760,9 @@ class FillDataUtils():
         data = []
         for one_unknown_data in self.end_point_header_and_data.get('unknowDataList'):
             if one_unknown_data.get(identity) or one_unknown_data.get(identity) == '':
-                data.append(one_unknown_data.get(identity))
+                data.append(one_unknown_data.get(identity)) if one_unknown_data.get(identity) else data.append('')
+            else:
+                data.append('')
         return data
     
     @staticmethod
