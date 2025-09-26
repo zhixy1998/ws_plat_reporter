@@ -621,7 +621,12 @@ class FillDataUtils():
                     rows = self.columns_to_rows(table_origin_header_data_mapping)
                     rows_name = table_name + '_rows'
                     tpl_context[rows_name] = rows
-        return origin_header_real_header_mapping, tpl_context
+        
+        if hasattr(table_data_processor.handler_instance, 'get_grouped_context_for_template'):
+            grouped_context = table_data_processor.handler_instance.get_grouped_context_for_template(tpl_context)
+            return origin_header_real_header_mapping, grouped_context
+        else:
+            return origin_header_real_header_mapping, tpl_context
     
     async def get_quantitative_determination_photometric_measurement_from_database(self, doc_stream, task_id, origin_header_real_header_mapping={}, tpl_context={}):
         table_data_processor = TableDataProcessor(self.name)
