@@ -3,31 +3,31 @@
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 from .common_data import BaseTableDataHandler
-
 python_template_var = {
-    "仪器名称": {"fill_type": 0},
-    "温度": {"fill_type": 0},
-    "grouped_data": {"fill_type": 0},
-    "样品前处理": {"fill_type": 0},
     "检测日期": {"fill_type": 0},
-    "检测依据": {"fill_type": 0},
-    "备注": {"fill_type": 0},
     "溶液浓度": {"fill_type": 0},
-    "仪器编号": {"fill_type": 0},
-    "标准溶液及编号": {"fill_type": 0},
-    "r": {"fill_type": 0},
+    "仪器名称": {"fill_type": 0},
+    "表格2_rows": {"fill_type": 0},
+    "回归方程": {"fill_type": 0},
     "计算公式": {"fill_type": 0},
-    "b": {"fill_type": 0},
+    "温度": {"fill_type": 0},
     "检测项目": {"fill_type": 0},
+    "标准溶液及编号": {"fill_type": 0},
     "a": {"fill_type": 0},
-    "湿度": {"fill_type": 0},
-    "回归方程": {"fill_type": 0}
+    "b": {"fill_type": 0},
+    "备注": {"fill_type": 0},
+    "表格3_rows": {"fill_type": 0},
+    "样品前处理": {"fill_type": 0},
+    "r": {"fill_type": 0},
+    "检测依据": {"fill_type": 0},
+    "仪器编号": {"fill_type": 0},
+    "湿度": {"fill_type": 0}
 }
 
 # 表格字段分组
 table_jinja_values = {
-    'COD值': ['COD值_0', 'COD值_1', 'COD值_2', 'COD值_3', 'COD值_4', 'COD值_5', 'COD值_6'],
-    '吸光度': ['吸光度_0', '吸光度_1', '吸光度_2', '吸光度_3', '吸光度_4', '吸光度_5', '吸光度_6']
+    '吸光度': ['吸光度_0', '吸光度_1', '吸光度_2', '吸光度_3', '吸光度_4', '吸光度_5', '吸光度_6'],
+    '硼含量': ['硼含量_0', '硼含量_1', '硼含量_2', '硼含量_3', '硼含量_4', '硼含量_5', '硼含量_6']
 }
 
 # 字段渲染表格
@@ -40,7 +40,7 @@ table_fields = [
     {
         "headers": [
             [
-                "COD值"
+                "硼含量"
             ],
             [
                 "吸光度"
@@ -51,8 +51,8 @@ table_fields = [
         "row_count": 0,
         "table_name": "表格1",
         "column_width": [
-            2425,
-            2425
+            2779,
+            2779
         ],
         "structure_type": 1
     },
@@ -60,12 +60,12 @@ table_fields = [
         "has_tr": 1,
         "headers": [
             [
+                "空白吸光度",
                 "样品编号",
                 "水样体积",
-                "稀释倍数",
-                "空白实验测定吸光度",
-                "试样测定的吸光度",
-                "水样COD值",
+                "试样吸光度",
+                "由校准曲线上查得的硼质量",
+                "水样中硼的质量浓度",
                 "平均值"
             ]
         ],
@@ -74,13 +74,13 @@ table_fields = [
         "row_count": 0,
         "table_name": "表格2",
         "column_width": [
-            2425,
-            2413,
-            2177,
-            2102,
+            2779,
+            2779,
+            2112,
+            2112,
             2114,
-            2111,
-            2114
+            2112,
+            2115
         ],
         "structure_type": 0
     },
@@ -90,10 +90,10 @@ table_fields = [
             [
                 "样品编号",
                 "水样体积",
-                "稀释倍数",
-                "空白实验测定吸光度",
-                "试样测定的吸光度",
-                "水样COD值",
+                "空白吸光度",
+                "试样吸光度",
+                "由校准曲线上查得的硼质量",
+                "水样中硼的质量浓度",
                 "平均值"
             ]
         ],
@@ -102,42 +102,40 @@ table_fields = [
         "row_count": 0,
         "table_name": "表格3",
         "column_width": [
-            2821,
-            2112,
-            2122,
-            2102,
+            2781,
             2112,
             2112,
-            2147
+            2112,
+            2112,
+            2112,
+            2115
         ],
         "structure_type": 0
     }
 ]
-
-
 
 class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING = {
-        "COD值": "normalConcentration",  # 序号列
+        "硼含量": "normalConcentration",  # 序号列
         "吸光度": "Abs",
 
         "样品编号": "V5",  # 序号列
         "平均值":"V6",
-        "稀释倍数":"V7", 
+        "空白吸光度":"V7", 
         "水样体积":"V6", 
-        "空白实验测定吸光度":"V8", 
-        "试样测定的吸光度":"V6", 
-        "水样COD值":"V6",  
+        "试样吸光度":"V8", 
+        "由校准曲线上查得的硼质量":"V6", 
+        "水样中硼的质量浓度":"V6",  
         
     }
 
     TABLE_NAME_MAP_REVERSE = {
-        '表格1': ['COD值', '吸光度'],
-        '表格2': ['样品编号', '水样体积', '稀释倍数', '空白实验测定吸光度', '试样测定的吸光度', '水样COD值', '平均值'],
-        '表格3':['样品编号', '水样体积', '稀释倍数', '空白实验测定吸光度', '试样测定的吸光度', '水样COD值', '平均值']
+        '表格1': ['硼含量', '吸光度'],
+        '表格2': ['样品编号', '水样体积', '空白吸光度', '试样吸光度', '由校准曲线上查得的硼质量', '水样中硼的质量浓度', '平均值'],
+        '表格3':['样品编号', '水样体积', '空白吸光度', '试样吸光度', '由校准曲线上查得的硼质量', '水样中硼的质量浓度', '平均值']
     }
 
 
@@ -156,14 +154,14 @@ class TableDataHandler(BaseTableDataHandler):
             },
         }
     
-    standard = ['COD值', '吸光度']
-    unknown = ['样品编号', '水样体积', '稀释倍数', '空白实验测定吸光度', '试样测定的吸光度', '水样COD值', '平均值']
+    standard = ['硼含量', '吸光度']
+    unknown = ['样品编号', '水样体积', '空白吸光度', '试样吸光度', '由校准曲线上查得的硼质量', '水样中硼的质量浓度', '平均值']
 
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'小表格': ['氨氮含量', '吸光度', '校正吸光度']}
         pass
     
-    def handle_COD值(self, data, m):
+    def handle_硼含量(self, data, m):
         """处理序号列的逻辑"""
         real_header, sample_data = self.get_standard_head_and_data(data, m)
         return real_header, sample_data
@@ -181,20 +179,20 @@ class TableDataHandler(BaseTableDataHandler):
         """处理取水样体积"""
         return data.get('m2', '')
     
-    def handle_稀释倍数(self, data, context):
-        """处理稀释倍数列"""
+    def handle_空白吸光度(self, data, context):
+        """处理空白吸光度列"""
         return data.get('m3', '')
 
-    def handle_空白实验测定吸光度(self, data, context):
-        """处理空白实验测定吸光度列"""
+    def handle_试样吸光度(self, data, context):
+        """处理试样吸光度列"""
         return data.get('m4', '')
     
-    def handle_试样测定的吸光度(self, data, context):
-        """校准曲线试样测定的吸光度"""
+    def handle_由校准曲线上查得的硼质量(self, data, context):
+        """校准曲线由校准曲线上查得的硼质量"""
         return data.get('m8', '')
 
-    def handle_水样COD值(self, data, context):
-        """水样COD值"""
+    def handle_水样中硼的质量浓度(self, data, context):
+        """水样中硼的质量浓度"""
         return data.get('m9', '')
     
     def handle_平均值(self, data, context):
