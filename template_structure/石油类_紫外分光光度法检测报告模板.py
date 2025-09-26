@@ -2,33 +2,40 @@
 # fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
-
 from .common_data import BaseTableDataHandler
 
 python_template_var = {
-    "标准溶液及编号": {"fill_type": 0},
-    "仪器编号": {"fill_type": 0},
-    "检测项目": {"fill_type": 0},
-    "分析日期": {"fill_type": 0},
-    "r": {"fill_type": 0},
-    "温度": {"fill_type": 0},
     "计算公式": {"fill_type": 0},
-    "湿度": {"fill_type": 0},
-    "b": {"fill_type": 0},
     "仪器名称": {"fill_type": 0},
-    "a": {"fill_type": 0},
     "溶液浓度": {"fill_type": 0},
+    "备注": {"fill_type": 0},
     "样品前处理": {"fill_type": 0},
-    "检测依据": {"fill_type": 0},
+    "b": {"fill_type": 0},
     "回归方程": {"fill_type": 0},
-    "备注": {"fill_type": 0}
+    "标准溶液及编号": {"fill_type": 0},
+    "a": {"fill_type": 0},
+    "分析日期": {"fill_type": 0},
+    "检测依据": {"fill_type": 0},
+    "湿度": {"fill_type": 0},
+    "数据表格_rows": {"fill_type": 0},
+    "检测项目": {"fill_type": 0},
+    "温度": {"fill_type": 0},
+    "仪器编号": {"fill_type": 0},
+    "r": {"fill_type": 0}
 }
 
 # 表格字段分组
 table_jinja_values = {
-    '石油类标准溶液': ['石油类标准溶液_0', '石油类标准溶液_1', '石油类标准溶液_2', '石油类标准溶液_3', '石油类标准溶液_4', '石油类标准溶液_5'],
-    '吸光值': ['吸光值_0', '吸光值_1', '吸光值_2', '吸光值_3', '吸光值_4', '吸光值_5']
+    '吸光值': ['吸光值_0', '吸光值_1', '吸光值_2', '吸光值_3', '吸光值_4', '吸光值_5'],
+    '石油类标准溶液': ['石油类标准溶液_0', '石油类标准溶液_1', '石油类标准溶液_2', '石油类标准溶液_3', '石油类标准溶液_4', '石油类标准溶液_5']
 }
+
+# 字段渲染表格
+custom_bookmark = {
+    'project_name':'项目名称',
+    'note':'备注',
+}
+
 table_fields = [
     {
         "headers": [
@@ -48,10 +55,38 @@ table_fields = [
             4043
         ],
         "structure_type": 1
+    },
+    {
+        "has_tr": 1,
+        "headers": [
+            [
+                "样品编号",
+                "水样体积",
+                "萃取液体积",
+                "水中石油类的质量浓度",
+                "平均值",
+                "吸光度空白",
+                "吸光度样品",
+                "吸光度对比"
+            ]
+        ],
+        "col_count": 8,
+        "data_rows": [],
+        "row_count": 0,
+        "table_name": "数据表格",
+        "column_width": [
+            2667,
+            2059,
+            1800,
+            1931,
+            2162,
+            1668,
+            1613,
+            1556
+        ],
+        "structure_type": 0
     }
 ]
-
-
 
 
 class TableDataHandler(BaseTableDataHandler):
@@ -59,18 +94,38 @@ class TableDataHandler(BaseTableDataHandler):
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING = {
-        "吸光值": "A1",  # 序号列
-        "石油类标准溶液": "V8",
+        "吸光值": "Abs",  # 序号列
+        "石油类标准溶液": "normalConcentration",
+        "样品编号": "sampleNumber",
+        "水样体积": "2191OJP",
+        "萃取液体积": "1281OYD",
+        "水中石油类的质量浓度": "V5",
+        "平均值": "V7",
+        "吸光度空白": "V5",
+        "吸光度样品": "V7",
+        "吸光度对比": "2191OJP"
     }
     TABLE_NAME_MAP = {
         "吸光值":'表格1',  # 序号列
         "石油类标准溶液": '表格1',
+        "样品编号": '数据表格',
+        "水样体积": '数据表格',
+        "萃取液体积": '数据表格',
+        "水中石油类的质量浓度": '数据表格',
+        "平均值": '数据表格',
+        "吸光度空白": '数据表格',
+        "吸光度样品": '数据表格',
+        "吸光度对比": '数据表格'
     }
 
     TEMPLATE_INFO_MAP = {
         '表格1': {
             'tpl_type': 1,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
             'column_count': 6
+        },
+        '数据表格': {
+            'tpl_type': 2,
+            'column_count': 8
         }
     }
 
@@ -80,8 +135,10 @@ class TableDataHandler(BaseTableDataHandler):
         # TABLE_NAME_MAP_REVERSE = {'表格1': ['吸光值', '石油类标准溶液']}
         self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
     
-    def handle_吸光值(self, data, context, row_index=0):
-        return str(row_index + 1)
+    def handle_吸光值(self, data, m):
+        real_header, sample_data = self.get_standard_head_and_data(data, m)
+        return real_header, sample_data
     
-    def handle_石油类标准溶液(self, data, context):
-        return data.get('m2', '')
+    def handle_石油类标准溶液(self, data, m):
+        real_header, sample_data = self.get_standard_head_and_data(data, m)
+        return real_header, sample_data
