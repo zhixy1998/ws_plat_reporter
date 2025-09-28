@@ -3,30 +3,31 @@
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 from .common_data import BaseTableDataHandler
+
 python_template_var = {
     "grouped_data": {"fill_type": 0},
-    "b": {"fill_type": 0},
-    "检测日期": {"fill_type": 0},
-    "检测项目": {"fill_type": 0},
-    "仪器名称": {"fill_type": 0},
-    "溶液浓度": {"fill_type": 0},
-    "温度": {"fill_type": 0},
-    "检测依据": {"fill_type": 0},
-    "标准溶液及编号": {"fill_type": 0},
-    "回归方程": {"fill_type": 0},
-    "计算公式": {"fill_type": 0},
-    "r": {"fill_type": 0},
-    "a": {"fill_type": 0},
-    "仪器编号": {"fill_type": 0},
     "湿度": {"fill_type": 0},
+    "b": {"fill_type": 0},
+    "a": {"fill_type": 0},
+    "标准溶液及编号": {"fill_type": 0},
+    "温度": {"fill_type": 0},
+    "仪器编号": {"fill_type": 0},
+    "溶液浓度": {"fill_type": 0},
+    "样品前处理": {"fill_type": 0},
+    "检测项目": {"fill_type": 0},
+    "计算公式": {"fill_type": 0},
+    "仪器名称": {"fill_type": 0},
+    "检测依据": {"fill_type": 0},
+    "检测日期": {"fill_type": 0},
     "备注": {"fill_type": 0},
-    "样品前处理": {"fill_type": 0}
+    "回归方程": {"fill_type": 0},
+    "r": {"fill_type": 0}
 }
 
 # 表格字段分组
 table_jinja_values = {
-    'COD值': ['COD值_0', 'COD值_1', 'COD值_2', 'COD值_3', 'COD值_4', 'COD值_5', 'COD值_6'],
-    '吸光度': ['吸光度_0', '吸光度_1', '吸光度_2', '吸光度_3', '吸光度_4', '吸光度_5', '吸光度_6']
+    '吸光度': ['吸光度_0', '吸光度_1', '吸光度_2', '吸光度_3', '吸光度_4', '吸光度_5', '吸光度_6'],
+    'COD值': ['COD值_0', 'COD值_1', 'COD值_2', 'COD值_3', 'COD值_4', 'COD值_5', 'COD值_6']
 }
 
 # 字段渲染表格
@@ -50,13 +51,12 @@ table_fields = [
         "row_count": 0,
         "table_name": "表格1",
         "column_width": [
-            2425,
-            2425
+            1861,
+            1861
         ],
         "structure_type": 1
     },
     {
-        "has_tr": 1,
         "headers": [
             [
                 "样品编号",
@@ -73,13 +73,13 @@ table_fields = [
         "row_count": 0,
         "table_name": "表格2",
         "column_width": [
-            2425,
-            2413,
+            1861,
+            2977,
             2177,
             2102,
-            2114,
-            2111,
-            2114
+            1674,
+            2126,
+            2539
         ],
         "structure_type": 0
     },
@@ -106,18 +106,15 @@ table_fields = [
             2122,
             2102,
             2112,
-            2112,
-            2147
+            1968,
+            2291
         ],
         "structure_type": 0
     }
 ]
 
-
 class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
-    
-
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING = {
         "COD值": "normalConcentration",  # 序号列
@@ -132,24 +129,12 @@ class TableDataHandler(BaseTableDataHandler):
         "水样COD值":"2191OJP",  
         
     }
-        # "氨氮含量": "normalConcentration",  # 序号列
-        # "吸光度": "Abs",
-        # "校正吸光度": "sumAbs",
-        # "样品编号": "sampleNumber",
-        # "水样体积": "2191OJP",
-        # "稀释倍数": "1281OYD",
-        # "空白试验吸光度": "Abs",
-        # "水样吸光度": "sumAbs",
-        # "水样中氨氮质量浓度": "V5",
-        # "平均值": "V7"
-
 
     TABLE_NAME_MAP_REVERSE = {
         '表格1': ['COD值', '吸光度'],
         '表格2': ['样品编号', '水样体积', '稀释倍数', '空白实验测定吸光度', '试样测定的吸光度', '水样COD值', '平均值'],
         '表格3':['样品编号', '水样体积', '稀释倍数', '空白实验测定吸光度', '试样测定的吸光度', '水样COD值', '平均值']
     }
-
 
     TEMPLATE_INFO_MAP = {
             '表格1': {
@@ -211,23 +196,13 @@ class TableDataHandler(BaseTableDataHandler):
         """平均值"""
         return data.get('m10', '')
 
+
     def group_table_data_for_merge(self, original_data, group_size=2):
         if not original_data:
             return {'grouped_data': [], 'original_data': []}
+
         grouped_data = []
-        original_data = [
-    # 第1组（行1-2）- 样品A001
-    {'样品编号': 'A001', '水样体积': '10ml', '稀释倍数': '1:10', '空白实验测定吸光度': '0.001', '试样测定的吸光度': '0.123', '水样COD值': '', '平均值': '0.062'},
-    {'样品编号': 'A001', '水样体积': '20ml', '稀释倍数': '1:10', '空白实验测定吸光度': '0.003', '试样测定的吸光度': '0.145', '水样COD值': '', '平均值': '0.074'},
 
-    # 第1组（行3-4）- 样品A002和B002
-    {'样品编号': 'A002', '水样体积': '15ml', '稀释倍数': '1:20', '空白实验测定吸光度': '0.002', '试样测定的吸光度': '0.134', '水样COD值': '', '平均值': '0.068'},
-    {'样品编号': 'B002', '水样体积': '12ml', '稀释倍数': '1:20', '空白实验测定吸光度': '0.002', '试样测定的吸光度': '0.189', '水样COD值': '', '平均值': '0.095'},
-
-    # 第2组（行5-6）- 样品B003
-    {'样品编号': 'B003', '水样体积': '18ml', '稀释倍数': '1:30', '空白实验测定吸光度': '0.004', '试样测定的吸光度': '0.201', '水样COD值': '', '平均值': '0.102'},
-    {'样品编号': 'B003', '水样体积': '25ml', '稀释倍数': '1:30', '空白实验测定吸光度': '0.003', '试样测定的吸光度': '0.195', '水样COD值': '', '平均值': '0.099'}
-]
         # 按group_size分组处理
         for i in range(0, len(original_data), group_size):
             group_rows = original_data[i:i + group_size]
@@ -240,13 +215,15 @@ class TableDataHandler(BaseTableDataHandler):
 
             # 构建分组信息
             group_info = {
-            # 需要合并的字段（组级别字段）
-            '样品编号': first_row.get('样品编号', ''),
-            '分取水样体积': first_row.get('分取水样体积', ''),
-            '平均值': first_row.get('平均值', ''),
-            # 组内所有行
-            'rows': group_rows
-        }
+                # 需要合并的三个字段：样品编号、稀释倍数、平均值
+                '样品编号': first_row.get('样品编号', ''),
+                '稀释倍数': first_row.get('稀释倍数', ''), 
+                '平均值': first_row.get('平均值', ''),
+                '水样体积': first_row.get('水样体积', ''),
+
+                # 保留组内所有行的完整数据，供内层循环使用
+                'rows': group_rows
+            }
 
             grouped_data.append(group_info)
 
@@ -255,62 +232,49 @@ class TableDataHandler(BaseTableDataHandler):
             'original_data': original_data
         }
 
-    def get_grouped_context_for_template(original_data, group_size=2):
+
+    def get_grouped_context_for_template(self, original_data, group_size=2):
         """
-        为docxtpl模板准备分组上下文数据的便捷方法。
-        此函数将原始数据按指定大小分组，并确保组内需要合并的字段值与第一个元素一致。
-        Args:
-            original_data (list): 原始单行数据列表，每个元素是一个字典。
-            group_size (int): 分组大小，默认为2。
-        Returns:
-            dict: 可直接用于docxtpl.render()的上下文字典。
-        """
-        key = ['表格2_rows','表格3_rows']
-        # key = ['表格1_rows']
+         为docxtpl模板准备分组上下文数据的便捷方法。
+         此函数将原始数据按指定大小分组，并确保组内需要合并的字段值与第一个元素一致。
+         Args:
+             original_data (list): 原始单行数据列表，每个元素是一个字典。
+             group_size (int): 分组大小，默认为2。
+         Returns:
+             dict: 可直接用于docxtpl.render()的上下文字典。
+         """
+        # key = ['表格2_rows','表格3rows']
+        key = ['表格2_rows']
         if not original_data:
-            return {
-                'grouped_data': [],
-                key: []
-            }
-
-        original_data = [
-        # 第1组（行1-2）- 样品A001
-        {'样品编号': 'A001', '水样体积': '10ml', '稀释倍数': '1:10', '空白实验测定吸光度': '0.001', '试样测定的吸光度': '0.123', '水样COD值': '', '平均值': '0.062'},
-        {'样品编号': 'A001', '水样体积': '20ml', '稀释倍数': '1:10', '空白实验测定吸光度': '0.003', '试样测定的吸光度': '0.145', '水样COD值': '', '平均值': '0.074'},
-
-        # 第1组（行3-4）- 样品A002和B002
-        {'样品编号': 'A002', '水样体积': '15ml', '稀释倍数': '1:20', '空白实验测定吸光度': '0.002', '试样测定的吸光度': '0.134', '水样COD值': '', '平均值': '0.068'},
-        {'样品编号': 'B002', '水样体积': '12ml', '稀释倍数': '1:20', '空白实验测定吸光度': '0.002', '试样测定的吸光度': '0.189', '水样COD值': '', '平均值': '0.095'},
-
-        # 第2组（行5-6）- 样品B003
-        {'样品编号': 'B003', '水样体积': '18ml', '稀释倍数': '1:30', '空白实验测定吸光度': '0.004', '试样测定的吸光度': '0.201', '水样COD值': '', '平均值': '0.102'},
-        {'样品编号': 'B003', '水样体积': '25ml', '稀释倍数': '1:30', '空白实验测定吸光度': '0.003', '试样测定的吸光度': '0.195', '水样COD值': '', '平均值': '0.099'}
-    ]
-
+           return {
+               'grouped_data': [],
+               key: []
+           }
         print(original_data)
-        need_equal_filed = ['样品编号', '水样体积', '平均值', '稀释倍数']
+        need_equal_filed =['样品编号', '水样体积', '平均值', '稀释倍数']
         for i in key:
             rows = original_data.get(i)
-            # 1. 按 group_size 对数据进行分组
+           # 1. 按 group_size 对数据进行分组
             grouped_list = [rows[i:i + group_size] for i in range(0, len(rows), group_size)]
-            # 2. 遍历每个分组，统一需要合并的字段值
+           # 2. 遍历每个分组，统一需要合并的字段值
             for group in grouped_list:
-                if not group:
-                    continue
-            
-                # 获取该组的第一个元素作为参考
-                first_item = group[0]
-                # 从第二个元素开始遍历（如果存在）
-                for i in range(1, len(group)):
-                    current_item = group[i]
-                    # 将需要统一的字段值设置成与第一个元素相同
-                    for field in need_equal_filed:
-                        if field in first_item:
-                            current_item[field] = first_item[field]
-            # 3. 调用现有的 group_table_data_for_merge 方法进行最终的结构转换
-            # 注意：此时传入的 rows 列表已经被修改，其分组字段已对齐
+               if not group:
+                   continue
+               
+               # 获取该组的第一个元素作为参考
+               first_item = group[0]
+               # 从第二个元素开始遍历（如果存在）
+               for i in range(1, len(group)):
+                   current_item = group[i]
+                   # 将需要统一的字段值设置成与第一个元素相同
+                   for field in need_equal_filed:
+                       if field in first_item:
+                           current_item[field] = first_item[field]
+           # 3. 调用现有的 group_table_data_for_merge 方法进行最终的结构转换
+           # 注意：此时传入的 rows 列表已经被修改，其分组字段已对齐
             group_result = self.group_table_data_for_merge(rows, group_size)
             original_data['grouped_data'] = group_result['grouped_data']
+            # original_data[f"{k}_grouped"] = group_result['grouped_data']
         print(original_data)
         return original_data 
 
