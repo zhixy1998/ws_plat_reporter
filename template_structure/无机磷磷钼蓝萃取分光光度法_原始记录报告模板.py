@@ -125,16 +125,17 @@ class TableDataHandler(BaseTableDataHandler):
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING = {
-        "磷酸盐浓度表格": "normalConcentration",  # 序号列
+        "磷酸盐浓度表格": "Abs",  # 序号列
         "吸光值": "Abs",
         "校正吸光值": "sumAbs",
-        "样品编号": "V5",
-        "样品总体积": "V6",
-        "磷酸盐浓度": "V7",
-        "平均值": "V8",
-        "吸光值样品": "V5",
-        "吸光值空白": "V6",
-        "吸光值对比": "V7"
+
+        "样品编号": "sampleNumber",
+        "样品总体积": "2191OJP",
+        "磷酸盐浓度": "2191OJP",
+        "平均值": "2191OJP",
+        "吸光值样品": "Abs",
+        "吸光值空白": "2191OJP",
+        "吸光值对比": "Abs"
     }
     TABLE_NAME_MAP_REVERSE = {
         '表格': ['磷酸盐浓度表格', '吸光值', '校正吸光值'],
