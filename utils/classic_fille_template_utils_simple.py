@@ -175,7 +175,7 @@ class ClassicFillDataUtils():
                 image_data_list = curve_info.get('dataList', [])
                 image_stand_point_list = curve_info.get('standPoints', [])
                 image_unknown_point_list = curve_info.get('unknowPoints', [])
-                if image_data_list and image_stand_point_list and image_unknown_point_list:
+                if image_data_list:
                     # 生成定量图片
                     quantitative_image = await self.generate_quantitative_chart(
                         image_data_list, 
@@ -290,8 +290,8 @@ class ClassicFillDataUtils():
             return [point for point in points if point.get('x') is not None and point.get('y') is not None]
         
         data_points = filter_valid_points(data_points)
-        stand_points = filter_valid_points(stand_points)
-        unknown_points = filter_valid_points(unknown_points)
+        stand_points = filter_valid_points(stand_points) if stand_points else []
+        unknown_points = filter_valid_points(unknown_points) if unknown_points else []
         
         # 调试信息
         # print(f"DEBUG: 过滤后数据点数量: {len(data_points)}")
@@ -363,7 +363,7 @@ class ClassicFillDataUtils():
         img_buffer.seek(0)
             
         # 转换为 InlineImage
-        return InlineImage(tpl, img_buffer, width=Cm(8))
+        return InlineImage(tpl, img_buffer, width=Cm(7))
             
         # except Exception as e:
         #     print(f"生成定量图表失败: {e}")
