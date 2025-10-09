@@ -112,7 +112,12 @@ class BaseTableDataHandler():
                 l[table_name] = []
             l[table_name].append(book_mark_name)
         return l
-                
 
+             
+def checkbox(checked: bool) -> str:
+    CHECKED = "☑"
+    UNCHECKED = "☐"
+    """返回复选框符号"""
+    return CHECKED if checked else UNCHECKED
         
         

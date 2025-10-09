@@ -167,10 +167,13 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     py_lines = [
         "# 模板字段定义\n",
         "# fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段\n\n",
-        "# get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取\n\n"
+        "# get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取\n\n",
+        #自动添加头文件
+        "from .common_data import BaseTableDataHandler, checkbox\n",
         "python_template_var = {\n"
     ]
 
+   
     # 获取表格表头
     table_list = []
     tables = await get_table_structure_by_template_name(template_id=template_id, template_name=name, connection=connection)
