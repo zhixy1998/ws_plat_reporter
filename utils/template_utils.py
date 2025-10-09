@@ -18,9 +18,11 @@ async def get_doc_obj_by_template_id(template_id: int):
     doc = Document(doc_stream)
     return doc
 
-async def get_doc_name_and_doc_stream_obj(template_id: int):
-
-    template = await TemplateDoc.get_or_none(id=template_id)
+async def get_doc_name_and_doc_stream_obj(template_id: int, conn=None):
+    if conn is None:
+        template = await TemplateDoc.get_or_none(id=template_id)
+    else:
+        template = await TemplateDoc.get_or_none(id=template_id, using_db=conn)
     if not template:
         return {'code': 1, 'message': '模板不存在'}
     # 2. base64 解码成二进制

@@ -47,7 +47,7 @@ async def update_template(data: InputSchema):
         raise APIException(ErrorCode.TEMPLATE_FILE_ALREADY_EXISTS)
 
     try:
-        async with transactions.in_transaction():
+        async with transactions.in_transaction('default'):
             os.rename(old_file_path, new_file_path)
 
             template.name = new_name

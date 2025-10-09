@@ -20,7 +20,7 @@ class CustomBookmark(Model):
     title = fields.TextField(description="标题", null=True)
     subtitle = fields.TextField(description="副标题", null=True)
     #和template_doc 建立虚拟外键关系
-    template_doc_id = fields.IntField(description="关联的模板基础ID")
+    template_doc_id = fields.IntField(description="关联的模板id")
 
     class Meta:
         table = "bookmark_custom"
