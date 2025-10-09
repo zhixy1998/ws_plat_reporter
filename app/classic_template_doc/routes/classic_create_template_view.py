@@ -156,7 +156,7 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
         name: 文件名称
         output_dir: 输出目录
     """
-    py_folders = 'template_structure'
+    py_folders = 'template_structure_classic'
     # 确保输出目录存在
     os.makedirs(py_folders, exist_ok=True)
 
@@ -272,5 +272,5 @@ async def get_table_structure_by_template_name(template_id, template_name, conne
     """
     sql_result = await execute_safe_sql_classic(sql_text, [template_name, template_id,TemplateBookMarkType.sheet.value, 0], return_dict=True, conn=connection)
     
-    print(f"Debug: Found {len(sql_result)} table_structure records")
+    print(f"Debug: Found {len(sql_result)} table_structure_classic records")
     return sql_result
