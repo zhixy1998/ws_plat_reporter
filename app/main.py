@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from exceptions.command_exception import APIException
 from middleware.logging_middleware import LoggingMiddleware
 from app.template_doc.routes import router as template_doc_router
+from app.classic_template_doc.routes import router as classic_template_doc_router
 from utils.logger import logger, format_error_log
 
 KEY = "px_iNexus"
@@ -32,6 +33,7 @@ origins = [
 ]
 
 app.include_router(template_doc_router, prefix='/template')
+app.include_router(classic_template_doc_router, prefix='/classic_template')
 
 
 @app.exception_handler(APIException)

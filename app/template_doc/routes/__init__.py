@@ -37,7 +37,7 @@ router.include_router(get_template_extra_info_router, prefix='', tags=['获取�
 router.include_router(del_template_router, prefix='', tags=['删除模板'])
 router.include_router(get_template_industry_router, prefix='', tags=['获取模板行业'])
 router.include_router(export_original_report_doc_router, prefix='', tags=['导出原始记录报告和原始数据'])
-router.include_router(classic_export_original_data_doc_router, prefix='', tags=['导出单独原始数据'])
+# router.include_router(classic_export_original_data_doc_router, prefix='', tags=['导出单独原始数据'])
 router.include_router(get_m_router, prefix='', tags=['获取m'])
 router.include_router(merge_docx_router, prefix='', tags=['合并word'])
 # router.include_router(test_url_router, prefix='', tags=['测试'])

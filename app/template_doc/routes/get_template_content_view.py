@@ -2,7 +2,6 @@ import base64
 from io import BytesIO
 
 from fastapi import APIRouter, UploadFile, File, Form
-from tortoise.transactions import in_transaction
 from pydantic import BaseModel, Field
 from ..model.template_doc import TemplateDoc
 from ..model.template_bookmark import TemplateBookmark

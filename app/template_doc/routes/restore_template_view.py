@@ -55,7 +55,7 @@ async def create_template_view(
     return {'code': 200, 'message': '模板保存成功'}
 
 async def create_template(name: str, content_base64: str, content: bytes):
-    async with in_transaction() as connection:
+    async with in_transaction('default') as connection:
         create_info = {
             'name': name,
             'template_content': content_base64
