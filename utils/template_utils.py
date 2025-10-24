@@ -8,8 +8,11 @@ from app.template_doc.model.template_doc import TemplateDoc
 from app.db import execute_safe_sql
 
 
-async def get_doc_obj_by_template_id(template_id: int):
-    template = await TemplateDoc.get_or_none(id=template_id)
+async def get_doc_obj_by_template_id(template_id: int, classic_db=None):
+    if classic_db:
+        template = await TemplateDoc.get_or_none(id=template_id, using_db=classic_db)
+    else:
+        template = await TemplateDoc.get_or_none(id=template_id)
     if not template:
         return {'code': 1, 'message': '模板不存在'}
     # 2. base64 解码成二进制

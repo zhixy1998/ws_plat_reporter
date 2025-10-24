@@ -26,9 +26,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 origins = [
-    "http://localhost:3000",  # 本地开发用
-    "http://127.0.0.1:3000",
-    "http://your-production-frontend.com",  # 生产环境用
     "*"  # 测试用，放开所有，生产不要随便用 *
 ]
 

@@ -47,4 +47,4 @@ docs/_build/
 /myenv
 /logs
 /.idea
-.env
+/ssl

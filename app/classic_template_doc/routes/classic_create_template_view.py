@@ -15,7 +15,7 @@ from utils.LoadAndDelete import AnalysisBookMark
 from utils.doc_converter import convert_doc_to_docx, detect_file_format
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
-from constants.template_constant import TemplateBookMarkType, TemplateType
+from constants.template_constant import TemplateBookMarkType, TemplateType, ExperimentType
 from app.db import execute_safe_sql_classic
 from utils.log_decorator import log_response
 
@@ -33,7 +33,13 @@ async def create_template_view(
                      {TemplateType.report_template.decs}:{TemplateType.report_template.value} \n
                      {TemplateType.calibration_template.decs}:{TemplateType.calibration_template.value} \n
                      {TemplateType.installation_acceptance_template.decs}:{TemplateType.installation_acceptance_template.value}"""),
-    file: UploadFile = File(..., description='模板文件')
+    experiment_type: int = Form(0, description=f"""实验类型 \n
+                     {ExperimentType.spectral_scanning.decs}: {ExperimentType.spectral_scanning.value} \n
+                     {ExperimentType.time_scanning.decs}:{ExperimentType.time_scanning.value} \n
+                     {ExperimentType.quantitative_determination.decs}:{ExperimentType.quantitative_determination.value} \n
+                     {ExperimentType.photometric_measurement.decs}:{ExperimentType.photometric_measurement.value}"""),
+    file: UploadFile = File(..., description='模板文件'),
+    thumbnail: UploadFile = File(None, description='缩略图')
     ):
     class_db_con = connections.get('classic_db')
     try:
@@ -52,6 +58,7 @@ async def create_template_view(
                 raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
             name = docx_name
         content = await file.read()
+        thumbnail_content = await thumbnail.read()
 
         # 检测文件格式并自动转换DOC到DOCX
         file_format = detect_file_format(content)
@@ -71,9 +78,13 @@ async def create_template_view(
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
 
         content_base64 = base64.b64encode(content).decode('utf-8')
+        if thumbnail_content:
+            thumbnail_base64 = base64.b64encode(thumbnail_content).decode('utf-8')
+        else:
+            thumbnail_base64 = None
         # 存入数据库
         try:
-            template_id = await create_template(name, content_base64, content, template_type=template_type)
+            template_id = await create_template(name, content_base64, content, template_type=template_type, thumbnail_base64=thumbnail_base64, experiment_type=experiment_type)
         except BadZipFile:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT) 
     except APIException as e:
@@ -85,19 +96,22 @@ async def create_template_view(
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
     return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
 
-async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0) -> int:
+async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, thumbnail_base64: str = None, experiment_type=0) -> int:
 
     class_db_con = connections.get('classic_db')
     async with in_transaction('classic_db') as connection:
         create_info = {
             'name': name,
             'template_content': content_base64,
-            'type': template_type
+            'type': template_type,
+            'experiment_type': experiment_type,
         }
         # 先创建base模型，方便以后回滚
         template_base_instance = await TemplateDocBase.create(**create_info, using_db=class_db_con)
         # 创建模版
         create_info['base_template_id'] = template_base_instance.id
+        if thumbnail_base64:
+            create_info['thumbnail_base64'] = thumbnail_base64
         template = await TemplateDoc.create(**create_info, using_db=class_db_con)
         # 创建标签
         analysis_bookmark = AnalysisBookMark(BytesIO(content))

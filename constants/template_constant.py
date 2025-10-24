@@ -14,6 +14,13 @@ class TemplateType(StorageInfo):
     installation_acceptance_template = MessageType(decs='安装验收模版', value=3, name='installation_acceptance_template')
 
 
+class ExperimentType(StorageInfo):
+    spectral_scanning = MessageType(decs='光谱扫描', value=0, name="spectral_scanning")
+    time_scanning = MessageType(decs='时间扫描', value=1, name='time_scanning')
+    quantitative_determination = MessageType(decs='定量测定', value=2, name='quantitative_determination')
+    photometric_measurement = MessageType(decs='光度测量', value=3, name='photometric_measurement')
+
+
 class StructureType(StorageInfo):
     Horizontal = MessageType(decs='横向表头', value=0, name='Horizontal')
     Vertical = MessageType(decs='纵向表头', value=1, name='Vertical')

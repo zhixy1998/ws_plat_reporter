@@ -37,7 +37,7 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
         命令参数列表
     """
     system = platform.system()
-    if system == 'Windows':
+    if system in ['Darwin', 'Windows']:
         command = [
             'soffice', 
             '--headless', 
@@ -45,7 +45,7 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
             '--outdir', temp_dir,
             doc_path
         ]
-    elif system in ['Darwin', 'Linux']:  # macOS 或 Linux
+    elif system in ['Linux']:  # macOS 或 Linux
         command = [
             'libreoffice', 
             '--headless', 
