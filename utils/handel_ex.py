@@ -145,7 +145,8 @@ grouped_data = [
       }
    ]
 
-
+dynamic_table = {'header': [1,2,3,4,5,6], 'data_double_list': [['1_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','2_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','3_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','4_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','5_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','6_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv'], ['1_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','2_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','3_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','4_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','5_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','6_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv']]}
+data_for_template['dynamic_table'] = dynamic_table
 data_for_template['grouped_data'] = grouped_data
 
 doc.render(data_for_template)
@@ -172,5 +173,8 @@ doc.save(output_filename)
 #         table.columns[i].width = col_width
 
 # 保存最终调整后的 Word 文件
+
+
+
 
 print(f"报告 '{output_filename}' 已成功生成！")

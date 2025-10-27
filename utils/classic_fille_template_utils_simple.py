@@ -1,4 +1,3 @@
-
 import os
 import re
 import base64
@@ -109,15 +108,16 @@ class ClassicFillDataUtils():
         self.table_contexts = {}
         self.end_point_header_and_data = None
         self.measure_type = measure_type
+        self.single_sample = True
 
-    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None):
+    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None):
         common_val = self.get_common_data_by_endpoint(task_id, sample_id, serial_number)
 
         end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id)
         self.end_point_header_and_data = end_point_header_and_data
 
         tpl = DocxTemplate(doc_stream)
-        contexts = await self.get_context(tpl)
+        contexts = await self.get_context(tpl, image_base64)
         tpl.render(context=contexts)
         output_stream = BytesIO()
         tpl.save(output_stream)
@@ -125,7 +125,7 @@ class ClassicFillDataUtils():
 
         return output_stream
 
-    async def get_context(self, tpl):
+    async def get_context(self, tpl, image_base64):
         contexts = {}
         # print(self.end_point_header_and_data)
         # 光谱扫描
@@ -133,8 +133,7 @@ class ClassicFillDataUtils():
             spectral_scanning_mapping = common_data_mapping.get(self.measure_type)
             for jinja_val, common_val_key in spectral_scanning_mapping.items():
                 if jinja_val == '光谱扫描图片':
-                    img_base64 = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
-                    contexts[jinja_val] = await self.decode_base64_image(tpl, img_base64) if img_base64 else ''
+                    contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
                 elif jinja_val == '扫描范围':
                     scan_range = self.common_val.get('startWaveLength', '')  + '至' + self.common_val.get('endWaveLength', '')
                     contexts[jinja_val] = scan_range
@@ -143,16 +142,8 @@ class ClassicFillDataUtils():
             header_list = self.end_point_header_and_data.get('headList')
             data_list = self.end_point_header_and_data.get('dataList')
             rows = []
-            if data_list:
-                for data in data_list:
-                    row = {}
-                    row['序号'] = data.get('id')
-                    row['峰_谷'] = data.get('peakValley') if data.get('peakValley') else ''
-                    row['波长'] = data.get('waveLength') if data.get('waveLength') else ''
-                    row['es'] = data.get('luminosity') if data.get('luminosity') else ''
-                    row['备注'] = data.get('remark') if data.get('remark') else ''
-                    rows.append(row)
-            contexts['rows'] = rows
+            table_data = self.handle_spectral_scanning_table(self.end_point_header_and_data)
+            contexts['table_data'] = table_data
 
         # 时间扫描
         if self.measure_type == MeasureType.time_scanning.decs:
@@ -161,8 +152,7 @@ class ClassicFillDataUtils():
                 if jinja_val != '时间扫描图片':
                     contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
                 else:
-                    img_base64 = self.common_val.get(common_val_key)
-                    contexts[jinja_val] = await self.decode_base64_image(tpl, img_base64) if img_base64 else ''
+                    contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
         # 定量
         if self.measure_type  == MeasureType.quantitative_determination.decs:
             # 普通值
@@ -172,11 +162,10 @@ class ClassicFillDataUtils():
             # 处理图片
             curve_info = self.end_point_header_and_data.get('curveInfo')
             if curve_info:
-                image_data_list = curve_info.get('dataList', [])
-                image_stand_point_list = curve_info.get('standPoints', [])
-                image_unknown_point_list = curve_info.get('unknowPoints', [])
+                image_data_list = curve_info.get('dataList') or []
+                image_stand_point_list = curve_info.get('standPoints') or []
+                image_unknown_point_list = curve_info.get('unknowPoints') or []
                 if image_data_list:
-                    # 生成定量图片
                     quantitative_image = await self.generate_quantitative_chart(
                         image_data_list, 
                         image_stand_point_list, 
@@ -186,13 +175,13 @@ class ClassicFillDataUtils():
                     contexts['定量分析图片'] = quantitative_image if quantitative_image else ''
                 else:
                     contexts['定量分析图片'] = ''
+            else:
+                contexts['定量分析图片'] = ''
             # k
             k_str = self.common_val.get('curveParams')
             if k_str:
-                # 安全解包参数，不足的用 None 填充
                 k_parts = (k_str.split(',') + [None] * 5)[:5]
                 
-                # 动态生成 k0-k4 的键值对
                 for i, value in enumerate(k_parts):
                     if value:
                         contexts[f'k{i}'] = f'k{i}: '
@@ -219,7 +208,7 @@ class ClassicFillDataUtils():
                 row['波长'] = data.get(abs_identity) if data.get(abs_identity) else ''
                 rows.append(row)
             contexts['rows_standard'] = rows
-            contexts['波长'] = str(abs_identity.split('-')[0])
+            contexts['波长'] = str(abs_identity.split('-')[0]) if abs_identity and '-' in abs_identity else ''
 
             # 未知样品表格
             unknown_data_list = self.end_point_header_and_data.get('unknowDataList')
@@ -329,7 +318,6 @@ class ClassicFillDataUtils():
             # 转换为数字类型
             stand_x = [float(point.get('x', 0)) for point in stand_points]
             stand_y = [float(point.get('y', 0)) for point in stand_points]
-            print(f"DEBUG: 绘制标准点坐标: X={stand_x}, Y={stand_y}")
             plt.scatter(stand_x, stand_y, c='blue', s=120, marker='o', 
                         label=f'标准点 ({len(stand_points)}个)', zorder=10, edgecolors='darkblue', linewidth=2)
             
@@ -338,7 +326,6 @@ class ClassicFillDataUtils():
             # 转换为数字类型
             unknown_x = [float(point.get('x', 0)) for point in unknown_points]
             unknown_y = [float(point.get('y', 0)) for point in unknown_points]
-            print(f"DEBUG: 绘制未知点坐标: X={unknown_x}, Y={unknown_y}")
             plt.scatter(unknown_x, unknown_y, c='red', s=120, marker='s', 
                         label=f'未知点 ({len(unknown_points)}个)', zorder=10, edgecolors='darkred', linewidth=2)
             
@@ -361,20 +348,20 @@ class ClassicFillDataUtils():
         plt.close()  # 关闭图形以释放内存
             
         img_buffer.seek(0)
-            
+        cm = self.get_cm() 
         # 转换为 InlineImage
-        return InlineImage(tpl, img_buffer, width=Cm(7))
+        return InlineImage(tpl, img_buffer, width=Cm(cm))
             
         # except Exception as e:
         #     print(f"生成定量图表失败: {e}")
         #     return None
 
     def get_common_data_by_endpoint(self, task_id, sample_id, serial_number):
-        template_common_url = os.getenv('CLASSIC_TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')+ '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&serialNumber=' + urllib.parse.quote(str(serial_number), safe='')
+        template_common_url = os.getenv('CLASSIC_TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}")
         try:
-            res = requests.get(template_common_url, timeout=20)
+            res = requests.get(template_common_url, timeout=5, verify=False)
             if res.status_code == 200:
                 try:
                     res_json = res.json()
@@ -397,6 +384,7 @@ class ClassicFillDataUtils():
         
         self.common_val = common_val
         return common_val
+        
 
     # 处理children children代表这个数据获取的描述方法。
     async def handle_children(self, private_k, children, value_list, connect_str=''):
@@ -449,13 +437,33 @@ class ClassicFillDataUtils():
     
     async def decode_base64_image(self, tpl, val):
         try:
+            # 移除可能的data URI前缀
+            if val.startswith('data:image'):
+                val = val.split(',', 1)[1]
+            
+            # 移除所有空白字符
+            val = val.strip().replace('\n', '').replace('\r', '').replace(' ', '')
+        
+            # 检查并添加padding
+            padding = len(val) % 4
+            if padding:
+                val += '=' * (4 - padding)
+            
+            # 验证base64字符集
+            import re
+            if not re.match(r'^[A-Za-z0-9+/]*={0,2}$', val):
+                print("base64字符串包含无效字符")
+                return None
+            
             image_data = base64.b64decode(val)
             image_stream = BytesIO(image_data)
-            return InlineImage(tpl, image_stream, width=Cm(7))  # 根据需要调整宽度
+            cm = self.get_cm()
+            return InlineImage(tpl, image_stream, width=Cm(cm))
         except Exception as e:
-            print("图片解码失败", e)
+            print(f"图片解码失败: {e}")
+            print(f"base64字符串长度: {len(val) if val else 0}")
             return None
-    
+
     def filter_table_header(self, private_header, table_header_data_mapping):
         private_header = self.handle_table_header(private_header)
         new_table_header_data_mapping = {}
@@ -609,13 +617,17 @@ class ClassicFillDataUtils():
         return origin_header_real_header_mapping, tpl_context
     
     def get_table_head_data_from_endpoint(self, task_id, sample_id):
+        if sample_id and ',' in sample_id:
+            self.single_sample = False
         template_common_url = os.getenv('CLASSIC_TEMPLATE_TABLE_HEAD_DATA_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
-        print(template_common_url)
-        response = requests.get(template_common_url, timeout=20)
+        response = requests.get(template_common_url, verify=False)
         res_json = response.json()
-        # print(res_json)
-        return res_json.get('data')
-
+        print(res_json)
+        if res_json.get('data'):
+            return res_json.get('data')
+        print('DEBUG 发生问题 ', res_json)
+        return {}
+    
     def get_unknown_sample_header(self, m) -> (str, str):
         """
         未知样品:
@@ -684,3 +696,63 @@ class ClassicFillDataUtils():
         columns = [data[k] for k in keys]
         return [dict(zip(keys, row)) for row in zip(*columns)]
     
+    def get_cm(self):
+        name_cm_mapping = {
+            '定量_曲线在左上': 7,
+            '光谱_曲线在右上': 7,
+            '光谱_曲线在左上': 7,
+            '光度': 7,
+            '时间': 7
+        }
+        return name_cm_mapping.get(self.name, 16)
+    
+    def handle_spectral_scanning_table(self, end_point_header_and_data):
+        head_list = end_point_header_and_data.get('headList')
+        data_list = end_point_header_and_data.get('dataList')
+        if self.single_sample:
+            identity_list = []
+            header = []
+            for head_mapping in head_list:
+                header.append(head_mapping.get('name'))
+                identity_list.append(head_mapping.get('identity'))
+            row_data = []
+            for data in data_list:
+                row = []
+                for index, identity in enumerate(identity_list):
+                    if data.get(identity):
+                        row.append(data.get(identity))
+                    else:
+                        row.append('')
+                row_data.append(row)
+        else:
+            sample_num = 0 # 样品数量
+            sample_name = []
+            for i in head_list:
+                if i.get('identity') == 'sampleNumber':
+                    sample_num += 1
+                    sample_name.append(i.get('name'))
+            header = ['编号', '波长']
+            row_data = []
+            for name in sample_name:
+                header.append(name)
+                header.append('峰谷')
+            for wave_length_data_mapping in data_list:
+                row = []
+                for wave_length, data in wave_length_data_mapping.items():
+                    row.append(data.get('id'))
+                    row.append(wave_length)
+                    for index, sample_num in enumerate(data.get('sampleNumber')):
+                        row.append(sample_num)
+                        row.append(data.get('peakValley')[index])
+                row_data.append(row)
+        # if row_data:
+        #     data_row_1 = row_data[0]
+        #     for index, data in enumerate(data_row_1):
+        #         data_len = len(str(data))
+        #         if index < len(header):
+        #             head_len = len(header[index])
+        #             if data_len > head_len:
+        #                 len_dis = data_len - head_len
+        #                 header[index] = header[index] + '\u00a0' * (len_dis + 1)
+
+        return {'header': header, 'row_data': row_data}
