@@ -66,7 +66,7 @@ common_data_mapping = {
         '数据文件': 'taskName',
         '分析时间': 'detectionStartTime',
         '波长模式': 'luminosityMode',
-        '曲线方程': 'curveFormula',
+        '曲线方程': 'equationType',
         '方程次数': 'curveType',
         '公式': 'curveFormula',
         '方法名称': 'methodName',
