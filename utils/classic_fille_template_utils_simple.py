@@ -620,13 +620,31 @@ class ClassicFillDataUtils():
         if sample_id and ',' in sample_id:
             self.single_sample = False
         template_common_url = os.getenv('CLASSIC_TEMPLATE_TABLE_HEAD_DATA_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
-        response = requests.get(template_common_url, verify=False)
-        res_json = response.json()
-        print(res_json)
-        if res_json.get('data'):
-            return res_json.get('data')
-        print('DEBUG 发生问题 ', res_json)
-        return {}
+        # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
+        # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
+        try:
+            res = requests.get(template_common_url, timeout=5, verify=False)
+            if res.status_code == 200:
+                try:
+                    res_json = res.json()
+                    if res_json.get('code') == 200:
+                        table_head_data = res_json.get('data')
+                    else:
+                        table_head_data = {}
+                except Exception as e:
+                    print(e)
+                    table_head_data = {}
+            else:
+                print("请求表头数据失败, url:", template_common_url)
+                table_head_data = {}
+        except requests.exceptions.Timeout:
+            print(f"请求超时，跳过: {template_common_url}")
+            table_head_data = {}
+        except Exception as e:
+            print(f"请求异常，跳过: {e}")
+            table_head_data = {}
+        
+        return table_head_data
     
     def get_unknown_sample_header(self, m) -> (str, str):
         """
