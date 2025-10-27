@@ -309,9 +309,8 @@ class ClassicFillDataUtils():
         plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']  # 支持中文
         plt.rcParams['axes.unicode_minus'] = False
             
-        # 绘制主要数据线
-        plt.plot(x_data, y_data, 'k-', linewidth=1.5, label='数据曲线', alpha=0.8)
-        plt.scatter(x_data, y_data, c='gray', s=20, alpha=0.6)
+        # 绘制主要数据线（只用线条，不用散点，避免视觉重叠）
+        plt.plot(x_data, y_data, 'k-', linewidth=0.5, label='数据曲线')
             
         # 标记标准点（蓝色）
         if stand_points:
@@ -336,10 +335,40 @@ class ClassicFillDataUtils():
         plt.grid(True, alpha=0.3)
         plt.legend(loc='best', fontsize=10)
             
-        # 设置坐标轴范围，不留边距
+        # 设置坐标轴范围 - 模拟 ECharts 的自动范围计算
+        # 必须同时考虑数据点、标准点和未知点的范围！
         if x_data and y_data:
-            plt.xlim(min(x_data), max(x_data))
-            plt.ylim(min(y_data), max(y_data))
+            all_x = x_data.copy()
+            all_y = y_data.copy()
+            
+            # 添加标准点的坐标到范围计算中
+            if stand_points:
+                all_x.extend([float(point.get('x', 0)) for point in stand_points])
+                all_y.extend([float(point.get('y', 0)) for point in stand_points])
+            
+            # 添加未知点的坐标到范围计算中
+            if unknown_points:
+                all_x.extend([float(point.get('x', 0)) for point in unknown_points])
+                all_y.extend([float(point.get('y', 0)) for point in unknown_points])
+            
+            x_min, x_max = min(all_x), max(all_x)
+            y_min, y_max = min(all_y), max(all_y)
+            
+            # 模拟 ECharts 的自动范围：两端各留约 10% 边距
+            x_range = x_max - x_min if x_max != x_min else max(abs(x_max), 1)
+            y_range = y_max - y_min if y_max != y_min else max(abs(y_max), 1)
+            
+            # ECharts 风格：无论最小值是多少，都留 10% 边距（可以是负值）
+            margin_x = x_range * 0.1
+            margin_y = y_range * 0.1
+            
+            x_axis_min = x_min - margin_x
+            x_axis_max = x_max + margin_x
+            y_axis_min = y_min - margin_y
+            y_axis_max = y_max + margin_y
+            
+            plt.xlim(x_axis_min, x_axis_max)
+            plt.ylim(y_axis_min, y_axis_max)
             
         # 保存图片到内存
         img_buffer = BytesIO()
