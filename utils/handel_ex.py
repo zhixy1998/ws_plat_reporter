@@ -148,6 +148,8 @@ grouped_data = [
 dynamic_table = {'header': [1,2,3,4,5,6], 'data_double_list': [['1_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','2_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','3_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','4_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','5_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','6_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv'], ['1_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','2_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','3_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','4_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','5_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','6_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv']]}
 data_for_template['dynamic_table'] = dynamic_table
 data_for_template['grouped_data'] = grouped_data
+k_values = [{'label': 'k0:', 'value': '1312321312'}, {'label': 'k1:', 'value': '35235235'}, {'label': 'k2:', 'value': '64645645'}, {'label': 'k3:', 'value': '756756756'}]
+data_for_template['k_values'] = k_values
 
 doc.render(data_for_template)
 
