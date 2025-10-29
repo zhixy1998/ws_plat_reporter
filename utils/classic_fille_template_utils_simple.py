@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from docx.shared import Cm
 from docxtpl import InlineImage, DocxTemplate
 
+from config import config
 from exceptions.error import ErrorCode
 from constants.template_constant import MeasureType
 from exceptions.command_exception import APIException
@@ -172,93 +173,89 @@ class ClassicFillDataUtils():
         # 定量测定
         # 普通值
         quantitative_determination = common_data_mapping.get(self.measure_type)
-        for jinja_val, common_val_key in quantitative_determination.items():
-                contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
-        # 处理图片
-        curve_info = self.end_point_header_and_data.get('curveInfo')
-        if curve_info:
-            image_data_list = curve_info.get('dataList') or []
-            image_stand_point_list = curve_info.get('standPoints') or []
-            image_unknown_point_list = curve_info.get('unknowPoints') or []
-            if image_data_list:
-                quantitative_image = await self.generate_quantitative_chart(
-                    image_data_list, 
-                    image_stand_point_list, 
-                    image_unknown_point_list,
-                    tpl
-                )
-                contexts['定量分析图片'] = quantitative_image if quantitative_image else ''
+        if self.common_val:
+            for jinja_val, common_val_key in quantitative_determination.items():
+                    contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+            # 处理图片
+            curve_info = self.end_point_header_and_data.get('curveInfo')
+            if curve_info:
+                image_data_list = curve_info.get('dataList') or []
+                image_stand_point_list = curve_info.get('standPoints') or []
+                image_unknown_point_list = curve_info.get('unknowPoints') or []
+                if image_data_list:
+                    quantitative_image = await self.generate_quantitative_chart(
+                        image_data_list, 
+                        image_stand_point_list, 
+                        image_unknown_point_list,
+                        tpl
+                    )
+                    contexts['定量分析图片'] = quantitative_image if quantitative_image else ''
+                else:
+                    contexts['定量分析图片'] = ''
             else:
                 contexts['定量分析图片'] = ''
-        else:
-            contexts['定量分析图片'] = ''
-        # k
-        k_str = self.common_val.get('curveParams')
-        if k_str:
-            k_parts = (k_str.split(',') + [None] * 5)[:5]
+            # k
+            k_str = self.common_val.get('curveParams')
+            if k_str:
+                k_parts = (k_str.split(',') + [None] * 5)[:5]
                 
-            for i, value in enumerate(k_parts):
-                if value:
-                    contexts[f'k{i}'] = f'k{i}: '
-                    contexts[f'k{i}_v'] = value
-        k_values = []
-        if contexts.get('k0'):  # k0 非空
-            k_values.append({'label': contexts['k0'], 'value': contexts['k0_v']})
-        if contexts.get('k1'):
-            k_values.append({'label': contexts['k1'], 'value': contexts['k1_v']})
-        if contexts.get('k2'):
-            k_values.append({'label': contexts['k2'], 'value': contexts['k2_v']})
-        if contexts.get('k3'):
-            k_values.append({'label': contexts['k3'], 'value': contexts['k3_v']})
-        if contexts.get('k4'):
-            k_values.append({'label': contexts['k4'], 'value': contexts['k4_v']})
-        contexts['k_values'] = k_values
-        # 标准样品表格
-        standard_header_list = self.end_point_header_and_data.get('standHeadList')
-        standard_data_list = self.end_point_header_and_data.get('standDataList')
-        knows_header, knows_data_list = self.get_quantitative_determination_standard_table(standard_header_list, standard_data_list)
-        knows_table_data = {'headers': knows_header, 'row_data': knows_data_list}
-        contexts['knows_table_data'] = knows_table_data
+                for i, value in enumerate(k_parts):
+                    if value:
+                        contexts[f'k{i}'] = f'k{i}: '
+                        contexts[f'k{i}_v'] = value
+            k_values = []
+            if contexts.get('k0'):  # k0 非空
+                k_values.append({'label': contexts['k0'], 'value': contexts['k0_v']})
+            if contexts.get('k1'):
+                k_values.append({'label': contexts['k1'], 'value': contexts['k1_v']})
+            if contexts.get('k2'):
+                k_values.append({'label': contexts['k2'], 'value': contexts['k2_v']})
+            if contexts.get('k3'):
+                k_values.append({'label': contexts['k3'], 'value': contexts['k3_v']})
+            if contexts.get('k4'):
+                k_values.append({'label': contexts['k4'], 'value': contexts['k4_v']})
+            contexts['k_values'] = k_values
+        if self.end_point_header_and_data:
+            # 标准样品表格
+            standard_header_list = self.end_point_header_and_data.get('standHeadList')
+            standard_data_list = self.end_point_header_and_data.get('standDataList')
+            knows_header, knows_data_list = self.get_quantitative_determination_standard_table(standard_header_list, standard_data_list)
+            knows_table_data = {'headers': knows_header, 'row_data': knows_data_list}
+            contexts['knows_table_data'] = knows_table_data
 
-        # abs_identity = None
-        # same_number_identity = 'sampleNumber'
-        # for header in standard_header_list:
-        #     if header.get('locate') == 'measure' and 'Abs' in header.get('name') and '-' in header.get('identity'):
-        #         abs_identity = header.get('identity')
+            # abs_identity = None
+            # same_number_identity = 'sampleNumber'
+            # for header in standard_header_list:
+            #     if header.get('locate') == 'measure' and 'Abs' in header.get('name') and '-' in header.get('identity'):
+            #         abs_identity = header.get('identity')
 
-        # contexts['波长'] = str(abs_identity.split('-')[0]) if abs_identity and '-' in abs_identity else ''
+            # contexts['波长'] = str(abs_identity.split('-')[0]) if abs_identity and '-' in abs_identity else ''
 
-        # 未知样品表格
-        unknown_data_list = self.end_point_header_and_data.get('unknowDataList')
-        unknown_header_list = self.end_point_header_and_data.get('unknowHeadList')
-        unknown_header, unknown_data_list = self.get_quantitative_determination_unknown_table(unknown_header_list, unknown_data_list)
-        unknown_table_data = {'headers': unknown_header, 'row_data': unknown_data_list}
-        contexts['unknown_table_data'] = unknown_table_data
+            # 未知样品表格
+            unknown_data_list = self.end_point_header_and_data.get('unknowDataList')
+            unknown_header_list = self.end_point_header_and_data.get('unknowHeadList')
+            unknown_header, unknown_data_list = self.get_quantitative_determination_unknown_table(unknown_header_list, unknown_data_list)
+            unknown_table_data = {'headers': unknown_header, 'row_data': unknown_data_list}
+            contexts['unknown_table_data'] = unknown_table_data
+        else:
+            contexts['knows_table_data'] = {'headers': [], 'row_data': []}
+            contexts['unknown_table_data'] = {'headers': [], 'row_data': []}
         return contexts
     
     async def photometric_measurement_context(self, contexts):
-        # origin_header_real_header_mapping, tpl_context = await self.get_quantitative_determination_photometric_measurement_from_endpoint(doc_stream, task_id)
-        photometric_measurement = common_data_mapping.get(self.measure_type)
-        for jinja_val, common_val_key in photometric_measurement.items():
-            contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
-        header_list = self.end_point_header_and_data.get('headList')
-        data_list = self.end_point_header_and_data.get('dataList')
-        abs_identity = None
-        same_number_identity = 'sampleNumber'
-        for header in header_list:
-            if header.get('locate') == 'measure' and 'Abs' in header.get('name') and '-' in header.get('identity'):
-                abs_identity = header.get('identity')
-
-        rows = []
-        for index, data in enumerate(data_list):
-            row = {'序号': index + 1}
-            same_number = data.get(same_number_identity) if data.get(same_number_identity) else ''
-            row['编号'] = same_number
-            row['模式'] = self.common_val.get('luminosityMode') if self.common_val.get('luminosityMode') else ''
-            row['波长'] = data.get(abs_identity) if data.get(abs_identity) else ''
-            rows.append(row)
-        contexts['rows'] = rows
-        contexts['波长'] = str(abs_identity.split('-')[0])
+        # 光度测量
+        if self.common_val:
+            photometric_measurement = common_data_mapping.get(self.measure_type)
+            for jinja_val, common_val_key in photometric_measurement.items():
+                contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+        if self.end_point_header_and_data:
+            header_list = self.end_point_header_and_data.get('headList')
+            data_list = self.end_point_header_and_data.get('dataList')
+            headers, row_data = self.photometric_measurement_table_data(header_list, data_list)
+            table_data = {'headers': headers, 'row_data': row_data}
+            contexts['table_data'] = table_data
+        else:
+            contexts['table_data'] = {'headers': [], 'row_data': []}
         return contexts
         
 
@@ -389,7 +386,7 @@ class ClassicFillDataUtils():
         #     return None
 
     def get_common_data_by_endpoint(self, task_id, sample_id, serial_number):
-        template_common_url = os.getenv('CLASSIC_TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
+        template_common_url = config.classic_template_common_var_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}")
         try:
@@ -651,7 +648,7 @@ class ClassicFillDataUtils():
     def get_table_head_data_from_endpoint(self, task_id, sample_id):
         if sample_id and ',' in sample_id:
             self.single_sample = False
-        template_common_url = os.getenv('CLASSIC_TEMPLATE_TABLE_HEAD_DATA_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
+        template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
         # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
         try:
@@ -886,10 +883,15 @@ class ClassicFillDataUtils():
             header_name.pop(del_index)
             for row in return_unknown_data_list:
                 row.pop(del_index)
-        # abs_identity = None
-        # same_number_identity = 'sampleNumber'
-        # for header in unknown_header_list:
-        #     if header.get('locate') == 'measure' and 'Abs' in header.get('name') and '-' in header.get('identity'):
-        #         abs_identity = header.get('identity')
-        # rows = []
         return header_name, return_unknown_data_list
+    
+    def photometric_measurement_table_data(self, header_list, data_list):
+        name_identity_mapping = {header.get('name'): header.get('identity') for header in header_list}
+        headers = [header.get('name') for header in header_list]
+        row_data = []
+        for data in data_list:
+            row = []
+            for name in headers:
+                row.append(data.get(name_identity_mapping.get(name), ''))
+            row_data.append(row)
+        return headers, row_data
