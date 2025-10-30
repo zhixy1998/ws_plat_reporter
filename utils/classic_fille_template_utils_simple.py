@@ -111,10 +111,10 @@ class ClassicFillDataUtils():
         self.measure_type = measure_type
         self.single_sample = True
 
-    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None):
+    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None):
         common_val = self.get_common_data_by_endpoint(task_id, sample_id, serial_number)
 
-        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id)
+        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id, analysis_id)
         self.end_point_header_and_data = end_point_header_and_data
 
         tpl = DocxTemplate(doc_stream)
@@ -167,6 +167,8 @@ class ClassicFillDataUtils():
                 contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
             else:
                 contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+        table_data = self.handle_time_scanning_table(self.end_point_header_and_data)
+        contexts['table_data'] = table_data
         return contexts
     
     async def get_quantitative_determination_context(self, tpl, contexts):
@@ -645,14 +647,14 @@ class ClassicFillDataUtils():
                     tpl_context[rows_name] = rows
         return origin_header_real_header_mapping, tpl_context
     
-    def get_table_head_data_from_endpoint(self, task_id, sample_id):
+    def get_table_head_data_from_endpoint(self, task_id, sample_id, analysis_id):
         if sample_id and ',' in sample_id:
             self.single_sample = False
-        template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
+        template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='')
         # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
         try:
-            res = requests.get(template_common_url, timeout=5, verify=False)
+            res = requests.get(template_common_url, timeout=20, verify=False)
             if res.status_code == 200:
                 try:
                     res_json = res.json()
@@ -803,6 +805,58 @@ class ClassicFillDataUtils():
         #                 header[index] = header[index] + '\u00a0' * (len_dis + 1)
 
         return {'header': header, 'row_data': row_data}
+    
+    def handle_time_scanning_table(self, end_point_header_and_data):
+        head_list = end_point_header_and_data.get('headList')
+        data_list = end_point_header_and_data.get('dataList')
+        if self.single_sample:
+            identity_list = []
+            header = []
+            for head_mapping in head_list:
+                header.append(head_mapping.get('name'))
+                identity_list.append(head_mapping.get('identity'))
+            row_data = []
+            for data in data_list:
+                row = []
+                for index, identity in enumerate(identity_list):
+                    if data.get(identity):
+                        row.append(data.get(identity))
+                    else:
+                        row.append('')
+                row_data.append(row)
+        else:
+            sample_num = 0 # 样品数量
+            sample_name = []
+            for i in head_list:
+                if i.get('identity') == 'sampleNumber':
+                    sample_num += 1
+                    sample_name.append(i.get('name'))
+            header = ['编号', '波长']
+            row_data = []
+            for name in sample_name:
+                header.append(name)
+                header.append('峰谷')
+            for wave_length_data_mapping in data_list:
+                row = []
+                for wave_length, data in wave_length_data_mapping.items():
+                    row.append(data.get('id'))
+                    row.append(wave_length)
+                    for index, sample_num in enumerate(data.get('sampleNumber')):
+                        row.append(sample_num)
+                        row.append(data.get('peakValley')[index])
+                row_data.append(row)
+        # if row_data:
+        #     data_row_1 = row_data[0]
+        #     for index, data in enumerate(data_row_1):
+        #         data_len = len(str(data))
+        #         if index < len(header):
+        #             head_len = len(header[index])
+        #             if data_len > head_len:
+        #                 len_dis = data_len - head_len
+        #                 header[index] = header[index] + '\u00a0' * (len_dis + 1)
+
+        return {'header': header, 'row_data': row_data}
+        
 
     def get_quantitative_determination_standard_table(self, standard_header_list, standard_data_list):
         has_sum_abs = False
