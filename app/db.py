@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from tortoise import Tortoise
+from config import config
 """
 # 第一次初始化
 aerich init -t app.db.TORTOISE_ORM
@@ -19,8 +20,8 @@ load_dotenv(override=True)
 
 TORTOISE_ORM = {
     "connections": {
-        "default": os.getenv("DB_URL"), 
-        "classic_db": os.getenv("CLASSIC_DB_URL")
+        "default": config.database_url, 
+        "classic_db": config.classic_database_url
     },
     
     "apps": {
