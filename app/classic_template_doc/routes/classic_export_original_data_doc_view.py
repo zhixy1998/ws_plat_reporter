@@ -20,6 +20,7 @@ class InputSchema(BaseModel):
     template_id: int = Field(..., description='模板id')
     task_id: str = Field(..., description='任务id')
     sample_id: str = Field(None, description='样品id')
+    analysis_id: str = Field(None, description='分析id')
     serial_number: str = Field(None, description='样品序号')
     image_base64: str = Field(None, description='图片base64')
 
@@ -39,7 +40,7 @@ async def export_docx(data: InputSchema):
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
     original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(template_id=template_id, conn=classic_db_con)
     fill_data_instance_original = ClassicFillDataUtils(original_template_name, template_id=template_id, measure_type=measure_type)
-    original_doc_stream_obj = await fill_data_instance_original.fill_data(doc_stream=original_doc_stream_obj, task_id=task_id, sample_id=sample_id, serial_number=serial_number, image_base64=data.image_base64)
+    original_doc_stream_obj = await fill_data_instance_original.fill_data(doc_stream=original_doc_stream_obj, task_id=task_id, sample_id=sample_id, serial_number=serial_number, image_base64=data.image_base64, analysis_id=data.analysis_id)
     # original_doc_stream_obj.seek(0)
     return StreamingResponse(original_doc_stream_obj, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
         "Content-Disposition": "attachment; filename=original.docx"

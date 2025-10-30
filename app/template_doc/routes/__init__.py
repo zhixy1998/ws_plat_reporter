@@ -17,7 +17,7 @@ from .get_template_extra_info import router as get_template_extra_info_router
 from .del_template_view import router as del_template_router
 from .get_template_industry import router as get_template_industry_router
 from .export_original_report_doc_view import router as export_original_report_doc_router
-from .classic_export_original_data_doc_view import router as classic_export_original_data_doc_router
+# from .classic_export_original_data_doc_view import router as classic_export_original_data_doc_router
 from .debug_url import router as debug_url_router
 from .get_m import router as get_m_router
 from .merge_docx import router as merge_docx_router
