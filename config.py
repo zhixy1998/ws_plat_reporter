@@ -31,11 +31,11 @@ class Config:
     
     @property
     def port(self):
-        return self.config.get('env', 'port')
+        return int(self.config.get('env', 'report_port'))
     
     @property
     def log_level(self):
-        return self.config.get('env', 'log_level')
+        return self.config.get('env', 'report_log_level')
 
     # 添加更多 getter 方法...
 
