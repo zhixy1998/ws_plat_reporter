@@ -111,10 +111,10 @@ class ClassicFillDataUtils():
         self.measure_type = measure_type
         self.single_sample = True
 
-    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None):
+    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0):
         common_val = self.get_common_data_by_endpoint(task_id, sample_id, serial_number)
 
-        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id, analysis_id)
+        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id, analysis_id, all_display)
         self.end_point_header_and_data = end_point_header_and_data
 
         tpl = DocxTemplate(doc_stream)
@@ -647,14 +647,19 @@ class ClassicFillDataUtils():
                     tpl_context[rows_name] = rows
         return origin_header_real_header_mapping, tpl_context
     
-    def get_table_head_data_from_endpoint(self, task_id, sample_id, analysis_id):
+    def get_table_head_data_from_endpoint(self, task_id, sample_id, analysis_id, all_display=0):
         if sample_id and ',' in sample_id:
             self.single_sample = False
-        template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='')
+        if all_display:
+            all_display=True
+        else:
+            all_display=False
+            
+        template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='')
         # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
         try:
-            res = requests.get(template_common_url, timeout=20, verify=False)
+            res = requests.get(template_common_url, timeout=10, verify=False)
             if res.status_code == 200:
                 try:
                     res_json = res.json()
@@ -843,7 +848,10 @@ class ClassicFillDataUtils():
                     row.append(wave_length)
                     for index, sample_num in enumerate(data.get('sampleNumber')):
                         row.append(sample_num)
-                        row.append(data.get('peakValley')[index])
+                        if data.get('peakValley')[index]:
+                            row.append(data.get('peakValley')[index])
+                        else:
+                            row.append('')
                 row_data.append(row)
         # if row_data:
         #     data_row_1 = row_data[0]
@@ -859,85 +867,139 @@ class ClassicFillDataUtils():
         
 
     def get_quantitative_determination_standard_table(self, standard_header_list, standard_data_list):
-        has_sum_abs = False
-        header_name = ['序号', '样品编号', '样品名称', '样品类型', '标准浓度', 'ΔAbs']
-        knows_data_list = []
-        header_identity_mapping = {}
-        for header in header_name:
-            for header_data in standard_header_list:
-                if header_data.get('name') == header:
-                    header_identity_mapping[header] = header_data.get('identity')
-            if header not in header_identity_mapping:
-                header_identity_mapping[header] = ''
-        for index, standard_data in enumerate(standard_data_list):
+        name_identity_mapping = {header.get('name'): header.get('identity') for header in standard_header_list}
+        headers = [header.get('name') for header in standard_header_list]
+        row_data = []
+        for data in standard_data_list:
             row = []
-            for inside_index, name in enumerate(header_name):
-                if name == '序号':
-                    row.append(str(index + 1))
-                elif name == 'ΔAbs':
-                    sum_abs = standard_data.get('sumAbs')
-                    if sum_abs is not None:
-                        has_sum_abs = True
-                        row.append(sum_abs)
+            for name in headers:
+                identity = name_identity_mapping.get(name)
+                if identity:
+                    row_value = data.get(identity)
+                    if row_value:
+                        row.append(row_value)
                     else:
                         row.append('')
-                else:
-                    row.append(standard_data.get(header_identity_mapping.get(name)))
-            knows_data_list.append(row)
-        if has_sum_abs is False:
-            for index, name in enumerate(header_name):
-                if name == 'ΔAbs':
-                    del_index = index
-                else:
-                    header_name[index] = name
-            header_name.pop(del_index)
-            for row in knows_data_list:
-                row.pop(del_index)
-        return header_name, knows_data_list
+            row_data.append(row)
+            if data.get('children', []):
+                for children_data in data.get('children', []):
+                    row = []
+                    for name in headers:
+                        identity = name_identity_mapping.get(name)
+                        if identity:
+                            row_value = children_data.get(identity)
+                            if row_value:
+                                row.append(row_value)
+                            else:
+                                row.append('')
+                    row_data.append(row)
+        return headers, row_data
+        # has_sum_abs = False
+        # header_name = ['序号', '样品编号', '样品名称', '样品类型', '标准浓度', 'ΔAbs']
+        # knows_data_list = []
+        # header_identity_mapping = {}
+        # for header in header_name:
+        #     for header_data in standard_header_list:
+        #         if header_data.get('name') == header:
+        #             header_identity_mapping[header] = header_data.get('identity')
+        #     if header not in header_identity_mapping:
+        #         header_identity_mapping[header] = ''
+        # for index, standard_data in enumerate(standard_data_list):
+        #     row = []
+        #     for inside_index, name in enumerate(header_name):
+        #         if name == '序号':
+        #             row.append(str(index + 1))
+        #         elif name == 'ΔAbs':
+        #             sum_abs = standard_data.get('sumAbs')
+        #             if sum_abs is not None:
+        #                 has_sum_abs = True
+        #                 row.append(sum_abs)
+        #             else:
+        #                 row.append('')
+        #         else:
+        #             row.append(standard_data.get(header_identity_mapping.get(name)))
+        #     knows_data_list.append(row)
+        # if has_sum_abs is False:
+        #     for index, name in enumerate(header_name):
+        #         if name == 'ΔAbs':
+        #             del_index = index
+        #         else:
+        #             header_name[index] = name
+        #     header_name.pop(del_index)
+        #     for row in knows_data_list:
+        #         row.pop(del_index)
+        # return header_name, knows_data_list
     
     def get_quantitative_determination_unknown_table(self, unknown_header_list, unknown_data_list):
-        has_sum_abs = False
-        header_name = ['序号', '样品编号', '样品名称', '样品类型', 'Abs[wavelength]', 'Abs', '拟合浓度', '采样时间', 'ΔAbs']
-        return_unknown_data_list = []
-        header_identity_mapping = {}
-        for index, header in enumerate(header_name):
-            for header_data in unknown_header_list:
-                if header_data.get('name') == header:
-                    header_identity_mapping[header] = header_data.get('identity')
-            if header not in header_identity_mapping:
-                if header == 'Abs[wavelength]':
-                    for header_data in unknown_header_list:
-                        if 'Abs[' in header_data.get('name'):
-                            header_name[index] = header_data.get('name')
-                            header_identity_mapping[header_data.get('name')] = header_data.get('identity')
-                            break
-                else:
-                    header_identity_mapping[header] = ''
-        for index, unknown_data in enumerate(unknown_data_list):
+        name_identity_mapping = {header.get('name'): header.get('identity') for header in unknown_header_list}
+        headers = [header.get('name') for header in unknown_header_list]
+        row_data = []
+        for data in unknown_data_list:
             row = []
-            for inside_index, name in enumerate(header_name):
-                if name == '序号':
-                    row.append(str(index + 1))
-                elif name == 'ΔAbs':
-                    sum_abs = unknown_data.get('sumAbs')
-                    if sum_abs is not None:
-                        has_sum_abs = True
-                        row.append(sum_abs)
+            for name in headers:
+                identity = name_identity_mapping.get(name)
+                if identity:
+                    row_value = data.get(identity)
+                    if row_value:
+                        row.append(row_value)
                     else:
                         row.append('')
-                else:
-                    row.append(unknown_data.get(header_identity_mapping.get(name), ''))
-            return_unknown_data_list.append(row)
-        if has_sum_abs is False:
-            for index, name in enumerate(header_name):
-                if name == 'ΔAbs':
-                    del_index = index
-                else:
-                    header_name[index] = name
-            header_name.pop(del_index)
-            for row in return_unknown_data_list:
-                row.pop(del_index)
-        return header_name, return_unknown_data_list
+            row_data.append(row)
+            if data.get('children', []):
+                for children_data in data.get('children', []):
+                    row = []
+                    for name in headers:
+                        identity = name_identity_mapping.get(name)
+                        if identity:
+                            row_value = children_data.get(identity)
+                            if row_value:
+                                row.append(row_value)
+                            else:
+                                row.append('')
+                    row_data.append(row)
+        return headers, row_data
+        # has_sum_abs = False
+        # header_name = ['序号', '样品编号', '样品名称', '样品类型', 'Abs[wavelength]', 'Abs', '拟合浓度', '采样时间', 'ΔAbs']
+        # return_unknown_data_list = []
+        # header_identity_mapping = {}
+        # for index, header in enumerate(header_name):
+        #     for header_data in unknown_header_list:
+        #         if header_data.get('name') == header:
+        #             header_identity_mapping[header] = header_data.get('identity')
+        #     if header not in header_identity_mapping:
+        #         if header == 'Abs[wavelength]':
+        #             for header_data in unknown_header_list:
+        #                 if 'Abs[' in header_data.get('name'):
+        #                     header_name[index] = header_data.get('name')
+        #                     header_identity_mapping[header_data.get('name')] = header_data.get('identity')
+        #                     break
+        #         else:
+        #             header_identity_mapping[header] = ''
+        # for index, unknown_data in enumerate(unknown_data_list):
+        #     row = []
+        #     for inside_index, name in enumerate(header_name):
+        #         if name == '序号':
+        #             row.append(str(index + 1))
+        #         elif name == 'ΔAbs':
+        #             sum_abs = unknown_data.get('sumAbs')
+        #             if sum_abs is not None:
+        #                 has_sum_abs = True
+        #                 row.append(sum_abs)
+        #             else:
+        #                 row.append('')
+        #         else:
+        #             row.append(unknown_data.get(header_identity_mapping.get(name), ''))
+        #     return_unknown_data_list.append(row)
+        # if has_sum_abs is False:
+        #     for index, name in enumerate(header_name):
+        #         if name == 'ΔAbs':
+        #             del_index = index
+        #         else:
+        #             header_name[index] = name
+        #     header_name.pop(del_index)
+        #     for row in return_unknown_data_list:
+        #         row.pop(del_index)
+        # return header_name, return_unknown_data_list
     
     def photometric_measurement_table_data(self, header_list, data_list):
         name_identity_mapping = {header.get('name'): header.get('identity') for header in header_list}
@@ -946,6 +1008,24 @@ class ClassicFillDataUtils():
         for data in data_list:
             row = []
             for name in headers:
-                row.append(data.get(name_identity_mapping.get(name), ''))
+                identity = name_identity_mapping.get(name)
+                if identity:
+                    row_value = data.get(identity)
+                    if row_value:
+                        row.append(row_value)
+                    else:
+                        row.append('')
             row_data.append(row)
+            if data.get('children', []):
+                for children_data in data.get('children', []):
+                    row = []
+                    for name in headers:
+                        identity = name_identity_mapping.get(name)
+                        if identity:
+                            row_value = children_data.get(identity)
+                            if row_value:
+                                row.append(row_value)
+                            else:
+                                row.append('')
+                    row_data.append(row)
         return headers, row_data
