@@ -111,10 +111,10 @@ class ClassicFillDataUtils():
         self.measure_type = measure_type
         self.single_sample = True
 
-    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0):
+    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, digit=None):
         common_val = self.get_common_data_by_endpoint(task_id, sample_id, serial_number)
 
-        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id, analysis_id, all_display)
+        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id, analysis_id, all_display, digit)
         self.end_point_header_and_data = end_point_header_and_data
 
         tpl = DocxTemplate(doc_stream)
@@ -647,7 +647,7 @@ class ClassicFillDataUtils():
                     tpl_context[rows_name] = rows
         return origin_header_real_header_mapping, tpl_context
     
-    def get_table_head_data_from_endpoint(self, task_id, sample_id, analysis_id, all_display=0):
+    def get_table_head_data_from_endpoint(self, task_id, sample_id, analysis_id, all_display=0, digit=None):
         if sample_id and ',' in sample_id:
             self.single_sample = False
         if all_display:
@@ -655,7 +655,7 @@ class ClassicFillDataUtils():
         else:
             all_display=False
             
-        template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='')
+        template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='')
         # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
         try:
