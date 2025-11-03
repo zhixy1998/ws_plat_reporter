@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from tortoise import Tortoise
+from config import config
 """
 # 第一次初始化
 aerich init -t app.db.TORTOISE_ORM
@@ -19,8 +20,8 @@ load_dotenv(override=True)
 
 TORTOISE_ORM = {
     "connections": {
-        "default": "mysql://root:px123456@192.168.61.82:3306/t800_uv_inexus", 
-        "classic_db": "mysql://root:px123456@192.168.61.82:3306/t800_uv_inexus_concise"
+        "default": config.database_url, 
+        "classic_db": config.classic_database_url
     },
     
     "apps": {
