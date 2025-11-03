@@ -388,7 +388,7 @@ class ClassicFillDataUtils():
         #     return None
 
     def get_common_data_by_endpoint(self, task_id, sample_id, serial_number):
-        template_common_url = config.classic_template_common_var_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
+        template_common_url = config.classic_template_common_var_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&serialNumber=' + urllib.parse.quote(str(serial_number), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}")
         try:
@@ -655,7 +655,10 @@ class ClassicFillDataUtils():
         else:
             all_display=False
             
-        template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='')
+        if digit is not None:
+            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='')
+        else:
+            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='')
         # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
         try:
@@ -781,24 +784,26 @@ class ClassicFillDataUtils():
         else:
             sample_num = 0 # 样品数量
             sample_name = []
-            for i in head_list:
-                if i.get('identity') == 'sampleNumber':
-                    sample_num += 1
-                    sample_name.append(i.get('name'))
-            header = ['编号', '波长']
             row_data = []
-            for name in sample_name:
-                header.append(name)
-                header.append('峰谷')
-            for wave_length_data_mapping in data_list:
-                row = []
-                for wave_length, data in wave_length_data_mapping.items():
-                    row.append(data.get('id'))
-                    row.append(wave_length)
-                    for index, sample_num in enumerate(data.get('sampleNumber')):
-                        row.append(sample_num)
-                        row.append(data.get('peakValley')[index])
-                row_data.append(row)
+            if head_list:
+                for i in head_list:
+                    if i.get('identity') == 'sampleNumber':
+                        sample_num += 1
+                        sample_name.append(i.get('name'))
+                header = [h.get("name") for h in head_list]
+                # header = ['编号', '波长']
+                # for name in sample_name:
+                #     header.append(name)
+                #     header.append('峰谷')
+                for wave_length_data_mapping in data_list:
+                    row = []
+                    for wave_length, data in wave_length_data_mapping.items():
+                        row.append(data.get('id'))
+                        row.append(wave_length)
+                        for index, sample_num in enumerate(data.get('sampleNumber')):
+                            row.append(sample_num)
+                            row.append(data.get('peakValley')[index])
+                    row_data.append(row)
         # if row_data:
         #     data_row_1 = row_data[0]
         #     for index, data in enumerate(data_row_1):
@@ -836,16 +841,16 @@ class ClassicFillDataUtils():
                 if i.get('identity') == 'sampleNumber':
                     sample_num += 1
                     sample_name.append(i.get('name'))
-            header = ['编号', '波长']
+            header = [h.get("name") for h in head_list]
             row_data = []
-            for name in sample_name:
-                header.append(name)
-                header.append('峰谷')
+            # for name in sample_name:
+            #     header.append(name)
+            #     header.append('峰谷')
             for wave_length_data_mapping in data_list:
                 row = []
-                for wave_length, data in wave_length_data_mapping.items():
+                for time, data in wave_length_data_mapping.items():
                     row.append(data.get('id'))
-                    row.append(wave_length)
+                    row.append(time)
                     for index, sample_num in enumerate(data.get('sampleNumber')):
                         row.append(sample_num)
                         if data.get('peakValley')[index]:
@@ -853,15 +858,6 @@ class ClassicFillDataUtils():
                         else:
                             row.append('')
                 row_data.append(row)
-        # if row_data:
-        #     data_row_1 = row_data[0]
-        #     for index, data in enumerate(data_row_1):
-        #         data_len = len(str(data))
-        #         if index < len(header):
-        #             head_len = len(header[index])
-        #             if data_len > head_len:
-        #                 len_dis = data_len - head_len
-        #                 header[index] = header[index] + '\u00a0' * (len_dis + 1)
 
         return {'header': header, 'row_data': row_data}
         

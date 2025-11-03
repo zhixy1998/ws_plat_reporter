@@ -30,7 +30,7 @@ class InputSchema(BaseModel):
     analysis_id: str = Field(None, description='分析id')
     all_display: int = Field(0, description='Abs和T%是否显示')
     serial_number: str = Field(None, description='样品序号')
-    digit: int = Field(2, description='保留小数位数')
+    digit: int = Field(None, description='保留小数位数')
     image_base64: str = Field(None, description='图片base64')
 
 @router.post('/preview_template')
