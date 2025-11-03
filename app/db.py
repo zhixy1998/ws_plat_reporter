@@ -19,8 +19,8 @@ load_dotenv(override=True)
 
 TORTOISE_ORM = {
     "connections": {
-        "default": os.getenv("DB_URL"), 
-        "classic_db": os.getenv("CLASSIC_DB_URL")
+        "default": "mysql://root:px123456@192.168.61.82:3306/t800_uv_inexus", 
+        "classic_db": "mysql://root:px123456@192.168.61.82:3306/t800_uv_inexus_concise"
     },
     
     "apps": {
