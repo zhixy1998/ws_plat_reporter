@@ -30,6 +30,7 @@ class InputSchema(BaseModel):
     analysis_id: str = Field(None, description='分析id')
     all_display: int = Field(0, description='Abs和T%是否显示')
     serial_number: str = Field(None, description='样品序号')
+    digit: int = Field(2, description='保留小数位数')
     image_base64: str = Field(None, description='图片base64')
 
 @router.post('/preview_template')
@@ -49,7 +50,7 @@ async def preview_template(data: InputSchema):
     original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(template_id=template_id, conn=classic_db_con)
     fill_data_instance_original = ClassicFillDataUtils(original_template_name, template_id=template_id, measure_type=measure_type)
     original_doc_stream_obj = await fill_data_instance_original.fill_data(doc_stream=original_doc_stream_obj, task_id=task_id, sample_id=sample_id, 
-        serial_number=serial_number, image_base64=data.image_base64, analysis_id=data.analysis_id, all_display=data.all_display)
+        serial_number=serial_number, image_base64=data.image_base64, analysis_id=data.analysis_id, all_display=data.all_display, digit=data.digit)
     
     # 转换为PDF
     pdf_base64 = convert_docx_to_pdf_base64(original_doc_stream_obj)
