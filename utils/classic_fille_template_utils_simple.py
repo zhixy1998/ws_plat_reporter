@@ -157,6 +157,8 @@ class ClassicFillDataUtils():
         data_list = self.end_point_header_and_data.get('dataList')
         rows = []
         table_data = self.handle_spectral_scanning_table(self.end_point_header_and_data)
+        if self.single_sample:
+            contexts['single_sample'] = True
         contexts['table_data'] = table_data
         return contexts
     
@@ -168,6 +170,8 @@ class ClassicFillDataUtils():
             else:
                 contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
         table_data = self.handle_time_scanning_table(self.end_point_header_and_data)
+        if self.single_sample:
+            contexts['single_sample'] = True
         contexts['table_data'] = table_data
         return contexts
     
