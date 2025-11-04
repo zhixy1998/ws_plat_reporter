@@ -773,18 +773,19 @@ class ClassicFillDataUtils():
         if self.single_sample:
             identity_list = []
             header = []
-            for head_mapping in head_list:
-                header.append(head_mapping.get('name'))
-                identity_list.append(head_mapping.get('identity'))
             row_data = []
-            for data in data_list:
-                row = []
-                for index, identity in enumerate(identity_list):
-                    if data.get(identity):
-                        row.append(data.get(identity))
-                    else:
-                        row.append('')
-                row_data.append(row)
+            if head_list:
+                for head_mapping in head_list:
+                    header.append(head_mapping.get('name'))
+                    identity_list.append(head_mapping.get('identity'))
+                for data in data_list:
+                    row = []
+                    for index, identity in enumerate(identity_list):
+                        if data.get(identity):
+                            row.append(data.get(identity))
+                        else:
+                            row.append('')
+                    row_data.append(row)
         else:
             sample_num = 0 # 样品数量
             sample_name = []
@@ -808,6 +809,8 @@ class ClassicFillDataUtils():
                             row.append(sample_num)
                             row.append(data.get('peakValley')[index])
                     row_data.append(row)
+            else:
+                row_data = []
         # if row_data:
         #     data_row_1 = row_data[0]
         #     for index, data in enumerate(data_row_1):
