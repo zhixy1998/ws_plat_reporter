@@ -47,6 +47,7 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
         ]
     elif system in ['Windows']:
         libreoffice_path = config.libre_office_path
+        print(f"LibreOffice路径: {libreoffice_path}")
         command = [
             libreoffice_path, 
             '--headless', 

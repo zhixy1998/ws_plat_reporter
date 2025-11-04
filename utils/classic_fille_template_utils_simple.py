@@ -109,10 +109,14 @@ class ClassicFillDataUtils():
         self.table_contexts = {}
         self.end_point_header_and_data = None
         self.measure_type = measure_type
-        self.single_sample = True
+        self.single_sample = False
 
-    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, digit=None):
+    async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, is_repeat_mode=0, digit=None):
         common_val = self.get_common_data_by_endpoint(task_id, sample_id, serial_number)
+        if not is_repeat_mode and ',' not in sample_id: # 非重复模式
+            self.single_sample = True
+        if is_repeat_mode and ',' not in sample_id and ',' not in analysis_id:
+            self.single_sample = True
 
         end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id, analysis_id, all_display, digit)
         self.end_point_header_and_data = end_point_header_and_data
@@ -652,8 +656,6 @@ class ClassicFillDataUtils():
         return origin_header_real_header_mapping, tpl_context
     
     def get_table_head_data_from_endpoint(self, task_id, sample_id, analysis_id, all_display=0, digit=None):
-        if sample_id and ',' in sample_id:
-            self.single_sample = False
         if all_display:
             all_display=True
         else:
