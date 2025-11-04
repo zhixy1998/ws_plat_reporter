@@ -10,7 +10,7 @@ import platform
 import subprocess
 import subprocess
 from io import BytesIO
-from pathlib import Path
+from config import config
 
 def detect_file_format(file_content: bytes) -> str:
     """
@@ -37,7 +37,7 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
         命令参数列表
     """
     system = platform.system()
-    if system in ['Darwin', 'Windows']:
+    if system in ['Darwin']:
         command = [
             'soffice', 
             '--headless', 
@@ -45,6 +45,16 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
             '--outdir', temp_dir,
             doc_path
         ]
+    elif system in ['Windows']:
+        libreoffice_path = config.libre_office_path
+        command = [
+            libreoffice_path, 
+            '--headless', 
+            '--convert-to', aim,
+            '--outdir', temp_dir,
+            doc_path
+        ]
+
     elif system in ['Linux']:  # macOS 或 Linux
         command = [
             'libreoffice', 

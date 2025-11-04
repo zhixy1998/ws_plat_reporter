@@ -28,7 +28,7 @@ TORTOISE_ORM = {
         "models": {  # 只需要一套模型，用 .using_db() 来区分数据库
             "models": [
                 "app.template_doc.model",   # 一套模型，两个数据库都用
-                "aerich.models"                # Aerich 迁移系统必需
+                "aerich.models"             # Aerich 迁移系统必需
             ],
             "default_connection": "default"
         }
