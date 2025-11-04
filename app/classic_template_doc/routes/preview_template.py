@@ -4,6 +4,7 @@ import tempfile
 import subprocess
 from io import BytesIO
 from typing import List, Optional
+from pathlib import Path
 
 from tortoise import connections
 from fastapi import APIRouter, Query
@@ -115,7 +116,6 @@ def convert_docx_to_pdf_bytes(file_stream) -> bytes:
         pass
     
     doc_raw_bytes = file_stream.read()
-    
     with tempfile.TemporaryDirectory() as tmpdir:
         docx_path = os.path.join(tmpdir, "input.docx")
         pdf_path = os.path.join(tmpdir, "input.pdf")
