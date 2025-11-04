@@ -126,27 +126,27 @@ def convert_docx_to_pdf_bytes(file_stream) -> bytes:
         
         try:
             # 使用 LibreOffice 转换为 PDF
-            print(f"📝 [DEBUG] DOCX → PDF 转换开始...")
+            print(f" [DEBUG] DOCX → PDF 转换开始...")
             cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
             result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
             
             # 检查 PDF 是否生成
             if not os.path.exists(pdf_path):
-                print(f"❌ PDF 生成失败")
+                print(f" PDF 生成失败")
                 return b""
             
             # 读取 PDF 文件
             with open(pdf_path, "rb") as pdf_file:
                 pdf_bytes = pdf_file.read()
                 
-            print(f"✅ [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
+            print(f" [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
             return pdf_bytes
             
         except subprocess.CalledProcessError as e:
-            print(f"❌ LibreOffice 转换失败: {e}")
+            print(f" LibreOffice 转换失败: {e}")
             return b""
         except Exception as e:
-            print(f"❌ 转换过程出错: {e}")
+            print(f" 转换过程出错: {e}")
             import traceback
             traceback.print_exc()
             return b""
@@ -194,20 +194,20 @@ def classic_convert_docx_to_images_base64(file_stream) -> List[str]:
         
         try:
             # 步骤1：先转换为 PDF（保留所有页）
-            print(f"📝 [DEBUG] 步骤1: DOCX → PDF")
+            print(f" [DEBUG] 步骤1: DOCX → PDF")
             cmd_pdf = get_libreoffice_command(tmpdir, docx_path, 'pdf')
             subprocess.run(cmd_pdf, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
             
             if not os.path.exists(pdf_path):
-                print(f"❌ PDF 生成失败")
+                print(f" PDF 生成失败")
                 return []
             
-            print(f"✅ PDF 生成成功: {os.path.getsize(pdf_path)} bytes")
+            print(f" PDF 生成成功: {os.path.getsize(pdf_path)} bytes")
             
             # 步骤2：使用 pdf2image 将 PDF 转换为图片
             try:
                 from pdf2image import convert_from_path
-                print(f"🖼️  [DEBUG] 步骤2: PDF → PNG (使用 pdf2image)")
+                print(f"  [DEBUG] 步骤2: PDF → PNG (使用 pdf2image)")
                 
                 # 转换 PDF 的所有页为图片
                 images = convert_from_path(pdf_path, dpi=200)  # 200 DPI 保证清晰度
@@ -222,19 +222,19 @@ def classic_convert_docx_to_images_base64(file_stream) -> List[str]:
                     image_base64_list.append(f"data:image/png;base64,{img_base64}")
                     print(f"  ✓ 第 {i+1} 页转换完成")
                 
-                print(f"✅ [DEBUG] 最终返回 {len(image_base64_list)} 张图片")
+                print(f" [DEBUG] 最终返回 {len(image_base64_list)} 张图片")
                 return image_base64_list
                 
             except ImportError:
-                print(f"⚠️  pdf2image 未安装，尝试使用 ImageMagick")
+                print(f"  pdf2image 未安装，尝试使用 ImageMagick")
                 # 备用方案：使用 ImageMagick
                 return convert_pdf_to_images_imagemagick(pdf_path, tmpdir)
             
         except subprocess.CalledProcessError as e:
-            print(f"❌ LibreOffice 转换失败: {e}")
+            print(f" LibreOffice 转换失败: {e}")
             return []
         except Exception as e:
-            print(f"❌ 转换过程出错: {e}")
+            print(f" 转换过程出错: {e}")
             import traceback
             traceback.print_exc()
             return []
@@ -266,12 +266,12 @@ def convert_pdf_to_images_imagemagick(pdf_path: str, tmpdir: str) -> List[str]:
                 img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
                 image_base64_list.append(f"data:image/png;base64,{img_base64}")
         
-        print(f"✅ ImageMagick 转换完成: {len(image_base64_list)} 张图片")
+        print(f" ImageMagick 转换完成: {len(image_base64_list)} 张图片")
         return image_base64_list
         
     except FileNotFoundError:
-        print(f"❌ ImageMagick 未安装")
+        print(f" ImageMagick 未安装")
         return []
     except Exception as e:
-        print(f"❌ ImageMagick 转换失败: {e}")
+        print(f" ImageMagick 转换失败: {e}")
         return []

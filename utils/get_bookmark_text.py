@@ -11,7 +11,7 @@ def get_bookmark_text(doc: Document, bookmark_name: str) -> str:
             bm_id = bm.get(f"{{{ns_uri}}}id")
             break
     if not bm_id:
-        print(f"❌ 没找到书签 {bookmark_name}")
+        print(f" 没找到书签 {bookmark_name}")
         return ""
 
     bookmark_ends = doc.part._element.xpath('.//*[local-name()="bookmarkEnd"]')
@@ -21,7 +21,7 @@ def get_bookmark_text(doc: Document, bookmark_name: str) -> str:
             end_bm = bm
             break
     else:
-        print(f"❌ 没找到书签 {bookmark_name} 的结束标签")
+        print(f" 没找到书签 {bookmark_name} 的结束标签")
         return ""
 
     texts = []

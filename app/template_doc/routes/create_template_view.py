@@ -59,14 +59,14 @@ async def create_template_view(
             try:
                 docx_stream = convert_doc_to_docx(content)
                 content = docx_stream.read()  # 获取转换后的字节内容
-                print(f"✅ DOC文件转换成功: {file.filename}")
+                print(f" DOC文件转换成功: {file.filename}")
             except Exception as e:
-                print(f"❌ DOC文件转换失败: {e}")
+                print(f" DOC文件转换失败: {e}")
                 raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
         elif file_format == 'docx':
             print(f"检测到DOCX文件: {file.filename}")
         else:
-            print(f"❌ 不支持的文件格式: {file.filename}")
+            print(f" 不支持的文件格式: {file.filename}")
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
 
         content_base64 = base64.b64encode(content).decode('utf-8')

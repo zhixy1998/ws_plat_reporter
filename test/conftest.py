@@ -37,12 +37,12 @@ def setup_test_database():
     
     # 检查是否为测试数据库
     if current_db not in allowed_test_dbs:
-        print(f"❌ 错误: 当前数据库 '{current_db}' 不是测试数据库")
+        print(f" 错误: 当前数据库 '{current_db}' 不是测试数据库")
         print(f"   允许的测试数据库: {allowed_test_dbs}")
         print(f"   当前DB_URL: {db_url}")
         pytest.exit("测试终止：数据库名称不符合测试要求", returncode=1)
     
-    print(f"✅ 数据库名称验证通过: {current_db}")
+    print(f" 数据库名称验证通过: {current_db}")
     
     # 等待数据库初始化后再清空数据
     yield

@@ -513,7 +513,7 @@ def delete_bookmark_content(doc, bookmark_name, output_path=None):
             break
 
     if end_bm is None:
-        print(f"❌ 没找到书签 {bookmark_name} 的结束标签")
+        print(f" 没找到书签 {bookmark_name} 的结束标签")
         return doc
 
     print(f"找到书签 {bookmark_name}，开始删除内容")
@@ -536,7 +536,7 @@ def delete_bookmark_content(doc, bookmark_name, output_path=None):
             break
 
     if start_index is None or end_index is None:
-        print(f"❌ 无法确定书签 {bookmark_name} 的位置")
+        print(f" 无法确定书签 {bookmark_name} 的位置")
         return doc
 
     # 收集需要删除的元素（包括书签标记本身）
@@ -553,7 +553,7 @@ def delete_bookmark_content(doc, bookmark_name, output_path=None):
             print(f"删除元素时出错: {e}")
             continue
 
-    print(f"✅ 成功删除书签 {bookmark_name} 及其内容")
+    print(f" 成功删除书签 {bookmark_name} 及其内容")
     return doc
 
 def get_font_and_size(elem):
