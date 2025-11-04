@@ -1,7 +1,7 @@
 import pytest,sys
 import os
 import uuid
-from app.db import init_db  # ✅ 导入你现有的数据库初始化方法
+from app.db import init_db  #  导入你现有的数据库初始化方法
 from app.template_doc.model.template_doc import TemplateDoc
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -50,4 +50,4 @@ def test_upload_template_success(client, request):
     except Exception:
         pass
     
-    print(f"✅ 测试完成: 模板上传成功")
+    print(f" 测试完成: 模板上传成功")
