@@ -155,7 +155,7 @@ def log_complete_request(request_id: str, response_data: Any, status_code: int =
     }
     
     # 记录完整日志
-    logger.info(f"📋 [完整请求日志] ID: {request_id}\n{json.dumps(complete_log, ensure_ascii=False, indent=2, cls=DateTimeEncoder)}")
+    logger.info(f"[完整请求日志] ID: {request_id}\n{json.dumps(complete_log, ensure_ascii=False, indent=2, cls=DateTimeEncoder)}")
     
     # 清理存储
     _request_store.pop(request_id, None)

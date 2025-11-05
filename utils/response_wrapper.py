@@ -42,7 +42,7 @@ class LoggingResponse(JSONResponse):
         }
         
         # 记录完整日志
-        logger.info(f"📋 [完整请求日志] ID: {log_record['request_id']}\n{json.dumps(log_record, ensure_ascii=False, indent=2)}")
+        logger.info(f"[完整请求日志] ID: {log_record['request_id']}\n{json.dumps(log_record, ensure_ascii=False, indent=2)}")
 
 def create_logging_response(content: Any, status_code: int = 200, 
                           request_info: Dict[str, Any] = None, 

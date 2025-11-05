@@ -18,4 +18,4 @@ def test_get_report_template(client, request):
     assert result['data']['template_list'][0]['name'] == template_name
     assert result['data']['template_list'][0]['id'] == int(template_id)
 
-    print(f"✅ 书签测试成功: 模板名称 {template_name} 的API响应正常")
+    print(f" 书签测试成功: 模板名称 {template_name} 的API响应正常")

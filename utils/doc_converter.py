@@ -10,7 +10,7 @@ import platform
 import subprocess
 import subprocess
 from io import BytesIO
-from pathlib import Path
+from config import config
 
 def detect_file_format(file_content: bytes) -> str:
     """
@@ -37,7 +37,7 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
         命令参数列表
     """
     system = platform.system()
-    if system in ['Darwin', 'Windows']:
+    if system in ['Darwin']:
         command = [
             'soffice', 
             '--headless', 
@@ -45,6 +45,17 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
             '--outdir', temp_dir,
             doc_path
         ]
+    elif system in ['Windows']:
+        libreoffice_path = config.libre_office_path
+        print(f"LibreOffice路径: {libreoffice_path}")
+        command = [
+            libreoffice_path, 
+            '--headless', 
+            '--convert-to', aim,
+            '--outdir', temp_dir,
+            doc_path
+        ]
+
     elif system in ['Linux']:  # macOS 或 Linux
         command = [
             'libreoffice', 
@@ -70,7 +81,7 @@ def convert_doc_to_docx_libreoffice(doc_content: bytes) -> BytesIO:
                 f.write(doc_content)
             
             # 使用LibreOffice转换
-            print(f"🔄 使用LibreOffice转换DOC文件...")
+            print(f" 使用LibreOffice转换DOC文件...")
             
             # LibreOffice命令行转换
             cmd=get_libreoffice_command(temp_dir,doc_path,'docx')
@@ -101,7 +112,7 @@ def convert_doc_to_docx_libreoffice(doc_content: bytes) -> BytesIO:
             with open(docx_path, 'rb') as f:
                 docx_content = f.read()
             
-            print(f"✅ LibreOffice转换成功，DOCX大小: {len(docx_content)} 字节")
+            print(f" LibreOffice转换成功，DOCX大小: {len(docx_content)} 字节")
             
             return BytesIO(docx_content)
             
@@ -129,12 +140,12 @@ def convert_doc_to_docx(doc_content: bytes) -> BytesIO:
     
     if file_format == 'docx':
         # 已经是DOCX格式，直接返回
-        print("✅ 文件已经是DOCX格式")
+        print(" 文件已经是DOCX格式")
         return BytesIO(doc_content)
     elif file_format != 'doc':
         raise ValueError("不支持的文件格式，请上传DOC或DOCX文件")
     
-    print(f"📄 检测到DOC文件，大小: {len(doc_content)} 字节")
+    print(f" 检测到DOC文件，大小: {len(doc_content)} 字节")
     
     # 使用LibreOffice转换
     return convert_doc_to_docx_libreoffice(doc_content)

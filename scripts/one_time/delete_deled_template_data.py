@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 sys.path.append(BASE_DIR)
 
-from app.db import init_db  # ✅ 导入你现有的数据库初始化方法
+from app.db import init_db  #  导入你现有的数据库初始化方法
 from app.template_doc.model.template_doc import TemplateDoc
 from app.template_doc.model.template_doc_base import TemplateDocBase
 from app.template_doc.model.bookmark_data import BookmarkData

@@ -36,6 +36,10 @@ class Config:
     @property
     def log_level(self):
         return self.config.get('env', 'report_log_level')
+    
+    @property
+    def libre_office_path(self):
+        return self.config.get('env', 'libre_office_path')
 
     # 添加更多 getter 方法...
 
