@@ -112,14 +112,11 @@ class ClassicFillDataUtils():
         self.single_sample = False
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, is_repeat_mode=0, digit=None):
-        common_val = self.get_common_data_by_endpoint(task_id, sample_id, serial_number)
-        if sample_id:
-            if not is_repeat_mode and ',' not in sample_id: # 非重复模式
-                self.single_sample = True
-            if is_repeat_mode and ',' not in sample_id and ',' not in analysis_id:
-                self.single_sample = True
+        common_val = self.get_common_data_by_endpoint(task_id, analysis_id)
+        if analysis_id and len(analysis_id.split(',')) == 1:
+            self.single_sample = True
 
-        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, sample_id, analysis_id, all_display, digit)
+        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id, all_display, digit)
         self.end_point_header_and_data = end_point_header_and_data
 
         tpl = DocxTemplate(doc_stream)
@@ -162,8 +159,6 @@ class ClassicFillDataUtils():
         data_list = self.end_point_header_and_data.get('dataList')
         rows = []
         table_data = self.handle_spectral_scanning_table(self.end_point_header_and_data)
-        if self.single_sample:
-            contexts['single_sample'] = True
         contexts['table_data'] = table_data
         return contexts
     
@@ -175,8 +170,6 @@ class ClassicFillDataUtils():
             else:
                 contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
         table_data = self.handle_time_scanning_table(self.end_point_header_and_data)
-        if self.single_sample:
-            contexts['single_sample'] = True
         contexts['table_data'] = table_data
         return contexts
     
@@ -396,8 +389,8 @@ class ClassicFillDataUtils():
         #     print(f"生成定量图表失败: {e}")
         #     return None
 
-    def get_common_data_by_endpoint(self, task_id, sample_id, serial_number):
-        template_common_url = config.classic_template_common_var_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&serialNumber=' + urllib.parse.quote(str(serial_number), safe='')
+    def get_common_data_by_endpoint(self, task_id, analysis_id):
+        template_common_url = config.classic_template_common_var_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}")
         try:
@@ -656,16 +649,16 @@ class ClassicFillDataUtils():
                     tpl_context[rows_name] = rows
         return origin_header_real_header_mapping, tpl_context
     
-    def get_table_head_data_from_endpoint(self, task_id, sample_id, analysis_id, all_display=0, digit=None):
+    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None):
         if all_display:
             all_display=True
         else:
             all_display=False
             
         if digit is not None:
-            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='')
+            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='')
         else:
-            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='')
+            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='')
         # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
         try:
@@ -883,26 +876,22 @@ class ClassicFillDataUtils():
         row_data = []
         for data in standard_data_list:
             row = []
-            for name in headers:
-                identity = name_identity_mapping.get(name)
-                if identity:
-                    row_value = data.get(identity)
-                    if row_value:
-                        row.append(row_value)
-                    else:
-                        row.append('')
+            for _, identity in name_identity_mapping.items():
+                row_value = data.get(identity)
+                if row_value:
+                    row.append(row_value)
+                else:
+                    row.append('')
             row_data.append(row)
             if data.get('children', []):
                 for children_data in data.get('children', []):
                     row = []
-                    for name in headers:
-                        identity = name_identity_mapping.get(name)
-                        if identity:
-                            row_value = children_data.get(identity)
-                            if row_value:
-                                row.append(row_value)
-                            else:
-                                row.append('')
+                    for _, identity in name_identity_mapping.items():
+                        row_value = children_data.get(identity)
+                        if row_value:
+                            row.append(row_value)
+                        else:
+                            row.append('')
                     row_data.append(row)
         return headers, row_data
         # has_sum_abs = False
@@ -952,26 +941,22 @@ class ClassicFillDataUtils():
         row_data = []
         for data in unknown_data_list:
             row = []
-            for name in headers:
-                identity = name_identity_mapping.get(name)
-                if identity:
-                    row_value = data.get(identity)
-                    if row_value:
-                        row.append(row_value)
-                    else:
-                        row.append('')
+            for _, identity in name_identity_mapping.items():
+                row_value = data.get(identity)
+                if row_value:
+                    row.append(row_value)
+                else:
+                    row.append('')
             row_data.append(row)
             if data.get('children', []):
                 for children_data in data.get('children', []):
                     row = []
-                    for name in headers:
-                        identity = name_identity_mapping.get(name)
-                        if identity:
-                            row_value = children_data.get(identity)
-                            if row_value:
-                                row.append(row_value)
-                            else:
-                                row.append('')
+                    for _, identity in name_identity_mapping.items():
+                        row_value = children_data.get(identity)
+                        if row_value:
+                            row.append(row_value)
+                        else:
+                            row.append('')
                     row_data.append(row)
         return headers, row_data
         # has_sum_abs = False
@@ -1028,14 +1013,12 @@ class ClassicFillDataUtils():
         row_data = []
         for data in data_list:
             row = []
-            for name in headers:
-                identity = name_identity_mapping.get(name)
-                if identity:
-                    row_value = data.get(identity)
-                    if row_value:
-                        row.append(row_value)
-                    else:
-                        row.append('')
+            for _, identity in name_identity_mapping.items():
+                row_value = data.get(identity)
+                if row_value:
+                    row.append(row_value)
+                else:
+                    row.append('')
             row_data.append(row)
             if data.get('children', []):
                 for children_data in data.get('children', []):

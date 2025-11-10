@@ -5,19 +5,19 @@
 
 python_template_var = {
     "方法名称": {"fill_type": 0},
+    "仪器型号": {"fill_type": 0},
     "光谱扫描图片": {"fill_type": 0},
-    "table_data": {"fill_type": 0},
     "扫描范围": {"fill_type": 0},
-    "光度模式": {"fill_type": 0},
-    "分析时间": {"fill_type": 0},
-    "光谱带宽": {"fill_type": 0},
-    "扫描间隔": {"fill_type": 0},
-    "扫描速度": {"fill_type": 0},
     "数据文件": {"fill_type": 0},
-    "仪器序号": {"fill_type": 0},
+    "光谱带宽": {"fill_type": 0},
     "增益": {"fill_type": 0},
+    "仪器序号": {"fill_type": 0},
+    "扫描速度": {"fill_type": 0},
+    "table_data": {"fill_type": 0},
+    "扫描间隔": {"fill_type": 0},
     "备注": {"fill_type": 0},
-    "仪器型号": {"fill_type": 0}
+    "分析时间": {"fill_type": 0},
+    "光度模式": {"fill_type": 0}
 }
 
 # 字段渲染表格
