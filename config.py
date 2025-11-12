@@ -40,6 +40,10 @@ class Config:
     @property
     def libre_office_path(self):
         return self.config.get('env', 'libre_office_path')
+    
+    @property
+    def report_worker(self):
+        return int(self.config.get('env', 'report_worker'))
 
     # 添加更多 getter 方法...
 
