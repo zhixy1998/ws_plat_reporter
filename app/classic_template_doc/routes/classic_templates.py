@@ -53,9 +53,10 @@ async def get_total_template(
     }
     sort_key = sort_map.get(sort_field, 'id')
     if desc == 0:
-        sort_key = f'{sort_key}'  # 升序排序，Tortoise ORM语法
+        sort_key =('order',f'{sort_key}') 
+          # 升序排序，Tortoise ORM语法
     else:
-        sort_key = f'-{sort_key}'  # 降序排序，Tortoise ORM语法
+        sort_key =('-order',f'-{sort_key}')   # 降序排序，Tortoise ORM语法
 
     # 构建基础查询（如果 name 存在就加筛选）
     if experiment_type is not None:
@@ -65,7 +66,7 @@ async def get_total_template(
     sum_count = await query.count()
 
     # 排序 + 分页
-    query = query.order_by(sort_key).offset((page - 1) * page_size).limit(page_size)
+    query = query.order_by(*sort_key).offset((page - 1) * page_size).limit(page_size)
 
     # 执行查询
     template_list = await query.values('id', 'name', 'type', 'create_datetime', 'update_datetime', 'thumbnail_base64')

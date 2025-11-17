@@ -120,8 +120,9 @@ class ClassicFillDataUtils():
         self.end_point_header_and_data = end_point_header_and_data
 
         tpl = DocxTemplate(doc_stream)
-        contexts = await self.get_context(tpl, image_base64)
-        tpl.render(context=contexts)
+        flag, contexts = await self.get_context(tpl, image_base64)
+        if flag:
+            tpl.render(context=contexts)
         output_stream = BytesIO()
         tpl.save(output_stream)
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
@@ -132,6 +133,8 @@ class ClassicFillDataUtils():
         contexts = {}
         # print(self.end_point_header_and_data)
         # 光谱扫描
+        if self.measure_type is None:
+            return False, {}
         if self.measure_type == MeasureType.spectral_scanning.decs:
             contexts = await self.get_spectral_scanning_context(tpl, image_base64, contexts)
         # 时间扫描
@@ -143,7 +146,7 @@ class ClassicFillDataUtils():
         # 光度测量
         if self.measure_type  == MeasureType.photometric_measurement.decs:
             contexts = await self.photometric_measurement_context(contexts)
-        return contexts
+        return True, contexts
     
     async def get_spectral_scanning_context(self, tpl, image_base64, contexts):
         spectral_scanning_mapping = common_data_mapping.get(self.measure_type)
