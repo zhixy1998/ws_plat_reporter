@@ -121,8 +121,9 @@ class ClassicFillDataUtils():
 
         tpl = DocxTemplate(doc_stream)
         flag, contexts = await self.get_context(tpl, image_base64)
-        if flag:
-            tpl.render(context=contexts)
+        if not flag:
+            return None
+        tpl.render(context=contexts)
         output_stream = BytesIO()
         tpl.save(output_stream)
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
