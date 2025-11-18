@@ -1,18 +1,19 @@
+import io
+from io import BytesIO
 
 from fastapi import APIRouter
+from tortoise import connections
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
-
-from tortoise import connections
 
 from exceptions.error import ErrorCode
 from app.db import execute_safe_sql_classic
 from utils.log_decorator import log_response
-from constants.template_constant import MeasureType
 from exceptions.command_exception import APIException
-from app.template_doc.model.template_doc import TemplateDoc
 from utils.template_utils import get_doc_name_and_doc_stream_obj
 from utils.classic_fille_template_utils_simple import ClassicFillDataUtils
+from utils.template_utils import convert_docx_to_pdf_bytes
+
 
 router = APIRouter()
 
@@ -46,10 +47,37 @@ async def export_docx(data: InputSchema):
     original_doc_stream_obj = await fill_data_instance_original.fill_data(doc_stream=original_doc_stream_obj, task_id=task_id, sample_id=sample_id, 
                                 serial_number=serial_number, image_base64=data.image_base64, analysis_id=data.analysis_id, all_display=data.all_display, 
                                 is_repeat_mode=data.is_repeat_mode, digit=data.digit)
-    # original_doc_stream_obj.seek(0)
-    return StreamingResponse(original_doc_stream_obj, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
-        "Content-Disposition": "attachment; filename=original.docx"
-    })
+    if original_doc_stream_obj:
+        pdf_bytes = convert_docx_to_pdf_bytes(original_doc_stream_obj)
+    
+        if not pdf_bytes:
+            raise APIException(ErrorCode.INTERNAL_ERROR, "PDF转换失败")
+    
+        # 生成文件名（处理中文编码）
+        from urllib.parse import quote
+        filename = f"{original_template_name}_{task_id}.pdf"
+        encoded_filename = quote(filename)
+    
+        # 返回文件下载
+        return StreamingResponse(
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
+        )
+    else:
+        empty_stream = io.BytesIO(b'')
+        return StreamingResponse(
+            empty_stream, 
+            media_type="application/pdf", 
+            headers={
+                # 保持文件名和类型，但文件内容为零字节
+                "Content-Disposition": "attachment; filename=original.pdf",
+                # 明确告诉客户端文件长度是 0，虽然 StreamingResponse 通常会自动处理
+                "Content-Length": "0" 
+            }
+        )
 
 
 async def get_measure_type(task_id):

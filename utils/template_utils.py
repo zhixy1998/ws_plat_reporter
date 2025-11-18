@@ -1,11 +1,16 @@
+import os
+import tempfile
 import base64, json
+import subprocess
 from io import BytesIO
+from typing import List
 from docx import Document
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-from app.template_doc.model.template_doc import TemplateDoc
 from app.db import execute_safe_sql
+from utils.doc_converter import get_libreoffice_command
+from app.template_doc.model.template_doc import TemplateDoc
 
 
 async def get_doc_obj_by_template_id(template_id: int, classic_db=None):
@@ -128,11 +133,109 @@ class GetDataFromDatabase:
             analysis_result = analysis_data_sql_result[0].get('analysis_result')
             self.analysis_result = analysis_result
             return analysis_result
+
+def convert_docx_to_pdf_bytes(file_stream) -> bytes:
+    """
+    将 Word 文档转换为 PDF，返回字节流（用于文件下载）
+    使用 LibreOffice 转换，支持所有页面
+    """
+    # 重置流指针到开头（如果可能）
+    try:
+        file_stream.seek(0)
+    except:
+        pass
+    
+    doc_raw_bytes = file_stream.read()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        docx_path = os.path.join(tmpdir, "input.docx")
+        pdf_path = os.path.join(tmpdir, "input.pdf")
+        
+        # 保存 docx 文件
+        with open(docx_path, "wb") as f:
+            f.write(doc_raw_bytes)
+        
+        try:
+            # 使用 LibreOffice 转换为 PDF
+            print(f" [DEBUG] DOCX → PDF 转换开始...")
+            cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
+            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
             
+            # 检查 PDF 是否生成
+            if not os.path.exists(pdf_path):
+                print(f" PDF 生成失败")
+                return b""
+            
+            # 读取 PDF 文件
+            with open(pdf_path, "rb") as pdf_file:
+                pdf_bytes = pdf_file.read()
+                
+            print(f" [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
+            return pdf_bytes
+            
+        except subprocess.CalledProcessError as e:
+            print(f" LibreOffice 转换失败: {e}")
+            return b""
+        except Exception as e:
+            print(f" 转换过程出错: {e}")
+            import traceback
+            traceback.print_exc()
+            return b""
+
+
+def convert_docx_to_pdf_base64(file_stream) -> str:
+    """
+    将 Word 文档转换为 PDF，返回 base64 编码
+    使用 LibreOffice 转换，支持所有页面
+    """
+    # 重置流指针到开头（如果可能）
+    try:
+        file_stream.seek(0)
+    except:
+        pass
+    
+    # 复用 convert_docx_to_pdf_bytes 逻辑
+    pdf_bytes = convert_docx_to_pdf_bytes(file_stream)
+    
+    if not pdf_bytes:
+        return ""
+    
+    # 转换为 base64
+    pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+    return f"data:application/pdf;base64,{pdf_base64}"
+
+
+def convert_pdf_to_images_imagemagick(pdf_path: str, tmpdir: str) -> List[str]:
+    """
+    使用 ImageMagick 将 PDF 转换为图片（备用方案）
+    """
+    try:
+        # 使用 ImageMagick 的 convert 命令
+        output_pattern = os.path.join(tmpdir, "page.png")
+        cmd = [
+            'convert',
+            '-density', '200',  # DPI
+            pdf_path,
+            '-quality', '90',
+            output_pattern
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
         
-
-
-         
-
+        # 收集生成的图片
+        image_base64_list = []
+        png_files = sorted([f for f in os.listdir(tmpdir) if f.startswith('page') and f.endswith('.png')])
         
-
+        for filename in png_files:
+            img_path = os.path.join(tmpdir, filename)
+            with open(img_path, "rb") as img_file:
+                img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+                image_base64_list.append(f"data:image/png;base64,{img_base64}")
+        
+        print(f" ImageMagick 转换完成: {len(image_base64_list)} 张图片")
+        return image_base64_list
+        
+    except FileNotFoundError:
+        print(f" ImageMagick 未安装")
+        return []
+    except Exception as e:
+        print(f" ImageMagick 转换失败: {e}")
+        return []
