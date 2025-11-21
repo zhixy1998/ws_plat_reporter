@@ -37,4 +37,5 @@ class ErrorCode(Enum):
     TEMPLATE_FILE_NOT_FOUND = Error(10015, zh='模板文件不存在')
     TEMPLATE_FILE_ALREADY_EXISTS = Error(10016, zh='新模板文件名已存在')
     TEMPLATE_UPDATE_FAILED = Error(10017, zh='模板更新失败')
+    INVALID_FILE_FORMAT = Error(10018, zh='无效的文件格式')
 
