@@ -2,6 +2,7 @@
 # fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
+from .common_data import BaseTableDataHandler
 
 python_template_var = {
     "检测开始时间": {"fill_type": 0},

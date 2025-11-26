@@ -3,6 +3,7 @@ import re
 import base64
 import importlib
 import urllib.parse
+from decimal import Decimal
 from io import BytesIO
 from typing import List, Dict
 from dotenv import load_dotenv
@@ -209,6 +210,7 @@ class ClassicFillDataUtils():
                 
                 for i, value in enumerate(k_parts):
                     if value:
+                        value = str(Decimal(value))
                         contexts[f'k{i}'] = f'k{i}: '
                         contexts[f'k{i}_v'] = value
             k_values = []
@@ -441,8 +443,8 @@ class ClassicFillDataUtils():
         """
         # 合并context
         final_context = self.python_jinja_mapping.copy()
-        if additional_context:
-            final_context.update(self.table_contexts)
+        # if additional_context:
+        #     final_context.update(self.table_contexts)
             # print("Merged context:", final_context)
         # 处理python jinja语法变量
         tpl.render(context=final_context)
@@ -689,7 +691,7 @@ class ClassicFillDataUtils():
         
         return table_head_data
     
-    def get_unknown_sample_header(self, m) -> (str, str):
+    def get_unknown_sample_header(self, m):
         """
         未知样品:
             头: 
