@@ -66,7 +66,7 @@ common_data_mapping = {
         '测量波长': 'instrumentWavelength',
         '强制过零点': 'forceZeroPoint',
         '数据文件': 'taskName',
-        '分析时间': 'detectionStartTime',
+        '分析时间': 'detectionEndTime',
         '波长模式': 'luminosityMode',
         '曲线方程': 'equationType',
         '方程次数': 'curveType',
