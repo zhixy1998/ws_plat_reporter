@@ -43,6 +43,11 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
             '--headless', 
             '--convert-to', aim,
             '--outdir', temp_dir,
+            '--norestore',        # 禁止恢复
+            '--writer',           # 仅启动 Writer 模块
+            '--nologo',           # 禁止 Logo
+            '--nodefault',        # 禁止启动默认窗口/设置
+            '--nolockcheck',      # 忽略锁定检查 (可选)
             doc_path
         ]
     elif system in ['Windows']:
@@ -53,6 +58,11 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
             '--headless', 
             '--convert-to', aim,
             '--outdir', temp_dir,
+            '--norestore',        # 禁止恢复
+            '--writer',           # 仅启动 Writer 模块
+            '--nologo',           # 禁止 Logo
+            '--nodefault',        # 禁止启动默认窗口/设置
+            '--nolockcheck',      # 忽略锁定检查 (可选)
             doc_path
         ]
 
@@ -62,6 +72,11 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
             '--headless', 
             '--convert-to', aim,
             '--outdir', temp_dir,
+            '--norestore',        # 禁止恢复
+            '--writer',           # 仅启动 Writer 模块
+            '--nologo',           # 禁止 Logo
+            '--nodefault',        # 禁止启动默认窗口/设置
+            '--nolockcheck',      # 忽略锁定检查 (可选)
             doc_path
         ]
     else:
