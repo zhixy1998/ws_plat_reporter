@@ -40,14 +40,12 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
     if system in ['Darwin']:
         command = [
             'soffice', 
-            '--headless', 
+            '--headless',
+            '--norestore',
+            '--nologo',
+            '--nofirststartwizard',
             '--convert-to', aim,
             '--outdir', temp_dir,
-            '--norestore',        # 禁止恢复
-            '--writer',           # 仅启动 Writer 模块
-            '--nologo',           # 禁止 Logo
-            '--nodefault',        # 禁止启动默认窗口/设置
-            '--nolockcheck',      # 忽略锁定检查 (可选)
             doc_path
         ]
     elif system in ['Windows']:
@@ -55,28 +53,24 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
         print(f"LibreOffice路径: {libreoffice_path}")
         command = [
             libreoffice_path, 
-            '--headless', 
+            '--headless',
+            '--norestore',
+            '--nologo',
+            '--nofirststartwizard',
             '--convert-to', aim,
             '--outdir', temp_dir,
-            '--norestore',        # 禁止恢复
-            '--writer',           # 仅启动 Writer 模块
-            '--nologo',           # 禁止 Logo
-            '--nodefault',        # 禁止启动默认窗口/设置
-            '--nolockcheck',      # 忽略锁定检查 (可选)
             doc_path
         ]
 
     elif system in ['Linux']:  # macOS 或 Linux
         command = [
             'libreoffice', 
-            '--headless', 
+            '--headless',
+            '--norestore',
+            '--nologo',
+            '--nofirststartwizard',
             '--convert-to', aim,
             '--outdir', temp_dir,
-            '--norestore',        # 禁止恢复
-            '--writer',           # 仅启动 Writer 模块
-            '--nologo',           # 禁止 Logo
-            '--nodefault',        # 禁止启动默认窗口/设置
-            '--nolockcheck',      # 忽略锁定检查 (可选)
             doc_path
         ]
     else:
