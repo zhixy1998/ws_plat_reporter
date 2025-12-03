@@ -10,6 +10,7 @@ from typing import List
 from docx import Document
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx2pdf import convert
 
 from app.db import execute_safe_sql
 from utils.doc_converter import get_libreoffice_command
@@ -175,20 +176,28 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
     with tempfile.TemporaryDirectory() as tmpdir:
         docx_path = os.path.join(tmpdir, "input.docx")
         pdf_path = os.path.join(tmpdir, "input.pdf")
-        
+
         # 保存 docx 文件
         with open(docx_path, "wb") as f:
             f.write(doc_raw_bytes)
-        
-        # 重试机制：最多尝试 2 次
+
+        system = platform.system()
+        if system in ['Windows'] and has_ms_word():
+            try:
+                convert(docx_path, pdf_path)
+                return open(pdf_path, "rb").read()
+            except Exception as e:
+                print(f"docx2pdf 转换失败: {e}，尝试使用 LibreOffice")
+
+        # 如果 docx2pdf 不可用或失败，使用 LibreOffice
         for attempt in range(2):
             try:
                 print(f" [DEBUG] DOCX → PDF 转换开始（尝试 {attempt + 1}/2）...")
                 cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
-                
+
                 # Windows 上增加超时时间到 60 秒，其他系统 30 秒
-                timeout = 60 if platform.system() == 'Windows' else 30
-                
+                timeout = 30 if platform.system() == 'Windows' else 30
+                print('cmd======', cmd)
                 result = subprocess.run(
                     cmd, 
                     check=True, 
@@ -196,10 +205,10 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
                     stderr=subprocess.PIPE, 
                     timeout=timeout
                 )
-                
+
                 # 给系统一点时间确保文件写入完成
                 time.sleep(0.5)
-                
+
                 # 检查 PDF 是否生成
                 if not os.path.exists(pdf_path):
                     print(f" PDF 生成失败（文件不存在）")
@@ -209,11 +218,11 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
                         time.sleep(1)
                         continue
                     return b""
-                
+
                 # 读取 PDF 文件
                 with open(pdf_path, "rb") as pdf_file:
                     pdf_bytes = pdf_file.read()
-                
+
                 if len(pdf_bytes) == 0:
                     print(f" PDF 文件为空")
                     if attempt == 0:
@@ -221,10 +230,10 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
                         time.sleep(1)
                         continue
                     return b""
-                
+
                 print(f" [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
                 return pdf_bytes
-                
+
             except subprocess.TimeoutExpired as e:
                 print(f" LibreOffice 转换超时（{timeout} 秒）- 尝试 {attempt + 1}/2")
                 if attempt == 0:
@@ -234,7 +243,7 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
                     continue
                 print(f" 重试失败，放弃")
                 return b""
-                
+
             except subprocess.CalledProcessError as e:
                 print(f" LibreOffice 转换失败（返回码 {e.returncode}）: {e.stderr.decode() if e.stderr else 'unknown error'}")
                 if attempt == 0:
@@ -242,7 +251,7 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
                     time.sleep(1)
                     continue
                 return b""
-                
+
             except Exception as e:
                 print(f" 转换过程出错: {e}")
                 import traceback
@@ -252,7 +261,7 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
                     time.sleep(1)
                     continue
                 return b""
-        
+
         return b""
 
 
@@ -354,3 +363,12 @@ def convert_pdf_to_images_imagemagick(pdf_path: str, tmpdir: str) -> List[str]:
     except Exception as e:
         print(f" ImageMagick 转换失败: {e}")
         return []
+
+def has_ms_word():
+    try:
+        import win32com.client
+        word = win32com.client.Dispatch("Word.Application")
+        word.Quit()
+        return True
+    except Exception:
+        return False
