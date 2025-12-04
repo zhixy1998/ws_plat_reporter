@@ -93,7 +93,7 @@ async def preview_template_download(data: InputSchema):
     pdf_bytes = convert_docx_to_pdf_bytes(original_doc_stream_obj)
     
     if not pdf_bytes:
-        raise APIException(ErrorCode.INTERNAL_ERROR, "PDF转换失败")
+        raise APIException(ErrorCode.DOCX_CONVERSION_FAILED, "PDF转换失败")
     
     # 生成文件名（处理中文编码）
     from urllib.parse import quote
