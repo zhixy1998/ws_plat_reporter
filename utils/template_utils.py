@@ -211,12 +211,21 @@ def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
                 timeout=timeout
             )
 
+            stdout_text = result.stdout.decode('utf-8', errors='ignore').strip()
+            stderr_text = result.stderr.decode('utf-8', errors='ignore').strip()
+            if stdout_text:
+                print(f"LibreOffice stdout: {stdout_text}")
+            if stderr_text:
+                print(f"LibreOffice stderr: {stderr_text}")
+
             # 给系统一点时间确保文件写入完成
             time.sleep(0.5)
 
             # 检查 PDF 是否生成
             if not os.path.exists(pdf_path):
                 print(f" PDF 生成失败（文件不存在）")
+                if stdout_text or stderr_text:
+                    print(" 上次 LibreOffice 执行输出已记录，如上所示")
                 if attempt == 0:
                     # 第一次失败，继续重试
                     _kill_libreoffice_processes()
@@ -251,6 +260,11 @@ def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
 
         except subprocess.CalledProcessError as e:
             print(f" LibreOffice 转换失败（返回码 {e.returncode}）: {e.stderr.decode() if e.stderr else 'unknown error'}")
+            if e.stdout:
+                try:
+                    print(f" LibreOffice stdout: {e.stdout.decode('utf-8', errors='ignore')}")
+                except Exception:
+                    pass
             if attempt == 0:
                 _kill_libreoffice_processes()
                 time.sleep(1)
