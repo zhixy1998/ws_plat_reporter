@@ -5,12 +5,14 @@ import subprocess
 import threading
 import time
 import platform
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from io import BytesIO
 from typing import List
 from docx import Document
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx2pdf import convert
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 from app.db import execute_safe_sql
 from utils.doc_converter import get_libreoffice_command
@@ -169,6 +171,103 @@ def convert_docx_to_pdf_bytes(file_stream) -> bytes:
         return _do_convert_docx_to_pdf_bytes(doc_raw_bytes)
 
 
+def _try_convert_with_docx2pdf(docx_path: str, pdf_path: str, timeout: int = 10) -> bool:
+    """尝试在限定时间内通过 docx2pdf 转换，失败或超时返回 False。"""
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(convert, docx_path, pdf_path)
+            future.result(timeout=timeout)
+
+        if not os.path.exists(pdf_path):
+            print("docx2pdf 转换失败：未生成 PDF 文件")
+            return False
+
+        if os.path.getsize(pdf_path) == 0:
+            print("docx2pdf 转换失败：PDF 文件为空")
+            return False
+
+        return True
+
+    except FuturesTimeoutError:
+        print(f"docx2pdf 转换超过 {timeout} 秒，自动跳过")
+    except Exception as exc:
+        print(f"docx2pdf 转换异常: {exc}")
+
+    return False
+
+def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
+    for attempt in range(2):
+        try:
+            print(f" [DEBUG] DOCX → PDF 转换开始（尝试 {attempt + 1}/2）...")
+            cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
+
+            timeout = 30 if platform.system() == 'Windows' else 30
+            print('cmd======', cmd)
+            result = subprocess.run(
+                cmd, 
+                check=True, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE, 
+                timeout=timeout
+            )
+
+            # 给系统一点时间确保文件写入完成
+            time.sleep(0.5)
+
+            # 检查 PDF 是否生成
+            if not os.path.exists(pdf_path):
+                print(f" PDF 生成失败（文件不存在）")
+                if attempt == 0:
+                    # 第一次失败，继续重试
+                    _kill_libreoffice_processes()
+                    time.sleep(1)
+                    continue
+                return b""
+
+            # 读取 PDF 文件
+            with open(pdf_path, "rb") as pdf_file:
+                pdf_bytes = pdf_file.read()
+
+            if len(pdf_bytes) == 0:
+                print(f" PDF 文件为空")
+                if attempt == 0:
+                    _kill_libreoffice_processes()
+                    time.sleep(1)
+                    continue
+                return b""
+
+            print(f" [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
+            return pdf_bytes
+
+        except subprocess.TimeoutExpired as e:
+            print(f" LibreOffice 转换超时（{timeout} 秒）- 尝试 {attempt + 1}/2")
+            if attempt == 0:
+                # 第一次超时，强制杀死进程并重试
+                _kill_libreoffice_processes()
+                time.sleep(2)  # 等待进程清理
+                continue
+            print(f" 重试失败，放弃")
+            return b""
+
+        except subprocess.CalledProcessError as e:
+            print(f" LibreOffice 转换失败（返回码 {e.returncode}）: {e.stderr.decode() if e.stderr else 'unknown error'}")
+            if attempt == 0:
+                _kill_libreoffice_processes()
+                time.sleep(1)
+                continue
+            return b""
+
+        except Exception as e:
+            print(f" 转换过程出错: {e}")
+            import traceback
+            traceback.print_exc()
+            if attempt == 0:
+                _kill_libreoffice_processes()
+                time.sleep(1)
+                continue
+            return b""
+
+
 def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
     """
     实际的转换逻辑（在锁内执行）
@@ -180,87 +279,20 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
         # 保存 docx 文件
         with open(docx_path, "wb") as f:
             f.write(doc_raw_bytes)
+        
+        pdf_bytes = _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path)
 
+        if pdf_bytes:
+            return pdf_bytes
+        print("LibreOffice 转换失败，尝试使用office自动化（仅限Windows）")
         system = platform.system()
         if system in ['Windows'] and has_ms_word():
-            try:
-                convert(docx_path, pdf_path)
+            if _try_convert_with_docx2pdf(docx_path, pdf_path, timeout=10):
                 return open(pdf_path, "rb").read()
-            except Exception as e:
-                print(f"docx2pdf 转换失败: {e}，尝试使用 LibreOffice")
+            print("docx2pdf 转换失败或超时")
 
         # 如果 docx2pdf 不可用或失败，使用 LibreOffice
-        for attempt in range(2):
-            try:
-                print(f" [DEBUG] DOCX → PDF 转换开始（尝试 {attempt + 1}/2）...")
-                cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
-
-                # Windows 上增加超时时间到 60 秒，其他系统 30 秒
-                timeout = 30 if platform.system() == 'Windows' else 30
-                print('cmd======', cmd)
-                result = subprocess.run(
-                    cmd, 
-                    check=True, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.PIPE, 
-                    timeout=timeout
-                )
-
-                # 给系统一点时间确保文件写入完成
-                time.sleep(0.5)
-
-                # 检查 PDF 是否生成
-                if not os.path.exists(pdf_path):
-                    print(f" PDF 生成失败（文件不存在）")
-                    if attempt == 0:
-                        # 第一次失败，继续重试
-                        _kill_libreoffice_processes()
-                        time.sleep(1)
-                        continue
-                    return b""
-
-                # 读取 PDF 文件
-                with open(pdf_path, "rb") as pdf_file:
-                    pdf_bytes = pdf_file.read()
-
-                if len(pdf_bytes) == 0:
-                    print(f" PDF 文件为空")
-                    if attempt == 0:
-                        _kill_libreoffice_processes()
-                        time.sleep(1)
-                        continue
-                    return b""
-
-                print(f" [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
-                return pdf_bytes
-
-            except subprocess.TimeoutExpired as e:
-                print(f" LibreOffice 转换超时（{timeout} 秒）- 尝试 {attempt + 1}/2")
-                if attempt == 0:
-                    # 第一次超时，强制杀死进程并重试
-                    _kill_libreoffice_processes()
-                    time.sleep(2)  # 等待进程清理
-                    continue
-                print(f" 重试失败，放弃")
-                return b""
-
-            except subprocess.CalledProcessError as e:
-                print(f" LibreOffice 转换失败（返回码 {e.returncode}）: {e.stderr.decode() if e.stderr else 'unknown error'}")
-                if attempt == 0:
-                    _kill_libreoffice_processes()
-                    time.sleep(1)
-                    continue
-                return b""
-
-            except Exception as e:
-                print(f" 转换过程出错: {e}")
-                import traceback
-                traceback.print_exc()
-                if attempt == 0:
-                    _kill_libreoffice_processes()
-                    time.sleep(1)
-                    continue
-                return b""
+        
 
         return b""
 
