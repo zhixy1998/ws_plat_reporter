@@ -44,6 +44,13 @@ class Config:
     @property
     def report_worker(self):
         return int(self.config.get('env', 'report_worker'))
+    
+    @property
+    def deploy_python_path(self):
+        reporter_path = Path(self.config.get('python', 'reporter_path'))
+        deploy_python_path = reporter_path.parent
+        return str(deploy_python_path)
+
 
     # 添加更多 getter 方法...
 
