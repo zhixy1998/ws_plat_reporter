@@ -15,6 +15,7 @@ from docx2pdf import convert
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 from app.db import execute_safe_sql
+from config import config
 from utils.doc_converter import get_libreoffice_command
 from app.template_doc.model.template_doc import TemplateDoc
 
@@ -286,13 +287,21 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
     """
     实际的转换逻辑（在锁内执行）
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
+    custom_tmp_root = config.deploy_python_path
+    os.makedirs(custom_tmp_root, exist_ok=True)
+    can_write = os.access(custom_tmp_root, os.W_OK)
+    print(f"[DEBUG] 使用自定义临时目录: {custom_tmp_root} | exists={os.path.exists(custom_tmp_root)} | writable={can_write}")
+    with tempfile.TemporaryDirectory(dir=custom_tmp_root) as tmpdir:
+        print(f"[DEBUG] 创建具体临时目录: {tmpdir}")
         docx_path = os.path.join(tmpdir, "input.docx")
         pdf_path = os.path.join(tmpdir, "input.pdf")
 
         # 保存 docx 文件
         with open(docx_path, "wb") as f:
             f.write(doc_raw_bytes)
+        doc_exists = os.path.exists(docx_path)
+        doc_size = os.path.getsize(docx_path) if doc_exists else 0
+        print(f"[DEBUG] 写入 DOCX: exists={doc_exists} size={doc_size} path={docx_path}")
         
         pdf_bytes = _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path)
 
@@ -306,6 +315,14 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
             print("docx2pdf 转换失败或超时")
 
         # 如果 docx2pdf 不可用或失败，使用 LibreOffice
+
+        pdf_exists = os.path.exists(pdf_path)
+        if not pdf_exists:
+            try:
+                files_snapshot = os.listdir(tmpdir)
+            except Exception as snapshot_err:
+                files_snapshot = f"无法列出目录: {snapshot_err}"
+            print(f"[DEBUG] 清理前 PDF 不存在, tmpdir 内容: {files_snapshot}")
         
 
         return b""
