@@ -49,9 +49,14 @@ class DataOperation():
         return sql_result
     
     async def get_measure_sample_info(self):
-        sql_text = f"""
-            select * from f_t_measure_sample where id in {tuple(self.sample_key_list)};
-        """
+        if not self.sample_key_list:
+            return []
+        
+        if len(self.sample_key_list) == 1:
+            sql_text = f"select * from f_t_measure_sample where id = '{self.sample_key_list[0]}';"
+        else:
+            sql_text = f"select * from f_t_measure_sample where id in {tuple(self.sample_key_list)};"
+            
         sql_result = await execute_safe_sql_classic(sql_text, [], return_dict=True)
         return sql_result
     
