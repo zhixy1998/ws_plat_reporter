@@ -69,22 +69,25 @@ class DataOperation():
     
     @staticmethod
     async def insert_data(decrypt_data):
-        for _task_id, database_data_mapping in decrypt_data.get('task_data').items():
-            for database_name, data_list in database_data_mapping.items():
+        task_data = decrypt_data.get('task_data', {})
+        method_data = decrypt_data.get('method_data', {})
+        if task_data:
+            for _task_id, database_data_mapping in decrypt_data.get('task_data').items():
+                for database_name, data_list in database_data_mapping.items():
+                    sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
+                    if not sql:
+                        continue
+                    print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
+                    for params in all_params:
+                        await execute_safe_sql_classic(sql, params)
+        if method_data: 
+            for database_name, data_list in decrypt_data.get('method_data').items():
                 sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
+                print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
                 if not sql:
                     continue
-                print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
                 for params in all_params:
                     await execute_safe_sql_classic(sql, params)
-        
-        for database_name, data_list in decrypt_data.get('method_data').items():
-            sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
-            print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
-            if not sql:
-                continue
-            for params in all_params:
-                await execute_safe_sql_classic(sql, params)
 
 
         return True

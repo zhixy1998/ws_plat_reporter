@@ -63,6 +63,9 @@ async def backup_import(
         raise APIException(ErrorCode.INVALID_FILE_FORMAT)
     content_str = content_bytes.decode('utf-8')
     decrypt_data = decrypt_json(content_str)
-    result = await DataOperation.insert_data(decrypt_data)
-    if result:
-        return {'code': 200}
+    try:
+        result = await DataOperation.insert_data(decrypt_data)
+        if result:
+            return {'code': 200}
+    except Exception as e:
+        raise APIException(ErrorCode.IMPORT_ERROR, str(e))
