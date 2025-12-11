@@ -87,7 +87,8 @@ async def preview_template_download(data: InputSchema):
     original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(template_id=template_id, conn=classic_db_con)
     fill_data_instance_original = ClassicFillDataUtils(original_template_name, template_id=template_id, measure_type=measure_type)
     original_doc_stream_obj = await fill_data_instance_original.fill_data(doc_stream=original_doc_stream_obj, task_id=task_id, sample_id=sample_id, 
-                             serial_number=serial_number, image_base64=data.image_base64, analysis_id=data.analysis_id, all_display=data.all_display)
+                             serial_number=serial_number, image_base64=data.image_base64, analysis_id=data.analysis_id, all_display=data.all_display, 
+                             is_repeat_mode=data.is_repeat_mode, digit=data.digit)
     
     # 转换为PDF（返回字节流）
     pdf_bytes = convert_docx_to_pdf_bytes(original_doc_stream_obj)
