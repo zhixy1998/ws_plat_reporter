@@ -33,6 +33,7 @@ common_data_mapping = {
         '增益': 'gain',
         '扫描间隔': 'timeInterval',
         '扫描速度': 'scanSpeed',
+        '能量灯': 'energyLamp',
         '数据文件': 'taskName',
         '分析时间': 'detectionEndTime',
         '方法名称': 'methodName',
@@ -134,9 +135,9 @@ class ClassicFillDataUtils():
     async def get_context(self, tpl, image_base64):
         contexts = {}
         # print(self.end_point_header_and_data)
-        # 光谱扫描
         if self.measure_type is None:
             return False, {}
+        # 光谱扫描
         if self.measure_type == MeasureType.spectral_scanning.decs:
             contexts = await self.get_spectral_scanning_context(tpl, image_base64, contexts)
         # 时间扫描
