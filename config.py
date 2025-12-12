@@ -53,7 +53,7 @@ class Config:
             deploy_python_path = reporter_path.parent
             return str(deploy_python_path)
         except Exception:
-            return tempfile.gettempdir()
+            return None
 
 
     # 添加更多 getter 方法...
