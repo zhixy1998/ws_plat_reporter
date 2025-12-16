@@ -35,7 +35,7 @@ common_data_mapping = {
         '增益': 'gain',
         '扫描间隔': 'timeInterval',
         '扫描速度': 'scanSpeed',
-        '能量灯': 'energyLamp',
+        '能量灯': 'energyLight',
         '数据文件': 'taskName',
         '分析时间': 'detectionEndTime',
         '方法名称': 'methodName',
