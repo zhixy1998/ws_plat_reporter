@@ -22,9 +22,10 @@ class DataOperation():
         sql_result = await execute_safe_sql_classic(sql_text, [self.task_id], return_dict=True)
         if len(sql_result) == 1:
             self.method_key = sql_result[0].get('method_key')
-            sample_key = json.loads(sql_result[0].get('sample_key'))
-            for item in sample_key:
-                self.sample_key_list.append(item.get('specimenKey'))
+            if sql_result[0].get('sample_key'):
+                sample_key = json.loads(sql_result[0].get('sample_key'))
+                for item in sample_key:
+                    self.sample_key_list.append(item.get('specimenKey'))
         return sql_result
 
     async def get_measure_analysis_data_info(self):
@@ -43,7 +44,7 @@ class DataOperation():
     
     async def get_measure_method_info(self):
         sql_text = """
-            select * from f_t_measure_data where id = %s and is_delete = 0;
+            select * from f_t_measure_method where id = %s;
         """
         sql_result = await execute_safe_sql_classic(sql_text, [self.method_key], return_dict=True)
         return sql_result
@@ -68,12 +69,15 @@ class DataOperation():
         return sql_result   
     
     @staticmethod
-    async def insert_data(decrypt_data):
+    async def insert_data(decrypt_data, user_name, user_id):
         task_data = decrypt_data.get('task_data', {})
         method_data = decrypt_data.get('method_data', {})
+
         if task_data:
             for _task_id, database_data_mapping in decrypt_data.get('task_data').items():
                 for database_name, data_list in database_data_mapping.items():
+                    if database_name == 'f_t_measure_task':
+                        data_list[0]['user_id'] = user_id
                     sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
                     if not sql:
                         continue
@@ -82,6 +86,8 @@ class DataOperation():
                         await execute_safe_sql_classic(sql, params)
         if method_data: 
             for database_name, data_list in decrypt_data.get('method_data').items():
+                for data in data_list:
+                    data['method_creator'] = user_name
                 sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
                 print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
                 if not sql:

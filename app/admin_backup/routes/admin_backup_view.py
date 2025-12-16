@@ -1,10 +1,12 @@
 import io
+from fastapi import Request
 from typing import List
 
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
 from fastapi import APIRouter, UploadFile, File, Form
 
+from app.db import execute_safe_sql
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from app.admin_backup.utils.data_operation import DataOperation
@@ -55,16 +57,27 @@ async def backup_export(data: ExportInputModel):
 
 @router.post('/import')
 async def backup_import(
-    file: UploadFile = File(...,  description='备份文件')
+    request: Request,
+    file: UploadFile = File(...,  description='备份文件'),
+    user_id: str = Form(..., description='用户ID')
     ):
     content_bytes = await file.read()
     file_name = file.filename
+    user_name = getattr(request.state, "user_name", None)
     if file_name.split('.')[1] not in ['nxd', 'nxm']:
         raise APIException(ErrorCode.INVALID_FILE_FORMAT)
     content_str = content_bytes.decode('utf-8')
     decrypt_data = decrypt_json(content_str)
+    user_id = None
+    if user_name :
+        sql_text = """
+        select * from t_sys_user where username = %s;
+        """
+        user_info_list = await execute_safe_sql(sql_text, [user_name], return_dict=True)
+        if user_info_list:
+            user_id = user_info_list[0].get('id')
     try:
-        result = await DataOperation.insert_data(decrypt_data)
+        result = await DataOperation.insert_data(decrypt_data, user_name=user_name, user_id=user_id)
         if result:
             return {'code': 200}
     except Exception as e:
