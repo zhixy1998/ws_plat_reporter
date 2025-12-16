@@ -13,6 +13,8 @@ import matplotlib
 matplotlib.use('Agg')  # 使用非交互式后端
 import matplotlib.pyplot as plt
 from docx.shared import Cm
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docxtpl import InlineImage, DocxTemplate
 
 from config import config
@@ -148,7 +150,7 @@ class ClassicFillDataUtils():
             contexts = await self.get_quantitative_determination_context(tpl, contexts)
         # 光度测量
         if self.measure_type  == MeasureType.photometric_measurement.decs:
-            contexts = await self.photometric_measurement_context(contexts)
+            contexts = await self.photometric_measurement_context(tpl, contexts)
         return True, contexts
     
     async def get_spectral_scanning_context(self, tpl, image_base64, contexts):
@@ -161,12 +163,53 @@ class ClassicFillDataUtils():
                 contexts[jinja_val] = scan_range
             else:
                 contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
-        header_list = self.end_point_header_and_data.get('headList')
-        data_list = self.end_point_header_and_data.get('dataList')
-        rows = []
         table_data = self.handle_spectral_scanning_table(self.end_point_header_and_data)
+        # 兼容旧模板（仍可用 Jinja 循环渲染）
         contexts['table_data'] = table_data
+        # 新方式：预先用 python-docx 生成表格，再通过 docxtpl subdoc 插入（只改光谱）
+        try:
+            contexts['spectral_table_subdoc'] = self._build_table_subdoc(tpl, table_data)
+        except Exception as e:
+            print(f"生成光谱表格subdoc失败: {e}")
+            contexts['spectral_table_subdoc'] = ''
         return contexts
+
+    def _build_table_subdoc(self, tpl: DocxTemplate, table_data: dict):
+        """用 python-docx 在 subdoc 中构造表格，供 docxtpl 插入。"""
+        subdoc = tpl.new_subdoc()
+        headers = (table_data or {}).get('header') or (table_data or {}).get('headers') or []
+        row_data = (table_data or {}).get('row_data') or []
+
+        # 无数据时给一个空段落，避免模板渲染出错
+        if not headers:
+            subdoc.add_paragraph('')
+            return subdoc
+
+        table = subdoc.add_table(rows=1, cols=len(headers))
+        table.style = 'Table Grid'
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+        # 表头
+        hdr_cells = table.rows[0].cells
+        for i, h in enumerate(headers):
+            hdr_cells[i].text = '' if h is None else str(h)
+            hdr_cells[i].vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+            if hdr_cells[i].paragraphs:
+                hdr_cells[i].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+        # 数据行
+        for row in row_data:
+            cells = table.add_row().cells
+            # row 可能长度不齐，做 padding
+            padded = list(row) + [''] * (len(headers) - len(row))
+            for i in range(len(headers)):
+                v = padded[i]
+                cells[i].text = '' if v is None else str(v)
+                cells[i].vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+                if cells[i].paragraphs:
+                    cells[i].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+        return subdoc
     
     async def get_time_scanning_context(self, tpl, image_base64, contexts):
         time_scanning_mapping = common_data_mapping.get(self.measure_type)
@@ -177,6 +220,11 @@ class ClassicFillDataUtils():
                 contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
         table_data = self.handle_time_scanning_table(self.end_point_header_and_data)
         contexts['table_data'] = table_data
+        try:
+            contexts['time_table_subdoc'] = self._build_table_subdoc(tpl, table_data)
+        except Exception as e:
+            print(f"生成时间表格subdoc失败: {e}")
+            contexts['time_table_subdoc'] = ''
         return contexts
     
     async def get_quantitative_determination_context(self, tpl, contexts):
@@ -248,12 +296,26 @@ class ClassicFillDataUtils():
             unknown_header, unknown_data_list = self.get_quantitative_determination_unknown_table(unknown_header_list, unknown_data_list)
             unknown_table_data = {'headers': unknown_header, 'row_data': unknown_data_list}
             contexts['unknown_table_data'] = unknown_table_data
+            try:
+                contexts['knows_table_subdoc'] = self._build_table_subdoc(tpl, knows_table_data)
+                contexts['unknown_table_subdoc'] = self._build_table_subdoc(tpl, unknown_table_data)
+            except Exception as e:
+                print(f"生成定量表格subdoc失败: {e}")
+                contexts['knows_table_subdoc'] = ''
+                contexts['unknown_table_subdoc'] = ''
         else:
             contexts['knows_table_data'] = {'headers': [], 'row_data': []}
             contexts['unknown_table_data'] = {'headers': [], 'row_data': []}
+            try:
+                contexts['knows_table_subdoc'] = self._build_table_subdoc(tpl, contexts['knows_table_data'])
+                contexts['unknown_table_subdoc'] = self._build_table_subdoc(tpl, contexts['unknown_table_data'])
+            except Exception as e:
+                print(f"生成定量表格subdoc失败: {e}")
+                contexts['knows_table_subdoc'] = ''
+                contexts['unknown_table_subdoc'] = ''
         return contexts
     
-    async def photometric_measurement_context(self, contexts):
+    async def photometric_measurement_context(self, tpl, contexts):
         # 光度测量
         if self.common_val:
             photometric_measurement = common_data_mapping.get(self.measure_type)
@@ -265,8 +327,18 @@ class ClassicFillDataUtils():
             headers, row_data = self.photometric_measurement_table_data(header_list, data_list)
             table_data = {'headers': headers, 'row_data': row_data}
             contexts['table_data'] = table_data
+            try:
+                contexts['photometric_table_subdoc'] = self._build_table_subdoc(tpl, table_data)
+            except Exception as e:
+                print(f"生成光度表格subdoc失败: {e}")
+                contexts['photometric_table_subdoc'] = ''
         else:
             contexts['table_data'] = {'headers': [], 'row_data': []}
+            try:
+                contexts['photometric_table_subdoc'] = self._build_table_subdoc(tpl, contexts['table_data'])
+            except Exception as e:
+                print(f"生成光度表格subdoc失败: {e}")
+                contexts['photometric_table_subdoc'] = ''
         return contexts
         
 
