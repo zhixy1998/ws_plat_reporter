@@ -59,7 +59,6 @@ async def backup_export(data: ExportInputModel):
 async def backup_import(
     request: Request,
     file: UploadFile = File(...,  description='备份文件'),
-    user_id: str = Form(..., description='用户ID')
     ):
     content_bytes = await file.read()
     file_name = file.filename
