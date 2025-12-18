@@ -117,6 +117,7 @@ class ClassicFillDataUtils():
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, is_repeat_mode=0, digit=None):
         common_val = self.get_common_data_by_endpoint(task_id, analysis_id)
+        print('通用接口返回数据==============：', common_val)
         if analysis_id and len(analysis_id.split(',')) == 1:
             self.single_sample = True
 
