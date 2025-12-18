@@ -14,7 +14,7 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
     `is_del` SMALLINT NOT NULL  DEFAULT 0,
     KEY `idx_bookmark_da_bookmar_064989` (`bookmark_id`)
 ) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `bookmark_custom` (
+CREATE TABLE IF NOT EXISTS `template_extra_info` (
     `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `header` LONGTEXT   COMMENT '页眉',
     `footer` LONGTEXT   COMMENT '页脚',

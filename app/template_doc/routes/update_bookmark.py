@@ -19,7 +19,7 @@ from utils.log_decorator import log_response
 from ..model.template_doc import TemplateDoc
 from utils.EditDocxXML import fill_word_bookmark
 from .create_template_view import create_template
-from ..model.custom_bookmark import CustomBookmark
+from ..model.custom_bookmark import TemplateExtraInfo
 from utils.fille_template_utils import FillDataUtils
 from exceptions.command_exception import APIException
 from ..model.template_bookmark import TemplateBookmark
@@ -146,7 +146,7 @@ async def update_bookmark(data: InputSchema):
 
     #更新数据库CustomBookmark
     try:
-        result = await CustomBookmark.update_custom_bookmark(
+        result = await TemplateExtraInfo.update_custom_bookmark(
         template_id=data.template_id,
         note=data.note.value if data.note else None, 
         project_name=data.project_name.value if data.project_name else None,

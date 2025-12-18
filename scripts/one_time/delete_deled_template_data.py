@@ -16,7 +16,6 @@ from app.template_doc.model.template_doc import TemplateDoc
 from app.template_doc.model.template_doc_base import TemplateDocBase
 from app.template_doc.model.bookmark_data import BookmarkData
 from app.template_doc.model.template_bookmark import TemplateBookmark
-from app.template_doc.model.custom_bookmark import CustomBookmark
 from app.template_doc.model.template_extra_info import TemplateExtraInfo
 
 async def run():
@@ -49,9 +48,9 @@ async def run():
                     await bookmark.delete()
             
             # 删除自定义书签
-            custom_bookmark_count = await CustomBookmark.filter(template_doc_id=template_instance.id).count()
+            custom_bookmark_count = await TemplateExtraInfo.filter(template_doc_id=template_instance.id).count()
             print(f"  删除 {custom_bookmark_count} 个自定义书签记录")
-            await CustomBookmark.filter(template_doc_id=template_instance.id).delete()
+            await TemplateExtraInfo.filter(template_doc_id=template_instance.id).delete()
             
             # 删除模板额外信息
             extra_info_count = await TemplateExtraInfo.filter(template_doc_id=template_instance.id).count()
