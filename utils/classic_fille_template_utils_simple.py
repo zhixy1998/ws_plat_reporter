@@ -53,6 +53,8 @@ common_data_mapping = {
         '扫描时间': 'scanTime',
         '时间间隔': 'timeInterval',
         '扫描速度': 'scanSpeed',
+        '增益': 'gain',
+        '能量灯': 'energyLight',
         '采样数': 'totalNumber',
         '测量波长': 'instrumentWavelength',
         '数据文件': 'taskName',
