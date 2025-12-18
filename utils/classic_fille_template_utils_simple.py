@@ -53,6 +53,8 @@ common_data_mapping = {
         '扫描时间': 'scanTime',
         '时间间隔': 'timeInterval',
         '扫描速度': 'scanSpeed',
+        '增益': 'gain',
+        '能量灯': 'energyLight',
         '采样数': 'totalNumber',
         '测量波长': 'instrumentWavelength',
         '数据文件': 'taskName',
@@ -117,6 +119,7 @@ class ClassicFillDataUtils():
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, is_repeat_mode=0, digit=None):
         common_val = self.get_common_data_by_endpoint(task_id, analysis_id)
+        print('通用接口返回数据==============：', common_val)
         if analysis_id and len(analysis_id.split(',')) == 1:
             self.single_sample = True
 
@@ -1110,5 +1113,7 @@ class ClassicFillDataUtils():
                                 row.append(row_value)
                             else:
                                 row.append('')
+                        else:
+                            row.append('')
                     row_data.append(row)
         return headers, row_data
