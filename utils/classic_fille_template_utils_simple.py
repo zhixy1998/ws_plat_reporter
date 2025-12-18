@@ -1113,5 +1113,7 @@ class ClassicFillDataUtils():
                                 row.append(row_value)
                             else:
                                 row.append('')
+                        else:
+                            row.append('')
                     row_data.append(row)
         return headers, row_data
