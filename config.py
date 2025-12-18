@@ -1,5 +1,6 @@
 import os
 import configparser
+import tempfile
 from pathlib import Path
 
 class Config:
@@ -47,9 +48,12 @@ class Config:
     
     @property
     def deploy_python_path(self):
-        reporter_path = Path(self.config.get('python', 'reporter_path'))
-        deploy_python_path = reporter_path.parent
-        return str(deploy_python_path)
+        try:
+            reporter_path = Path(self.config.get('python', 'reporter_path'))
+            deploy_python_path = reporter_path.parent
+            return str(deploy_python_path)
+        except Exception:
+            return None
 
 
     # 添加更多 getter 方法...

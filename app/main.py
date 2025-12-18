@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from jwt import ExpiredSignatureError, PyJWTError, InvalidTokenError
+from typing import Optional
 
 from app.db import init_db
 from contextlib import asynccontextmanager
@@ -65,20 +66,14 @@ async def token_auth_exception_handler(request: Request, exc: TokenAuthError):
     )
 
 
-def verify(token: str) -> bool:
+def verify(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, KEY, algorithms=[ALGORITHM], issuer="auth0")
-        # print("认证通过：")
-        # print(f"issuer: {payload.get('iss')}")
-        # print(f"username: {payload.get('userName')}")
-        # print(f"过期时间： {payload.get('exp')}")
-        return True
+        return payload
     except ExpiredSignatureError:
-        # print("Token has expired")
-        return False
+        return None
     except InvalidTokenError:
-        # print("Invalid token")
-        return False
+        return None
 
 class JWTVerificationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -86,8 +81,8 @@ class JWTVerificationMiddleware(BaseHTTPMiddleware):
             return JSONResponse(status_code=200, content={})
         token = request.headers.get("Token")
         if token:
-            verify_result = verify(token)
-            if verify_result is False:
+            payload = verify(token)
+            if not payload:
                 # print(request.url.path)
                 return JSONResponse(
                     status_code=200,
@@ -98,6 +93,8 @@ class JWTVerificationMiddleware(BaseHTTPMiddleware):
                         "success": False
                     }
                 )
+            request.state.jwt_payload = payload
+            request.state.user_name = payload.get("userName")
 
         response = await call_next(request)
         return response

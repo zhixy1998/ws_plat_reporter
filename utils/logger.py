@@ -4,9 +4,15 @@ from loguru import logger
 from typing import Dict, Any
 import json
 from datetime import datetime
+from config import config
 
-# 创建logs目录
-logs_dir = "logs"
+python_path = config.deploy_python_path
+if python_path:
+    # 使用自定义路径的logs目录
+    logs_dir = os.path.join(python_path, "logs")
+else:
+    # 创建logs目录
+    logs_dir = "logs"
 if not os.path.exists(logs_dir):
     os.makedirs(logs_dir)
 

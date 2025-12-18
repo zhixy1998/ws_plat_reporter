@@ -288,6 +288,8 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
     实际的转换逻辑（在锁内执行）
     """
     custom_tmp_root = config.deploy_python_path
+    if custom_tmp_root is None:
+        custom_tmp_root = tempfile.gettempdir()
     os.makedirs(custom_tmp_root, exist_ok=True)
     can_write = os.access(custom_tmp_root, os.W_OK)
     print(f"[DEBUG] 使用自定义临时目录: {custom_tmp_root} | exists={os.path.exists(custom_tmp_root)} | writable={can_write}")
