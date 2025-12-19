@@ -164,6 +164,20 @@ class ClassicFillDataUtils():
             elif jinja_val == '扫描范围':
                 scan_range = self.common_val.get('startWaveLength', '')  + '至' + self.common_val.get('endWaveLength', '')
                 contexts[jinja_val] = scan_range
+            elif jinja_val == '增益':
+                gain_value = self.common_val.get(common_val_key)
+                if gain_value not in [None, '']:
+                    contexts['show_gain'] = True
+                    contexts[jinja_val] = str(gain_value)
+                else:
+                    contexts[jinja_val] = ''
+            elif jinja_val == '能量灯':
+                energy_light_value = self.common_val.get(common_val_key)
+                if energy_light_value not in [None, '']:
+                    contexts['show_energy_light'] = True
+                    contexts[jinja_val] = str(energy_light_value)
+                else:
+                    contexts[jinja_val] = ''
             else:
                 contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
         table_data = self.handle_spectral_scanning_table(self.end_point_header_and_data)
@@ -219,6 +233,20 @@ class ClassicFillDataUtils():
         for jinja_val, common_val_key in time_scanning_mapping.items():
             if jinja_val != '时间扫描图片':
                 contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+            elif jinja_val == '增益':
+                gain_value = self.common_val.get(common_val_key)
+                if gain_value not in [None, '']:
+                    contexts['show_gain'] = True
+                    contexts[jinja_val] = str(gain_value)
+                else:
+                    contexts[jinja_val] = ''
+            elif jinja_val == '能量灯':
+                energy_light_value = self.common_val.get(common_val_key)
+                if energy_light_value not in [None, '']:
+                    contexts['show_energy_light'] = True
+                    contexts[jinja_val] = str(energy_light_value)
+                else:
+                    contexts[jinja_val] = ''
             else:
                 contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
         table_data = self.handle_time_scanning_table(self.end_point_header_and_data)
