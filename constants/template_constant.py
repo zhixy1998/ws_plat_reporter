@@ -100,3 +100,8 @@ class MeasureType(StorageInfo):
     time_scanning = MessageType(decs='时间扫描', value=1, name='time_scanning')
     quantitative_determination = MessageType(decs='定量测定', value=2, name='quantitative_determination')
     photometric_measurement = MessageType(decs='光度测量', value=3, name='photometric_measurement')
+
+
+class TemplateOriginType(StorageInfo):
+    system_default = MessageType(decs='系统默认模板', value=0, name="system_default")
+    user_change = MessageType(decs='用户另存为模板', value=1, name="user_change")

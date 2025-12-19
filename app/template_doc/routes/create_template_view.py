@@ -222,12 +222,6 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
         
         py_lines.append("}\n")
     
-    # 添加 tr 变量信息到生成的文件中
-    # if has_tr_syntax and tr_variables:
-    #     py_lines.append("\n# tr语法变量列表\n")
-    #     py_lines.append(f"tr_variables = {tr_variables}\n")
-    #     py_lines.append(f"has_tr_syntax = {has_tr_syntax}\n")
-    
     # 字段渲染表格
     custom_bookmark = {
        'project_name' : '项目名称',
