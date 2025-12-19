@@ -14,6 +14,7 @@ from docx.shared import Cm
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docxtpl import InlineImage, DocxTemplate
+from config import config
 
 from app.db import execute_safe_sql
 from exceptions.error import ErrorCode
@@ -73,6 +74,7 @@ class FillDataUtils():
         # 先加载通用数据
         module_name = "template_structure." + 'common_data'  # 比如 name = "my_template"
         common_mod = importlib.import_module(module_name)
+        common_title_mapping = common_mod.title_mapping
         common_key = common_mod.data
         self.common_key = common_key
         common_table_info_dict = common_mod.table_name_list
@@ -203,7 +205,7 @@ class FillDataUtils():
 
 
     def get_common_data_by_endpoint(self, task_id):
-        template_common_url = os.getenv('TEMPLATE_COMMON_VAR_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
+        template_common_url = config.guide_template_common_var_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}")
         try:
@@ -698,11 +700,18 @@ class FillDataUtils():
 
     
     def get_table_head_data_from_endpoint(self, task_id, sample_id):
-        template_common_url = os.getenv('TEMPLATE_TABLE_HEAD_DATA_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
-        response = requests.get(template_common_url)
-        res_json = response.json()
-        # print(res_json)
-        return res_json.get('data')
+        template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
+        try:
+            response = requests.get(template_common_url)
+            res_json = response.json()
+            # print(res_json)
+            return res_json.get('data')
+        except requests.exceptions.Timeout:
+            print(f"请求超时，跳过: {template_common_url}")
+            return {}
+        except Exception as e:
+            print(f"请求异常，跳过: {e}")
+            return {}
 
     def get_real_header_from_endpoint_data(self, m):
         pass

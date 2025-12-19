@@ -54,6 +54,18 @@ class Config:
             return str(deploy_python_path)
         except Exception:
             return None
+    
+    @property
+    def guide_template_table_url(self):
+        return self.config.get('guide', 'TEMPLATE_COMMON_TABLE_URL')
+    
+    @property
+    def guide_template_common_var_url(self):
+        return self.config.get('guide', 'TEMPLATE_COMMON_VAR_URL')
+    
+    @property
+    def guide_template_table_head_data_url(self):
+        return self.config.get('guide', 'TEMPLATE_TABLE_HEAD_DATA_URL')
 
 
     # 添加更多 getter 方法...
