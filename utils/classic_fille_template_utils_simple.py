@@ -231,8 +231,8 @@ class ClassicFillDataUtils():
     async def get_time_scanning_context(self, tpl, image_base64, contexts):
         time_scanning_mapping = common_data_mapping.get(self.measure_type)
         for jinja_val, common_val_key in time_scanning_mapping.items():
-            if jinja_val != '时间扫描图片':
-                contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+            if jinja_val == '时间扫描图片':
+                contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
             elif jinja_val == '增益':
                 gain_value = self.common_val.get(common_val_key)
                 if gain_value not in [None, '']:
@@ -248,7 +248,7 @@ class ClassicFillDataUtils():
                 else:
                     contexts[jinja_val] = ''
             else:
-                contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+                contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
         table_data = self.handle_time_scanning_table(self.end_point_header_and_data)
         contexts['table_data'] = table_data
         try:
