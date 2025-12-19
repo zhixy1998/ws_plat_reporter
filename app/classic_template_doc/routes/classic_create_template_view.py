@@ -10,7 +10,7 @@ from tortoise.transactions import in_transaction
 from app.template_doc.model.template_doc import TemplateDoc
 from app.template_doc.model.template_doc_base import TemplateDocBase
 from app.template_doc.model.template_bookmark import TemplateBookmark
-from app.template_doc.model.bookmark_data import BookmarkData
+# from app.template_doc.model.bookmark_data import BookmarkData
 from utils.LoadAndDelete import AnalysisBookMark
 from utils.doc_converter import convert_doc_to_docx, detect_file_format
 from exceptions.error import ErrorCode
@@ -144,17 +144,17 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
             structure_type = bookmark.get('table_structure').get('structure_type')
             if structure_type is not None:  # 可能是0 0也是正确的
                 table_structure = bookmark.get('table_structure')
-                bookmark_data = await BookmarkData.create(bookmark_id=bookmark_id, structure_type=structure_type, table_structure=table_structure, using_db=class_db_con)
-                bookmark_name = bookmark.get('name')
-                book_mark_tpl_name = bookmark_name + '_tpl' # 这个代表这个表格有tpl横向表格
-                for child in bookmark.get("children"):
-                    if child.get('name') == book_mark_tpl_name:
-                        # 反过来更新BookmarkData的table_structure字段，添加has_tr标识
-                        updated_table_structure = bookmark_data.table_structure
-                        updated_table_structure['has_tr'] = 1
-                        # 更新BookmarkData记录
-                        bookmark_data.table_structure = updated_table_structure
-                        await bookmark_data.save(using_db=class_db_con)
+                # bookmark_data = await BookmarkData.create(bookmark_id=bookmark_id, structure_type=structure_type, table_structure=table_structure, using_db=class_db_con)
+                # bookmark_name = bookmark.get('name')
+                # book_mark_tpl_name = bookmark_name + '_tpl' # 这个代表这个表格有tpl横向表格
+                # for child in bookmark.get("children"):
+                #     if child.get('name') == book_mark_tpl_name:
+                #         # 反过来更新BookmarkData的table_structure字段，添加has_tr标识
+                #         updated_table_structure = bookmark_data.table_structure
+                #         updated_table_structure['has_tr'] = 1
+                #         # 更新BookmarkData记录
+                #         bookmark_data.table_structure = updated_table_structure
+                #         await bookmark_data.save(using_db=class_db_con)
 
             
                 
@@ -227,15 +227,15 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     # 添加 table_jinja_values 分组信息（作为独立变量）
     if indexed_vars:
         py_lines.append("\n# 表格字段分组\n")
-        py_lines.append("table_jinja_values = {\n")
+        # py_lines.append("table_jinja_values = {\n")
         
-        for i, (base_name, vars_list) in enumerate(indexed_vars.items()):
-            vars_list.sort(key=lambda x: int(x.split('_')[-1]))  # 按索引排序
-            vars_str = "', '".join(vars_list)
-            comma = "," if i < len(indexed_vars) - 1 else ""
-            py_lines.append(f"    '{base_name}': ['{vars_str}']{comma}\n")
+        # for i, (base_name, vars_list) in enumerate(indexed_vars.items()):
+        #     vars_list.sort(key=lambda x: int(x.split('_')[-1]))  # 按索引排序
+        #     vars_str = "', '".join(vars_list)
+        #     comma = "," if i < len(indexed_vars) - 1 else ""
+        #     py_lines.append(f"    '{base_name}': ['{vars_str}']{comma}\n")
         
-        py_lines.append("}\n")
+        # py_lines.append("}\n")
     
     # 添加 tr 变量信息到生成的文件中
     # if has_tr_syntax and tr_variables:
@@ -255,11 +255,11 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
         py_lines.append(f"    '{key}':'{values}',\n")
     py_lines.append("}\n\n")
     
-    py_lines.append("table_fields = ")
-    # 使用更安全的方式处理中文字符，确保编码正确
-    table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False, separators=(',', ': '))
-    table_fields_str = table_fields_str.replace("null", "None")
-    py_lines.append(f"{table_fields_str}\n") 
+    # py_lines.append("table_fields = ")
+    # # 使用更安全的方式处理中文字符，确保编码正确
+    # table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False, separators=(',', ': '))
+    # table_fields_str = table_fields_str.replace("null", "None")
+    # py_lines.append(f"{table_fields_str}\n") 
     
     # 创建文件
     py_path = os.path.join(py_folders, f"{name}.py")

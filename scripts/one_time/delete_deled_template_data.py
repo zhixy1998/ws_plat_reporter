@@ -14,7 +14,7 @@ sys.path.append(BASE_DIR)
 from app.db import init_db  #  导入你现有的数据库初始化方法
 from app.template_doc.model.template_doc import TemplateDoc
 from app.template_doc.model.template_doc_base import TemplateDocBase
-from app.template_doc.model.bookmark_data import BookmarkData
+# from app.template_doc.model.bookmark_data import BookmarkData
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from app.template_doc.model.template_extra_info import TemplateExtraInfo
 
@@ -38,10 +38,10 @@ async def run():
             
             if bookmarks:
                 # 先删除书签数据
-                bookmark_ids = [bookmark.id for bookmark in bookmarks]
-                bookmark_data_count = await BookmarkData.filter(bookmark_id__in=bookmark_ids).count()
-                print(f"  删除 {bookmark_data_count} 个书签数据记录")
-                await BookmarkData.filter(bookmark_id__in=bookmark_ids).delete()
+                # bookmark_ids = [bookmark.id for bookmark in bookmarks]
+                # bookmark_data_count = await BookmarkData.filter(bookmark_id__in=bookmark_ids).count()
+                # print(f"  删除 {bookmark_data_count} 个书签数据记录")
+                # await BookmarkData.filter(bookmark_id__in=bookmark_ids).delete()
                 
                 # 删除书签
                 for bookmark in bookmarks:

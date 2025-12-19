@@ -127,7 +127,6 @@ class TableDataHandler(BaseTableDataHandler):
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING = {
         "吸光值": "Abs",  
-
         "样品编号": "sampleNumber",  # 序号列
         "取样量":"2191OJP", 
         "稀释倍数":"2191OJP", 

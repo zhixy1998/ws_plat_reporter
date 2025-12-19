@@ -44,14 +44,14 @@ async def export_docx(data: InputSchema):
         raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
     task_id = data.task_id
     sample_id = data.sample_id
-    if report_template_id:
+    if report_template_id: # 原始记录
         report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(report_template_id)
         fill_data_instance_report = FillDataUtils(report_template_name, template_id=report_template_id)
         report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id,report_template_id)
         doc_report = Document(report_doc_steam_obj)
         # lock_table_width_on_document(doc_report)
 
-    if original_template_id:
+    if original_template_id: # 测量数据
         original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(original_template_id)
         fill_data_instance_original = FillDataUtils(original_template_name, template_id=original_template_id)
         original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id,original_template_id)

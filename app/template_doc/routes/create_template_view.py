@@ -10,12 +10,11 @@ from app.template_doc.model.template_doc import TemplateDoc
 from app.template_doc.model.template_doc_base import TemplateDocBase
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from app.template_doc.model.template_extra_info import TemplateExtraInfo
-from ..model.bookmark_data import BookmarkData
 from utils.LoadAndDelete import AnalysisBookMark
 from utils.doc_converter import convert_doc_to_docx, detect_file_format
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
-from constants.template_constant import TemplateBookMarkType, TemplateType
+from constants.template_constant import TemplateBookMarkType, TemplateType, ExperimentType
 from app.db import execute_safe_sql
 from utils.log_decorator import log_response
 
@@ -33,6 +32,12 @@ async def create_template_view(
                      {TemplateType.report_template.decs}:{TemplateType.report_template.value} \n
                      {TemplateType.calibration_template.decs}:{TemplateType.calibration_template.value} \n
                      {TemplateType.installation_acceptance_template.decs}:{TemplateType.installation_acceptance_template.value}"""),
+    experiment_type: int = Form(0, description=f"""实验类型 \n
+                     {ExperimentType.spectral_scanning.decs}: {ExperimentType.spectral_scanning.value} \n
+                     {ExperimentType.time_scanning.decs}:{ExperimentType.time_scanning.value} \n
+                     {ExperimentType.quantitative_determination.decs}:{ExperimentType.quantitative_determination.value} \n
+                     {ExperimentType.photometric_measurement.decs}:{ExperimentType.photometric_measurement.value}"""),
+    industry_type: str = Form(None, description='行业类型'),
     file: UploadFile = File(..., description='模板文件')
     ):
     try:
@@ -72,7 +77,8 @@ async def create_template_view(
         content_base64 = base64.b64encode(content).decode('utf-8')
         # 存入数据库
         try:
-            template_id = await create_template(name, content_base64, content, template_type=template_type)
+            template_id = await create_template(name, content_base64, content, 
+            template_type=template_type, industry_type=industry_type)
         except BadZipFile:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT) 
     except APIException as e:
@@ -84,26 +90,30 @@ async def create_template_view(
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
     return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
 
-async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0) -> int:
-    async with in_transaction('default') as connection:
-        create_info = {
-            'name': name,
-            'template_content': content_base64,
-            'type': template_type
-        }
-        # 先创建base模型，方便以后回滚
-        template_base_instance = await TemplateDocBase.create(**create_info)
-        # 创建模版
-        create_info['base_template_id'] = template_base_instance.id
-        template =  await TemplateDoc.create(**create_info)
-        # 创建标签
-        analysis_bookmark = AnalysisBookMark(BytesIO(content))
-        book_markets = analysis_bookmark.get_word_bookmarks()
-        # 创建json文件
-        for book_mark in book_markets:
-            await recursion_create_bookmark(book_mark, template.id)     
-        await create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), connection=connection)
-        return template.id
+async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, industry_type: str = '') -> int:
+    if template_type in [TemplateType.report_template.value, TemplateType.original_records.value]:
+        async with in_transaction('default') as connection:
+            create_info = {
+                'name': name,
+                'template_content': content_base64,
+                'type': template_type, # 模版类型
+                'industry_type': industry_type,
+            }
+            # 先创建base模型，方便以后回滚
+            template_base_instance = await TemplateDocBase.create(**create_info)
+            # 创建模版
+            create_info['base_template_id'] = template_base_instance.id
+            template =  await TemplateDoc.create(**create_info)
+            # 创建标签
+            analysis_bookmark = AnalysisBookMark(BytesIO(content))
+            book_markets = analysis_bookmark.get_word_bookmarks()
+            # 创建json文件
+            for book_mark in book_markets:
+                await recursion_create_bookmark(book_mark, template.id)     
+            await create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), connection=connection)
+            return template.id
+    else:
+        return 0
 
 
 async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
@@ -121,22 +131,22 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
         }
         new_bookmark = await TemplateBookmark.create(**create_info)
         # 如果是表格 并且有表格结构
-        if new_bookmark.type == TemplateBookMarkType.sheet.value and bookmark.get('table_structure'):
-            bookmark_id= new_bookmark.id
-            structure_type = bookmark.get('table_structure').get('structure_type')
-            if structure_type is not None:  # 可能是0 0也是正确的
-                table_structure = bookmark.get('table_structure')
-                bookmark_data = await BookmarkData.create(bookmark_id=bookmark_id, structure_type=structure_type, table_structure=table_structure)
-                bookmark_name = bookmark.get('name')
-                book_mark_tpl_name = bookmark_name + '_tpl' # 这个代表这个表格有tpl横向表格
-                for child in bookmark.get("children"):
-                    if child.get('name') == book_mark_tpl_name:
-                        # 反过来更新BookmarkData的table_structure字段，添加has_tr标识
-                        updated_table_structure = bookmark_data.table_structure
-                        updated_table_structure['has_tr'] = 1
-                        # 更新BookmarkData记录
-                        bookmark_data.table_structure = updated_table_structure
-                        await bookmark_data.save()
+        # if new_bookmark.type == TemplateBookMarkType.sheet.value and bookmark.get('table_structure'):
+        #     bookmark_id= new_bookmark.id
+        #     structure_type = bookmark.get('table_structure').get('structure_type')
+        #     if structure_type is not None:  # 可能是0 0也是正确的
+        #         table_structure = bookmark.get('table_structure')
+        #         bookmark_data = await BookmarkData.create(bookmark_id=bookmark_id, structure_type=structure_type, table_structure=table_structure)
+        #         bookmark_name = bookmark.get('name')
+        #         book_mark_tpl_name = bookmark_name + '_tpl' # 这个代表这个表格有tpl横向表格
+        #         for child in bookmark.get("children"):
+        #             if child.get('name') == book_mark_tpl_name:
+        #                 # 反过来更新BookmarkData的table_structure字段，添加has_tr标识
+        #                 updated_table_structure = bookmark_data.table_structure
+        #                 updated_table_structure['has_tr'] = 1
+        #                 # 更新BookmarkData记录
+        #                 bookmark_data.table_structure = updated_table_structure
+        #                 await bookmark_data.save()
 
             
                 
@@ -212,15 +222,15 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     # 添加 table_jinja_values 分组信息（作为独立变量）
     if indexed_vars:
         py_lines.append("\n# 表格字段分组\n")
-        py_lines.append("table_jinja_values = {\n")
+        # py_lines.append("table_jinja_values = {\n")
         
-        for i, (base_name, vars_list) in enumerate(indexed_vars.items()):
-            vars_list.sort(key=lambda x: int(x.split('_')[-1]))  # 按索引排序
-            vars_str = "', '".join(vars_list)
-            comma = "," if i < len(indexed_vars) - 1 else ""
-            py_lines.append(f"    '{base_name}': ['{vars_str}']{comma}\n")
+        # for i, (base_name, vars_list) in enumerate(indexed_vars.items()):
+        #     vars_list.sort(key=lambda x: int(x.split('_')[-1]))  # 按索引排序
+        #     vars_str = "', '".join(vars_list)
+        #     comma = "," if i < len(indexed_vars) - 1 else ""
+        #     py_lines.append(f"    '{base_name}': ['{vars_str}']{comma}\n")
         
-        py_lines.append("}\n")
+        # py_lines.append("}\n")
     
     # 字段渲染表格
     custom_bookmark = {

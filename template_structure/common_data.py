@@ -1,6 +1,24 @@
+title_mapping = { # 全部加t
+    'project': '检测项目',
+    'instrument_num': '仪器编号',
+    'trh': '环境条件', # Temperature and Humidity
+    'detection_time': '分析日期', 
+    'storage_condition': '存放条件', # Storage Conditions
+    'instrument_name': '仪器名称',
+    'detection_basis': '检测依据',
+    'sample_status': '样品状态',
+    'standard_solution_number': '标准溶液及编号',
+    'solution_concentration': '溶液浓度()',
+    'regression_equation': '回归方程', # Regression equation
+    'calculation_formula': '计算公式',
+    'remark': '备注'
+}
+
+
+
 data = {
 
-    "仪器编号": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentSerialNumber']},
+    "instrument_num": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentSerialNumber']}, # 仪器编号
     "光度模式": {"fill_type": 0, 'get_type': 0, 'position': ['luminosityMode']},
     "光谱带宽": {"fill_type": 0, 'get_type': 0, 'position': ['spectrumBandwidth']},
     "光谱扫描图片": {"fill_type": 0, 'get_type': 0, 'position': ['spectrumScanImage']},
@@ -12,7 +30,7 @@ data = {
     "扫描间隔": {"fill_type": 0, 'get_type': 0, 'position': ['scanInterval']},
     "数据类型": {"fill_type": 0, 'get_type': 0, 'position': ['dataType']},
     "方法信息": {"fill_type": 0, 'get_type': 0, 'position': ['methodName']},
-    "检测项目": {"fill_type": 0, 'get_type': 0, 'position': ['project']},
+    "project": {"fill_type": 0, 'get_type': 0, 'position': ['project']}, # 检测项目
     "项目": {"fill_type": 0, 'get_type': 0, 'position': ['project']},
     "注释": {"fill_type": 0, 'get_type': 0, 'position': ['remark']},
     "仪器波长": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentWavelength']},
@@ -26,28 +44,32 @@ data = {
     "检测者": {"fill_type": 0, 'get_type': 0, 'position': ['detector']},
     "检测人": {"fill_type": 0, 'get_type': 0, 'position': ['detector']},
     "能量灯": {"fill_type": 0, 'get_type': 0, 'position': ['energyLight']},
-    "计算公式": {"fill_type": 0, 'get_type': 0, 'position': ['calculationFormula']},
+    "calculation_formula": {"fill_type": 0, 'get_type': 0, 'position': ['calculationFormula']},
     "阶梯矫正": {"fill_type": 0, 'get_type': 0, 'position': ['stairCorrection']},
     "阶梯校正": {"fill_type": 0, 'get_type': 0, 'position': ['stairCorrection']},
     "样品名称": {"fill_type": 0, 'get_type': 0, 'position': ['sampleName']},
     "方法名称": {"fill_type": 0, 'get_type': 0, 'position': ['methodName']},
     "操作步骤": {"fill_type": 0, 'get_type': 0, 'position': ['steps']},
-    "仪器名称": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentName']},
+    "instrument_name": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentName']},
     "仪器型号": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentModel']},
-    "环境温度": {"fill_type": 0, 'get_type': 0, 'position': ['ambientTemperature']},
-    "相对湿度": {"fill_type": 0, 'get_type': 0, 'position': ['relativeHumidity']},
+    "t": {"fill_type": 0, 'get_type': 0, 'position': ['ambientTemperature']}, # 温度
+    "rh": {"fill_type": 0, 'get_type': 0, 'position': ['relativeHumidity']}, # 湿度
     "质量等级": {"fill_type": 0, 'get_type': 0, 'position': ['qualityLevel']},
     "比色皿光程": {"fill_type": 0, 'get_type': 0, 'position': ['colorPlateWavelength']},
     "式中": {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']},
     "收样日期": {"fill_type": 0, 'get_type': 0, 'position': ['samplingTime']},
-    "样品状态": {"fill_type": 0, 'get_type': 0, 'position': ['sampleState']},
+    "sample_status": {"fill_type": 0, 'get_type': 0, 'position': ['sampleState']}, # □固态  □气态  □半固态  □液态
     "接样日期": {"fill_type": 0, 'get_type': 0, 'position': ['samplingTime']},
-    "分析日期": {"fill_type": 0, 'get_type': 0, 'position': ['detectionEndTime']},
-    "仪器名称及型号": {"fill_type": 0, 'get_type': 0, 'children': ['仪器名称', '仪器型号'], 'connect_str': ' '},
+    "detection_time": {"fill_type": 0, 'get_type': 0, 'position': ['detectionEndTime']}, # 分析日期
+    "仪器名称及型号": {"fill_type": 0, 'get_type': 0, 'children': ['instrument_name', '仪器型号'], 'connect_str': ' '},
     "分析方法及编号": {"fill_type": 0, 'get_type': 0, 'children': ['方法名称', '方法编号'], 'connect_str': ' '},
-    '步骤': {"fill_type": 0, 'get_type': 0, 'position': ['steps']},
-    '公式参数': {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']},
-    "前处理": {"fill_type": 0, 'get_type': 0, 'children': ['步骤', '公式参数'], 'connect_str': ' '}
+    'step': {"fill_type": 0, 'get_type': 0, 'position': ['steps']}, # 步骤
+    'formula_params': {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']}, # 公式参数
+    "sample_preparation": {"fill_type": 0, 'get_type': 0, 'children': ['step', 'formula_params'], 'connect_str': ' '}, 
+    'storage_condition': {"fill_type": 0, 'get_type': 0, 'position': ['storageConditions']}, # 存放条件 □室温   □冷藏   冷冻
+    'standard_solution_number': {"fill_type": 0, 'get_type': 0, 'position': ['standardSolutionInfo']}, # 标准溶液及编号
+    'regression_equation': {"fill_type": 0, 'get_type': 0, 'position': ['regressionEquation']}, # 回归方程
+
 }
 
 table_name_list = {
