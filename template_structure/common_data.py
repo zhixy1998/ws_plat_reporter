@@ -1,20 +1,19 @@
 title_mapping = { # 全部加t
-    'project': '检测项目',
-    'instrument_num': '仪器编号',
-    'trh': '环境条件', # Temperature and Humidity
-    'detection_time': '分析日期', 
-    'storage_condition': '存放条件', # Storage Conditions
-    'instrument_name': '仪器名称',
-    'detection_basis': '检测依据',
-    'sample_status': '样品状态',
-    'standard_solution_number': '标准溶液及编号',
-    'solution_concentration': '溶液浓度()',
-    'regression_equation': '回归方程', # Regression equation
-    'calculation_formula': '计算公式',
-    'remark': '备注'
+    'project_t': {'name': '检测项目', 'font': '宋体', 'font_size': 12},
+    'instrument_num_t': {'name': '仪器编号', 'font': '宋体', 'font_size': 12},
+    'trh_t': {'name': '环境条件', 'font': '宋体', 'font_size': 12}, # Temperature and Humidity
+    'detection_time_t': {'name': '分析日期', 'font': '宋体', 'font_size': 12},
+    'storage_condition_t': {'name': '存放条件', 'font': '宋体', 'font_size': 12}, # Storage Conditions
+    'instrument_name_t': {'name': '仪器名称', 'font': '宋体', 'font_size': 12},
+    'detection_basis_t': {'name': '检测依据', 'font': '宋体', 'font_size': 12},
+    'sample_status_t': {'name': '样品状态', 'font': '宋体', 'font_size': 12},
+    'standard_solution_number_t': {'name': '标准溶液及编号', 'font': '宋体', 'font_size': 12},
+    'solution_concentration_t': {'name': '溶液浓度()', 'font': '宋体', 'font_size': 12},
+    'regression_equation_t': {'name': '回归方程', 'font': '宋体', 'font_size': 12}, # Regression equation
+    'calculation_formula_t': {'name': '计算公式', 'font': '宋体', 'font_size': 12},
+    'remark_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
+    'sample_preparation_t': {'name': '样品前处理', 'font': '宋体', 'font_size': 12}
 }
-
-
 
 data = {
 

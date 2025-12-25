@@ -4,6 +4,7 @@ from zipfile import BadZipFile
 
 import jinja2
 from docxtpl import DocxTemplate
+from docx import Document
 from fastapi import APIRouter, UploadFile, File, Form
 from tortoise.transactions import in_transaction
 from app.template_doc.model.template_doc import TemplateDoc
@@ -17,6 +18,7 @@ from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType, TemplateType, ExperimentType
 from app.db import execute_safe_sql
 from utils.log_decorator import log_response
+import importlib
 
 router = APIRouter()
 
@@ -78,7 +80,7 @@ async def create_template_view(
         # 存入数据库
         try:
             template_id = await create_template(name, content_base64, content, 
-            template_type=template_type, industry_type=industry_type)
+            template_type=template_type, industry_type=industry_type, experiment_type=experiment_type)
         except BadZipFile:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT) 
     except APIException as e:
@@ -90,12 +92,13 @@ async def create_template_view(
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
     return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
 
-async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, industry_type: str = '') -> int:
+async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, industry_type: str = '', experiment_type: int = 0) -> int:
     if template_type in [TemplateType.report_template.value, TemplateType.original_records.value]:
         async with in_transaction('default') as connection:
             create_info = {
                 'name': name,
                 'template_content': content_base64,
+                'experiment_type': experiment_type,
                 'type': template_type, # 模版类型
                 'industry_type': industry_type,
             }
@@ -156,35 +159,110 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
 
 async def create_python_setting_file(template_id: int, name: str, template_file_steam: BytesIO, connection=None):
     """
-    只创建一个空的JSON文件
+    创建模板的 Python 设置文件，包含字段定义和 title_mapping
     
     Args:
+        template_id: 模板 ID
         name: 文件名称
-        output_dir: 输出目录
+        template_file_steam: 模板文件流
+        connection: 数据库连接
     """
     py_folders = 'template_structure'
-    # 确保输出目录存在
     os.makedirs(py_folders, exist_ok=True)
 
-    # 模版内容
+    # 加载 common_data 的 title_mapping（用于查询已有的标题描述）
+    try:
+        common_mod = importlib.import_module('template_structure.common_data')
+        common_title_mapping = common_mod.title_mapping if hasattr(common_mod, 'title_mapping') else {}
+    except Exception as e:
+        print(f"加载 common_data title_mapping 失败: {e}")
+        common_title_mapping = {}
+
+    # 提取模板中的变量和字体信息
     doc = DocxTemplate(template_file_steam)
     try:
-        doc = DocxTemplate(template_file_steam)
         context_vars = doc.get_undeclared_template_variables()
+        # 分离：_t 结尾的（标题）和非 _t 结尾的（值）
+        title_vars = [var for var in context_vars if var.endswith('_t')]
+        value_vars = [var for var in context_vars if not var.endswith('_t')]
     except jinja2.exceptions.TemplateSyntaxError as e:
         print(e)
         raise APIException(ErrorCode.INVALID_TEMPLATE_FIELD)
+
+    # 使用 python-docx 读取字体信息
+    template_file_steam.seek(0)
+    docx_doc = Document(template_file_steam)
+    
+    # 建立占位符到字体信息的映射
+    var_font_info = {}
+    for para in docx_doc.paragraphs:
+        text = para.text
+        for var in context_vars:
+            if var in text:
+                # 从该段落的 run 中获取字体信息
+                for run in para.runs:
+                    if var in run.text:
+                        font_name = run.font.name or '宋体'  # 默认宋体
+                        font_size = run.font.size
+                        if font_size:
+                            font_size_pt = font_size / 20  # 转换为磅
+                        else:
+                            # 从样式继承
+                            style_font_size = para.style.font.size
+                            font_size_pt = style_font_size / 20 if style_font_size else 12
+                        
+                        var_font_info[var] = {
+                            'font': font_name,
+                            'font_size': int(font_size_pt)
+                        }
+                        break
+
+    # 生成 Python 文件内容
     py_lines = [
         "# 模板字段定义\n",
         "# fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段\n\n",
         "# get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取\n\n",
-        #自动添加头文件
         "from .common_data import BaseTableDataHandler, checkbox\n",
         "python_template_var = {\n"
     ]
 
-   
-    # 获取表格表头
+    # 写入值变量
+    for i, var in enumerate(value_vars):
+        comma = "," if i < len(value_vars) - 1 else ""
+        py_lines.append(f'    "{var}": {{"fill_type": 0}}{comma}\n')
+    
+    py_lines.append("}\n")
+
+    # 生成 title_mapping（带字体信息）
+    py_lines.append("\n# 标题映射（包含字体和字号信息）\n")
+    py_lines.append("title_mapping = {\n")
+    
+    for i, var in enumerate(title_vars):
+        # 从 common_data 中查找对应的文字描述
+        common_entry = common_title_mapping.get(var)
+        
+        # 如果 common_entry 是字典，从中提取 'name'；否则当字符串使用
+        if isinstance(common_entry, dict):
+            title_text = common_entry.get('name', var.replace('_t', ''))
+            # 如果字典中已有字体信息，优先使用
+            if 'font' in common_entry:
+                font_info = {
+                    'font': common_entry['font'],
+                    'font_size': common_entry.get('font_size', 12)
+                }
+            else:
+                font_info = var_font_info.get(var, {'font': '宋体', 'font_size': 12})
+        else:
+            title_text = common_entry or var.replace('_t', '')  # 如果没找到，就用变量名
+            font_info = var_font_info.get(var, {'font': '宋体', 'font_size': 12})
+        
+        # 构建字典（单行格式）
+        comma = "," if i < len(title_vars) - 1 else ""
+        py_lines.append(f"    '{var}': {{'name': '{title_text}', 'font': '{font_info['font']}', 'font_size': {font_info['font_size']}}}{comma}\n")
+    
+    py_lines.append("}\n")
+
+    # 获取表格结构
     table_list = []
     tables = await get_table_structure_by_template_name(template_id=template_id, template_name=name, connection=connection)
     if tables:
@@ -192,51 +270,12 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
             table_structure = json.loads(table.get('table_structure'))
             table_list.append(table_structure)
 
-
-
-    context = list(context_vars)
-    
-    # 分离普通变量和带索引的变量
-    normal_vars = []
-    indexed_vars = {}
-
-    for var in context:
-        # 检查是否是带索引的变量（如：标准溶液加入体积_0）
-        if '_' in var and var.split('_')[-1].isdigit():
-            base_name = '_'.join(var.split('_')[:-1])  # 获取基础名称
-            index = var.split('_')[-1]  # 获取索引
-            
-            if base_name not in indexed_vars:
-                indexed_vars[base_name] = []
-            indexed_vars[base_name].append(var)
-        else:
-            normal_vars.append(var)
-    
-    # 写入普通变量
-    for i, var in enumerate(normal_vars):
-        comma = "," if i < len(normal_vars) - 1 else ""
-        py_lines.append(f'    "{var}": {{"fill_type": 0}}{comma}\n')
-    
-    py_lines.append("}\n")
-    
-    # 添加 table_jinja_values 分组信息（作为独立变量）
-    if indexed_vars:
-        py_lines.append("\n# 表格字段分组\n")
-        # py_lines.append("table_jinja_values = {\n")
-        
-        # for i, (base_name, vars_list) in enumerate(indexed_vars.items()):
-        #     vars_list.sort(key=lambda x: int(x.split('_')[-1]))  # 按索引排序
-        #     vars_str = "', '".join(vars_list)
-        #     comma = "," if i < len(indexed_vars) - 1 else ""
-        #     py_lines.append(f"    '{base_name}': ['{vars_str}']{comma}\n")
-        
-        # py_lines.append("}\n")
-    
-    # 字段渲染表格
+    # 自定义书签
     custom_bookmark = {
-       'project_name' : '项目名称',
-        'note':'备注',
+        'project_name': '项目名称',
+        'note': '备注',
     }
+    
     # 添加 custom_bookmark 到生成的文件中
     py_lines.append("\n# 字段渲染表格\n")
     py_lines.append("custom_bookmark = {\n")
@@ -245,20 +284,19 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     py_lines.append("}\n\n")
     
     py_lines.append("table_fields = ")
-    # 使用更安全的方式处理中文字符，确保编码正确
     table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False, separators=(',', ': '))
     table_fields_str = table_fields_str.replace("null", "None")
-    py_lines.append(f"{table_fields_str}\n") 
+    py_lines.append(f"{table_fields_str}\n")
     
     # 创建文件
     py_path = os.path.join(py_folders, f"{name}.py")
     backup_path = os.path.join(py_folders, f"{name}_back.py")
+    
     # 如果原文件存在，先备份
     if os.path.exists(py_path):
-        # 如果之前已有备份，也可以选择是否覆盖，这里直接覆盖
         shutil.copy2(py_path, backup_path)
     
-    # 使用更安全的文件写入方式，确保 UTF-8 编码正确
+    # 写入文件
     with open(py_path, "w", encoding="utf-8", newline='\n') as f:
         for line in py_lines:
             f.write(line)

@@ -1,27 +1,26 @@
+
+import importlib
 from typing import List, Optional, Dict
+
 from fastapi import APIRouter
-from ..model.template_bookmark import TemplateBookmark
-from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
-from constants.template_constant import TemplateBookMarkType
+
 from exceptions.error import ErrorCode
-from exceptions.command_exception import APIException
+from ..model.template_doc import TemplateDoc
 from utils.log_decorator import log_response
+from utils.template_utils import get_title_mapping
+from exceptions.command_exception import APIException
+from constants.template_constant import TemplateBookMarkType
 
 router = APIRouter()
 
 class BookmarkItem(BaseModel):
-    id: int = Field(..., description="书签唯一ID")
-    parent_id: Optional[int] = Field(None, description="父书签ID，用于嵌套结构")
     template_doc_id: int = Field(..., description="所属模板文档ID")
     name: str = Field(..., description="书签名称")
-    type: int = Field(..., description="书签类型（1: 文本，2: 图片，3: 表格）")
-    description: Optional[str] = Field(None, description="书签的详细描述")
-    sort_order: int = Field(..., description="显示顺序（越小越靠前）")
+    desc_t: Optional[str] = Field(None, description="time_mapping 的key")
+    sort_order: int = Field(None, description="显示顺序（越小越靠前）")
     font: Optional[str] = Field(None, description="字体")
     font_size: Optional[int] = Field(None, description="字号")
-    img_size: Optional[float] = Field(None, description="图片大小")
-    children: List["BookmarkItem"] = Field(default_factory=list, description="子书签") # 递归用字符串引用
 
 class BookmarkDataSchema(BaseModel):
     bookmarks: Dict[int, List[BookmarkItem]] = Field({}, description=f'{TemplateBookMarkType.text.value}:{TemplateBookMarkType.text.name},\
@@ -39,23 +38,22 @@ async def get_bookmark(template_id: int, type: Optional[int] = None):
     template_instance = await TemplateDoc.get_or_none(id=template_id, is_del=0)
     if template_instance is None:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
+    result = []
+    # 加载标题映射
+    title_mapping = get_title_mapping(template_instance.name)
+    for t, info_dict in title_mapping.items():
+        result.append({
+            'name': info_dict.get('name', ''),
+            'desc_t': t,
+            'template_doc_id': template_id,
+            'font': info_dict.get('font'),
+            'font_size': info_dict.get('font_size')
+        })
 
-    if type is not None:
-        bookmarks = await TemplateBookmark.filter(template_doc_id=template_id, type=type, is_del=0).all().values()
-    else:
-        bookmarks = await TemplateBookmark.filter(template_doc_id=template_id, is_del=0).all().values()
-    
-    # 把带标题两个字的标签过滤掉
-    bookmarks = [bm for bm in bookmarks if "标题" not in bm.get('name')]
-    # 按 type 分组
-    grouped = {}
-    for item in bookmarks:
-        item_type = item.get('type', 'unknown')
-        grouped.setdefault(item_type, []).append(item)
-    result = {item_type: build_tree(bookmarks_list) for item_type, bookmarks_list in grouped.items()}
+
     # 对每个类型的书签树进行处理 
     # processed_result = {item_type: process_tree(bookmarks_tree) for item_type, bookmarks_tree in result.items()} 
-    return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': result}}
+    return {'code': 200, 'message': '获取成功', 'data': {'bookmarks': { 0 : result}}}
 
 
 

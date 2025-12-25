@@ -5,51 +5,55 @@
 
 from .common_data import BaseTableDataHandler, checkbox
 python_template_var = {
-    "t10_t": {"fill_type": 0},
-    "solution_concentration": {"fill_type": 0},
-    "project": {"fill_type": 0},
-    "r": {"fill_type": 0},
-    "t11_t": {"fill_type": 0},
-    "detection_basis_t": {"fill_type": 0},
-    "sample_status_t": {"fill_type": 0},
-    "calculation_formula_t": {"fill_type": 0},
-    "standard_solution_number_t": {"fill_type": 0},
-    "storage_condition": {"fill_type": 0},
-    "regression_equation": {"fill_type": 0},
-    "regression_equation_t": {"fill_type": 0},
-    "project_t": {"fill_type": 0},
-    "sample_status": {"fill_type": 0},
+    "t8_h": {"fill_type": 0},
     "sample_preparation": {"fill_type": 0},
-    "sample_preparation_t": {"fill_type": 0},
-    "remark_t": {"fill_type": 0},
-    "t2_t": {"fill_type": 0},
-    "instrument_num": {"fill_type": 0},
-    "calculation_formula": {"fill_type": 0},
-    "rh": {"fill_type": 0},
-    "t6_t": {"fill_type": 0},
-    "b": {"fill_type": 0},
-    "detection_basis": {"fill_type": 0},
-    "known_sample_sub_table": {"fill_type": 0},
-    "detection_time": {"fill_type": 0},
-    "solution_concentration_t": {"fill_type": 0},
-    "t3_t": {"fill_type": 0},
-    "t9_t": {"fill_type": 0},
-    "t4_t": {"fill_type": 0},
-    "t": {"fill_type": 0},
-    "storage_condition_t": {"fill_type": 0},
     "grouped_data": {"fill_type": 0},
-    "standard_solution_number": {"fill_type": 0},
-    "instrument_name": {"fill_type": 0},
-    "t8_t": {"fill_type": 0},
-    "remark": {"fill_type": 0},
-    "instrument_name_t": {"fill_type": 0},
-    "t7_t": {"fill_type": 0},
-    "instrument_num_t": {"fill_type": 0},
+    "solution_concentration": {"fill_type": 0},
+    "known_sample_sub_table": {"fill_type": 0},
+    "t11_h": {"fill_type": 0},
+    "project": {"fill_type": 0},
+    "instrument_num": {"fill_type": 0},
+    "regression_equation": {"fill_type": 0},
+    "t6_h": {"fill_type": 0},
+    "t7_h": {"fill_type": 0},
+    "t3_h": {"fill_type": 0},
     "a": {"fill_type": 0},
-    "detection_time_t": {"fill_type": 0},
-    "trh_t": {"fill_type": 0},
-    "t1_t": {"fill_type": 0},
-    "t5_t": {"fill_type": 0}
+    "t4_h": {"fill_type": 0},
+    "t9_h": {"fill_type": 0},
+    "remark": {"fill_type": 0},
+    "r": {"fill_type": 0},
+    "calculation_formula": {"fill_type": 0},
+    "t5_h": {"fill_type": 0},
+    "t": {"fill_type": 0},
+    "b": {"fill_type": 0},
+    "instrument_name": {"fill_type": 0},
+    "detection_basis": {"fill_type": 0},
+    "t1_h": {"fill_type": 0},
+    "standard_solution_number": {"fill_type": 0},
+    "t10_h": {"fill_type": 0},
+    "detection_time": {"fill_type": 0},
+    "sample_status": {"fill_type": 0},
+    "rh": {"fill_type": 0},
+    "t2_h": {"fill_type": 0},
+    "storage_condition": {"fill_type": 0}
+}
+
+# 标题映射（包含字体和字号信息）
+title_mapping = {
+    'detection_basis_t': {'name': '检测依据', 'font': '宋体', 'font_size': 12},
+    'sample_status_t': {'name': '样品状态', 'font': '宋体', 'font_size': 12},
+    'solution_concentration_t': {'name': '溶液浓度()', 'font': '宋体', 'font_size': 12},
+    'regression_equation_t': {'name': '回归方程', 'font': '宋体', 'font_size': 12},
+    'storage_condition_t': {'name': '存放条件', 'font': '宋体', 'font_size': 12},
+    'standard_solution_number_t': {'name': '标准溶液及编号', 'font': '宋体', 'font_size': 12},
+    'trh_t': {'name': '环境条件', 'font': '宋体', 'font_size': 12},
+    'remark_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
+    'sample_preparation_t': {'name': '样品前处理', 'font': '宋体', 'font_size': 12},
+    'instrument_num_t': {'name': '仪器编号', 'font': '宋体', 'font_size': 12},
+    'instrument_name_t': {'name': '仪器名称', 'font': '宋体', 'font_size': 12},
+    'project_t': {'name': '检测项目', 'font': '宋体', 'font_size': 12},
+    'detection_time_t': {'name': '分析日期', 'font': '宋体', 'font_size': 12},
+    'calculation_formula_t': {'name': '计算公式', 'font': '宋体', 'font_size': 12}
 }
 
 # 字段渲染表格
@@ -58,11 +62,16 @@ custom_bookmark = {
     'note':'备注',
 }
 
+table_fields = []
+
+
 class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
+
+    STAND = ['normalConcentration', 'Abs', 'sumAbs']
     
     # 简单字段映射：表头名称 -> 数据库字段名
-    HEADER_M_MAPPING = {
+    HEADER_M_MAPPING_LIST = [{
         "t1": "sampleNumber",  
         "t2":"2191OJP", 
         "t3":"2191OJP", 
@@ -73,20 +82,20 @@ class TableDataHandler(BaseTableDataHandler):
         "t6":"Abs",
         "t7":"2191OJP",
         "t8":"Abs"
-    }
+    }]
 
-    jinja_title_mapping = {
-        't1_t': '样品编号',
-        't2_t': '取样量M（   ）',
-        't3_t': '稀释倍数f',
-        't4_t': '试料的体积V（   ）',
-        't5_t': '吸光值',
-        't6_t': '空白A0（   ）',
-        't7_t': '样品A（   ）',
-        't8_t': 'A－A0（   ）',
-        't9_t': '校准曲线查得试料中六价铬的量m（   ）',
-        't10_t': '浸出液中六价铬的浓度c（   ）',
-        't11_t': '平均值C\u0305（   ）'
+    TABLE_HEADER_MAP = {
+        't1_h': '样品编号',
+        't2_h': '取样量M（   ）',
+        't3_h': '稀释倍数f',
+        't4_h': '试料的体积V（   ）',
+        't5_h': '吸光值',
+        't6_h': '空白A0（   ）',
+        't7_h': '样品A（   ）',
+        't8_h': 'A－A0（   ）',
+        't9_h': '校准曲线查得试料中六价铬的量m（   ）',
+        't10_h': '浸出液中六价铬的浓度c（   ）',
+        't11_h': '平均值C\u0305（   ）'
     }
 
     

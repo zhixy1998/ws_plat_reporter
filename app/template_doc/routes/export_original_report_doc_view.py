@@ -27,8 +27,8 @@ from utils.log_decorator import log_response
 router = APIRouter()
 
 class InputSchema(BaseModel):
-    report_template_id: int = Field(None, description='报告模板id')
-    original_template_id: int = Field(None, description='原始模板id')
+    raw_data_report_id: int = Field(None, description='报告模板id')
+    test_data_report_id: int = Field(None, description='原始模板id')
     task_id: str = Field(..., description='任务id')
     sample_id: str = Field(None, description='样品id')
 
@@ -38,27 +38,27 @@ class OutSchema(BaseModel):
 @router.post('/export_original_report_docx')
 @log_response
 async def export_docx(data: InputSchema):
-    report_template_id = data.report_template_id
-    original_template_id = data.original_template_id
-    if not report_template_id and not original_template_id:
+    raw_data_report_id = data.raw_data_report_id # 原始记录
+    test_data_report_id = data.test_data_report_id # 测量数据
+    if not raw_data_report_id and not test_data_report_id:
         raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
     task_id = data.task_id
     sample_id = data.sample_id
-    if report_template_id: # 原始记录
-        report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(report_template_id)
-        fill_data_instance_report = FillDataUtils(report_template_name, template_id=report_template_id)
-        report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id,report_template_id)
+    if raw_data_report_id: # 原始记录
+        report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(raw_data_report_id)
+        fill_data_instance_report = FillDataUtils(report_template_name, template_id=raw_data_report_id)
+        report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id,raw_data_report_id)
         doc_report = Document(report_doc_steam_obj)
         # lock_table_width_on_document(doc_report)
 
-    if original_template_id: # 测量数据
-        original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(original_template_id)
-        fill_data_instance_original = FillDataUtils(original_template_name, template_id=original_template_id)
-        original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id,original_template_id)
+    if test_data_report_id: # 测量数据
+        original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(test_data_report_id)
+        fill_data_instance_original = FillDataUtils(original_template_name, template_id=test_data_report_id)
+        original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id,test_data_report_id)
         doc_original = Document(original_doc_stream_obj)
         # lock_table_width_on_document(doc_original)
 
-    if report_template_id and original_template_id:
+    if raw_data_report_id and test_data_report_id:
         # 清理第一个文档末尾，避免空白页
         clean_document_for_merge(doc_report)
         
@@ -78,12 +78,12 @@ async def export_docx(data: InputSchema):
         return StreamingResponse(doc_stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
             "Content-Disposition": "attachment; filename=filled.docx"
         })
-    elif report_template_id and not original_template_id:
+    elif raw_data_report_id and not test_data_report_id:
         report_doc_steam_obj.seek(0)
         return StreamingResponse(report_doc_steam_obj, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
             "Content-Disposition": "attachment; filename=filled.docx"
         })
-    elif original_template_id and not report_template_id:
+    elif test_data_report_id and not raw_data_report_id:
         original_doc_stream_obj.seek(0)
         return StreamingResponse(original_doc_stream_obj, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
             "Content-Disposition": "attachment; filename=filled.docx"
