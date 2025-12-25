@@ -33,6 +33,7 @@ common_data_mapping = {
         '扫描范围': 'scanRange',
         '光度模式': 'luminosityMode',
         '增益': 'gain',
+        '波长间隔': 'waveLengthInterval',
         '扫描间隔': 'timeInterval',
         '扫描速度': 'scanSpeed',
         '能量灯': 'energyLight',
