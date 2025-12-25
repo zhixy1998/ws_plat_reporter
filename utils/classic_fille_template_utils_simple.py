@@ -181,6 +181,14 @@ class ClassicFillDataUtils():
                     contexts[jinja_val] = ''
             else:
                 contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+        if self.common_val.get('isRepeat'):
+            contexts['is_repeat'] = True
+            contexts['重复模式'] = '单池重复'
+            contexts['重复次数'] = self.common_val.get('repeatCount')
+            contexts['扫描间隔'] = self.common_val.get('timeInterval')
+        else:
+            contexts['is_repeat'] = False
+            contexts['重复模式'] = '不重复'
         table_data = self.handle_spectral_scanning_table(self.end_point_header_and_data)
         # 兼容旧模板（仍可用 Jinja 循环渲染）
         contexts['table_data'] = table_data
