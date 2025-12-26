@@ -3,33 +3,57 @@
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
-from .common_data import BaseTableDataHandler
+from .common_data import BaseTableDataHandler, checkbox
 python_template_var = {
-    "r": {"fill_type": 0},
-    "检测项目": {"fill_type": 0},
-    "计算公式": {"fill_type": 0},
-    "前处理": {"fill_type": 0},
+    "t8_h": {"fill_type": 0},
+    "sample_preparation": {"fill_type": 0},
+    "grouped_data": {"fill_type": 0},
+    "solution_concentration": {"fill_type": 0},
+    "known_sample_sub_table": {"fill_type": 0},
+    "t11_h": {"fill_type": 0},
+    "project": {"fill_type": 0},
+    "instrument_num": {"fill_type": 0},
+    "regression_equation": {"fill_type": 0},
+    "t6_h": {"fill_type": 0},
+    "t7_h": {"fill_type": 0},
+    "t3_h": {"fill_type": 0},
     "a": {"fill_type": 0},
-    "仪器名称": {"fill_type": 0},
-    "标准溶液": {"fill_type": 0},
+    "t4_h": {"fill_type": 0},
+    "t9_h": {"fill_type": 0},
+    "remark": {"fill_type": 0},
+    "r": {"fill_type": 0},
+    "calculation_formula": {"fill_type": 0},
+    "t5_h": {"fill_type": 0},
+    "t": {"fill_type": 0},
     "b": {"fill_type": 0},
-    "备注": {"fill_type": 0},
-    "仪器编号": {"fill_type": 0},
-    "数据表格_rows": {"fill_type": 0},
-    "湿度": {"fill_type": 0},
-    "溶液浓度": {"fill_type": 0},
-    "温度": {"fill_type": 0},
-    "标准溶液及编号": {"fill_type": 0},
-    "分析日期": {"fill_type": 0},
-    "检测依据": {"fill_type": 0},
-    "回归方程": {"fill_type": 0},
-    "表格1_rows": {"fill_type": 0}
+    "instrument_name": {"fill_type": 0},
+    "detection_basis": {"fill_type": 0},
+    "t1_h": {"fill_type": 0},
+    "standard_solution_number": {"fill_type": 0},
+    "t10_h": {"fill_type": 0},
+    "detection_time": {"fill_type": 0},
+    "sample_status": {"fill_type": 0},
+    "rh": {"fill_type": 0},
+    "t2_h": {"fill_type": 0},
+    "storage_condition": {"fill_type": 0}
 }
 
-enable_table_grouping = True
-# 表格字段分组
-table_jinja_values = {
-    '吸光值': ['吸光值_0', '吸光值_1', '吸光值_2', '吸光值_3', '吸光值_4', '吸光值_5', '吸光值_6', '吸光值_7', '吸光值_8']
+# 标题映射（包含字体和字号信息）
+title_mapping = {
+    'detection_basis_t': {'name': '检测依据', 'font': '宋体', 'font_size': 12},
+    'sample_status_t': {'name': '样品状态', 'font': '宋体', 'font_size': 12},
+    'solution_concentration_t': {'name': '溶液浓度()', 'font': '宋体', 'font_size': 12},
+    'regression_equation_t': {'name': '回归方程', 'font': '宋体', 'font_size': 12},
+    'storage_condition_t': {'name': '存放条件', 'font': '宋体', 'font_size': 12},
+    'standard_solution_number_t': {'name': '标准溶液及编号', 'font': '宋体', 'font_size': 12},
+    'trh_t': {'name': '环境条件', 'font': '宋体', 'font_size': 12},
+    'remark_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
+    'sample_preparation_t': {'name': '样品前处理', 'font': '宋体', 'font_size': 12},
+    'instrument_num_t': {'name': '仪器编号', 'font': '宋体', 'font_size': 12},
+    'instrument_name_t': {'name': '仪器名称', 'font': '宋体', 'font_size': 12},
+    'project_t': {'name': '检测项目', 'font': '宋体', 'font_size': 12},
+    'detection_time_t': {'name': '分析日期', 'font': '宋体', 'font_size': 12},
+    'calculation_formula_t': {'name': '计算公式', 'font': '宋体', 'font_size': 12}
 }
 
 # 字段渲染表格
@@ -38,131 +62,42 @@ custom_bookmark = {
     'note':'备注',
 }
 
-table_fields = [
-    {
-        "headers": [
-            [
-                "吸光值"
-            ]
-        ],
-        "col_count": 1,
-        "data_rows": [],
-        "row_count": 0,
-        "table_name": "表格",
-        "column_width": [
-            3915
-        ],
-        "structure_type": 1
-    },
-    {
-        "has_tr": 1,
-        "headers": [
-                "样品编号",            
-                "取样量",            
-                "稀释倍数",           
-                "试料的体积",            
-                "校准曲线查得试料中六价铬的量",            
-                "浸出液中六价铬的浓度",            
-                "平均值",            
-                "吸光值空白",            
-                "吸光值样品",            
-                "吸光值平均"            
-        ],
-        "col_count": 10,
-        "data_rows": [],
-        "row_count": 0,
-        "table_name": "表格1",
-        "column_width": [
-            1545,
-            1546,
-            1546,
-            1546,
-            1546,
-            1546,
-            1546,
-            1546,
-            1546,
-            1546
-        ],
-        "structure_type": 0
-    },
-    {
-        "has_tr": 1,
-        "headers": [            
-                "样品编号",            
-                "取样量",           
-                "稀释倍数",            
-                "试料的体积",            
-                "校准曲线查得试料中六价铬的量",            
-                "浸出液中六价铬的浓度",           
-                "平均值",            
-                "吸光值空白",            
-                "吸光值样品",
-                "吸光值平均"            
-        ],
-        "col_count": 10,
-        "data_rows": [],
-        "row_count": 0,
-        "table_name": "数据表格",
-        "column_width": [
-            2430,
-            1417,
-            1701,
-            1418,
-            1695,
-            1725,
-            1640,
-            1108,
-            1185,
-            1140
-        ],
-        "structure_type": 0
-    }
-]
+table_fields = []
 
 
 class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
+
+    STAND = ['normalConcentration', 'Abs', 'sumAbs']
     
     # 简单字段映射：表头名称 -> 数据库字段名
-    HEADER_M_MAPPING = {
-        "吸光值": "Abs",  
+    HEADER_M_MAPPING_LIST = [{
+        "t1": "sampleNumber",  
+        "t2":"2191OJP", 
+        "t3":"2191OJP", 
+        "t4":"2191OJP", 
+        "t9":"2191OJP", 
+        "t10":"fitConcentration",  
+        "t11":"2191OJP",
+        "t6":"Abs",
+        "t7":"2191OJP",
+        "t8":"Abs"
+    }]
 
-        "样品编号": "sampleNumber",  # 序号列
-        "取样量":"2191OJP", 
-        "稀释倍数":"2191OJP", 
-        "试料的体积":"2191OJP", 
-        "校准曲线查得试料中六价铬的量":"2191OJP", 
-        "浸出液中六价铬的浓度":"fitConcentration",  
-        "平均值":"2191OJP",
-        "吸光值空白":"Abs",
-        "吸光值样品":"2191OJP",
-        "吸光值平均":"Abs"
+    TABLE_HEADER_MAP = {
+        't1_h': '样品编号',
+        't2_h': '取样量M（   ）',
+        't3_h': '稀释倍数f',
+        't4_h': '试料的体积V（   ）',
+        't5_h': '吸光值',
+        't6_h': '空白A0（   ）',
+        't7_h': '样品A（   ）',
+        't8_h': 'A－A0（   ）',
+        't9_h': '校准曲线查得试料中六价铬的量m（   ）',
+        't10_h': '浸出液中六价铬的浓度c（   ）',
+        't11_h': '平均值C\u0305（   ）'
     }
 
-    TABLE_NAME_MAP_REVERSE = {
-        '表格': ['吸光值'],
-        '表格1': ['样品编号', '取样量', '稀释倍数', '试料的体积', '校准曲线查得试料中六价铬的量', '浸出液中六价铬的浓度',"吸光值空白", "吸光值样品","吸光值平均",'平均值'],
-        '数据表格': ['样品编号', '取样量', '稀释倍数', '试料的体积', '校准曲线查得试料中六价铬的量', '浸出液中六价铬的浓度',"吸光值空白","吸光值样品", "吸光值平均",'平均值']
-    }
-
-    TEMPLATE_INFO_MAP = {
-	  '数据表格': {
-             'tpl_type': 2,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
-             'column_count': 10
-            },
-      '表格1': {
-             'tpl_type': 2,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
-             'column_count': 10
-            },
-      '表格': {
-            'tpl_type': 1,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
-            'column_count': 9
-        }
-    }
-
-    standard = ['吸光值']
-    unknown = ['样品编号', '取样量', '稀释倍数', '试料的体积', '校准曲线查得试料中六价铬的量', '浸出液中六价铬的浓度',"吸光值空白", "吸光值样品","吸光值平均",'平均值']
     
     def __init__(self):
         # TABLE_NAME_MAP_REVERSE = {'表格': ['吸光值']}

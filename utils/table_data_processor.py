@@ -35,6 +35,12 @@ class TableDataProcessor:
         except Exception as e:
             raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)
     
+    def get_known_sample_jinja_v(self):
+        if hasattr(self.template_module, 'known_sample_jinja_v'):
+            return self.template_module.known_sample_jinja_v
+        else:
+            return 'known_sample_sub_table'
+    
     def get_table_fields(self) -> List[Dict]:
         """获取表格字段配置"""
         if not self.template_module or not hasattr(self.template_module, 'table_fields'):

@@ -8,6 +8,7 @@ class TemplateDoc(TemplateDocBase):
     type = fields.SmallIntField(default=0, help_text="模板类型 常量 TemplateType")
     industry_type = fields.CharField(max_length=255, null=True, help_text="行业类型")
     experiment_type = fields.SmallIntField(default=0, help_text="实验类型 常量 ExperimentType")
+    origin_type = fields.SmallIntField(default=0, help_text="模板来源类型 常量 TemplateOriginType")
     create_datetime = fields.DatetimeField(auto_now_add=True)
     update_datetime = fields.DatetimeField(auto_now=True)
     template_content = fields.TextField()  # Base64 存储doc内容

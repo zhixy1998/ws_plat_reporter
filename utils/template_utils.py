@@ -1,4 +1,5 @@
 import os
+import importlib
 import tempfile
 import base64, json
 import subprocess
@@ -437,3 +438,30 @@ def has_ms_word():
         return True
     except Exception:
         return False
+
+def get_title_mapping(template_name):
+    common_title_mapping = {}
+    private_title_mapping = {}
+    
+    # 先加载通用 title_mapping
+    try:
+        common_data_module_path = "template_structure.common_data"
+        common_mod = importlib.import_module(common_data_module_path)
+        if hasattr(common_mod, 'title_mapping'):
+            common_title_mapping = common_mod.title_mapping
+    except Exception as e:
+        print(f"加载通用 title_mapping 失败: {e}")
+    
+    # 再尝试加载私有 title_mapping（优先级更高）
+    try:
+        private_module_path = "template_structure." + template_name
+        private_mod = importlib.import_module(private_module_path)
+        if hasattr(private_mod, 'title_mapping'):
+            private_title_mapping = private_mod.title_mapping
+    except Exception as e:
+        print(f"加载私有 title_mapping 失败: {e}")
+
+    result = []
+    # 合并映射：私有的优先级更高
+    title_mapping = {**common_title_mapping, **private_title_mapping}
+    return title_mapping

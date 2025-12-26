@@ -40,3 +40,4 @@ class ErrorCode(Enum):
     INVALID_FILE_FORMAT = Error(10018, zh='无效的文件格式')
     DOCX_CONVERSION_FAILED = Error(10019, zh='DOCX文件转换失败')
     IMPORT_ERROR = Error(10020, zh='数据库操作失败')
+    TEMPLATE_NAME_EMPTY = Error(10021, zh='模板名称不能为空')

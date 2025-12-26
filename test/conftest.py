@@ -11,8 +11,7 @@ from app.template_doc.model.template_doc import TemplateDoc
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from app.template_doc.model.template_extra_info import TemplateExtraInfo
 from app.template_doc.model.template_doc_base import TemplateDocBase
-from app.template_doc.model.bookmark_data import BookmarkData
-from app.template_doc.model.custom_bookmark import CustomBookmark
+# from app.template_doc.model.bookmark_data import BookmarkData
 
 # 加载环境变量
 load_dotenv(override=True)

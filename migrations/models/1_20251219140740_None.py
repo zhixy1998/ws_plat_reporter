@@ -14,14 +14,6 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
     `is_del` SMALLINT NOT NULL  DEFAULT 0,
     KEY `idx_bookmark_da_bookmar_064989` (`bookmark_id`)
 ) CHARACTER SET utf8mb4;
-CREATE TABLE IF NOT EXISTS `bookmark_custom` (
-    `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    `header` LONGTEXT   COMMENT '页眉',
-    `footer` LONGTEXT   COMMENT '页脚',
-    `note` LONGTEXT   COMMENT '备注',
-    `project_name` VARCHAR(255)   COMMENT '动态项目名称',
-    `template_doc_id` INT NOT NULL  COMMENT '关联的模板基础ID'
-) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `template_bookmark` (
     `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `parent_id` INT,
@@ -45,17 +37,23 @@ CREATE TABLE IF NOT EXISTS `template_doc` (
     `name` VARCHAR(255) NOT NULL,
     `type` SMALLINT NOT NULL  DEFAULT 0,
     `industry_type` VARCHAR(255),
+    `experiment_type` SMALLINT NOT NULL  DEFAULT 0,
+    `origin_type` SMALLINT NOT NULL  DEFAULT 0,
     `create_datetime` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
     `update_datetime` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     `template_content` LONGTEXT NOT NULL,
     `is_del` SMALLINT NOT NULL  DEFAULT 0,
-    `base_template_id` INT
+    `thumbnail_base64` LONGTEXT,
+    `base_template_id` INT,
+    `order` INT
 ) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `template_doc_base` (
     `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `name` VARCHAR(255) NOT NULL,
     `type` SMALLINT NOT NULL  DEFAULT 0,
     `industry_type` VARCHAR(255),
+    `experiment_type` SMALLINT NOT NULL  DEFAULT 0,
+    `origin_type` SMALLINT NOT NULL  DEFAULT 0,
     `create_datetime` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
     `update_datetime` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     `template_content` LONGTEXT NOT NULL,
@@ -63,11 +61,13 @@ CREATE TABLE IF NOT EXISTS `template_doc_base` (
 ) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `template_extra_info` (
     `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    `template_doc_id` INT NOT NULL,
-    `bookmark_data_id` INT NOT NULL,
-    `has_tr` SMALLINT NOT NULL  DEFAULT 0,
-    `create_datetime` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
-    `update_datetime` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+    `header` LONGTEXT   COMMENT '页眉',
+    `footer` LONGTEXT   COMMENT '页脚',
+    `note` LONGTEXT   COMMENT '备注',
+    `project_name` VARCHAR(255)   COMMENT '动态项目名称',
+    `title` LONGTEXT   COMMENT '标题',
+    `subtitle` LONGTEXT   COMMENT '副标题',
+    `template_doc_id` INT NOT NULL  COMMENT '关联的模板id'
 ) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `aerich` (
     `id` INT NOT NULL PRIMARY KEY AUTO_INCREMENT,

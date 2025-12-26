@@ -11,7 +11,7 @@ from utils.template_utils import get_doc_obj_by_template_id
 from utils.get_bookmark_text import get_bookmark_text
 from utils.handle_header_footer import get_header_footer_font_info
 from utils.log_decorator import log_response
-from app.template_doc.model.custom_bookmark import CustomBookmark
+from app.template_doc.model.template_extra_info import TemplateExtraInfo
 
 router = APIRouter()
 
@@ -50,7 +50,7 @@ async def get_template_extra_info(template_id: int):
 
     # 获取备注
     template_name = template_instance.name
-    bookmark_custom_instances = await CustomBookmark.get_or_none(template_doc_id=template_id)
+    bookmark_custom_instances = await TemplateExtraInfo.get_or_none(template_doc_id=template_id)
 
     module_name = "template_structure." + template_name
     try:
