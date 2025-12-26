@@ -4,7 +4,7 @@ from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
 
 from exceptions.error import ErrorCode
-from constants.template_constant import TemplateType
+from constants.template_constant import ExperimentType, TemplateType, TemplateOriginType
 from exceptions.command_exception import APIException
 from utils.log_decorator import log_response
 
@@ -68,13 +68,16 @@ async def get_report_template(
     query = query.order_by(sort_key).offset((page - 1) * page_size).limit(page_size)
 
     # 执行查询
-    template_list = await query.values('id', 'name', 'type', 'create_datetime', 'update_datetime')
+    template_list = await query.values('id', 'name', 'type', 'create_datetime', 'update_datetime', 'industry_type', 'experiment_type', 'origin_type')
     template_list = [
+    
     {
         **{k: v for k, v in item.items() if k not in ['type', 'create_datetime', 'update_datetime']},
         'type_decs': TemplateType.get_name_desc_by_value(item['type']),
         'create_datetime': item['create_datetime'].strftime('%Y-%m-%d %H:%M:%S') if item['create_datetime'] else None,
         'update_datetime': item['update_datetime'].strftime('%Y-%m-%d %H:%M:%S') if item['update_datetime'] else None,
+        'experiment_type_decs': ExperimentType.get_name_desc_by_value(item['experiment_type']),
+        'origin_type_decs': TemplateOriginType.get_name_desc_by_value(item['origin_type']),
     }
     for item in template_list
     ]

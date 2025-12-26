@@ -1,6 +1,7 @@
 import base64, os, json, shutil
 from io import BytesIO
 from zipfile import BadZipFile
+from typing import Dict, Optional
 
 import jinja2
 from docxtpl import DocxTemplate
@@ -92,7 +93,9 @@ async def create_template_view(
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
     return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
 
-async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, industry_type: str = '', experiment_type: int = 0) -> int:
+
+async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, 
+    industry_type: str = '', experiment_type: int = 0, title_mapping: Optional[Dict[str, Dict]] = None, old_template_name: Optional[str] = None) -> int:
     if template_type in [TemplateType.report_template.value, TemplateType.original_records.value]:
         async with in_transaction('default') as connection:
             create_info = {
@@ -113,7 +116,8 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
             # 创建json文件
             for book_mark in book_markets:
                 await recursion_create_bookmark(book_mark, template.id)     
-            await create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), connection=connection)
+            await create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), 
+            connection=connection, title_mapping=title_mapping, old_template_name=old_template_name)
             return template.id
     else:
         return 0
@@ -157,27 +161,74 @@ async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
             if child.get('name') and child.get('id'):
                 await recursion_create_bookmark(child, template_id, new_bookmark.id)
 
-async def create_python_setting_file(template_id: int, name: str, template_file_steam: BytesIO, connection=None):
+async def create_python_setting_file(template_id: int, name: str, template_file_steam: BytesIO, connection=None, title_mapping: Optional[Dict[str, Dict]] = None, old_template_name: Optional[str] = None) -> str:
     """
     创建模板的 Python 设置文件，包含字段定义和 title_mapping
     
     Args:
         template_id: 模板 ID
-        name: 文件名称
+        name: 新文件名称
         template_file_steam: 模板文件流
         connection: 数据库连接
+        title_mapping: 传入的 title_mapping 字典（可选）
+        old_template_name: 原始模板名称（可选），如果提供则复制该文件并替换 title_mapping
     """
     py_folders = 'template_structure'
     os.makedirs(py_folders, exist_ok=True)
 
-    # 加载 common_data 的 title_mapping（用于查询已有的标题描述）
-    try:
-        common_mod = importlib.import_module('template_structure.common_data')
-        common_title_mapping = common_mod.title_mapping if hasattr(common_mod, 'title_mapping') else {}
-    except Exception as e:
-        print(f"加载 common_data title_mapping 失败: {e}")
-        common_title_mapping = {}
-
+    # 如果传入了 old_template_name 和 title_mapping，复制旧文件并替换 title_mapping
+    if old_template_name and title_mapping:
+        old_py_path = os.path.join(py_folders, f"{old_template_name}.py")
+        
+        # 检查旧文件是否存在
+        if os.path.exists(old_py_path):
+            print(f"DEBUG: 找到旧模板文件: {old_py_path}，复制并更新 title_mapping")
+            
+            # 读取旧文件内容
+            with open(old_py_path, "r", encoding="utf-8") as f:
+                old_content = f.read()
+            
+            # 替换 title_mapping 部分
+            # 找到 title_mapping = { 和下一个 } 之间的内容
+            import re
+            
+            # 构建新的 title_mapping 内容
+            new_title_mapping_lines = ["title_mapping = {\n"]
+            title_vars = list(title_mapping.keys())
+            for i, var in enumerate(title_vars):
+                mapping_info = title_mapping[var]
+                title_text = mapping_info.get('name', var.replace('_t', ''))
+                font = mapping_info.get('font', '宋体')
+                font_size = mapping_info.get('font_size', 12)
+                
+                comma = "," if i < len(title_vars) - 1 else ""
+                new_title_mapping_lines.append(f"    '{var}': {{'name': '{title_text}', 'font': '{font}', 'font_size': {font_size}}}{comma}\n")
+            new_title_mapping_lines.append("}\n")
+            
+            new_title_mapping_str = "".join(new_title_mapping_lines)
+            
+            # 使用正则表达式替换 title_mapping 部分
+            pattern = r'title_mapping = \{[\s\S]*?\n\}\n'
+            new_content = re.sub(pattern, new_title_mapping_str, old_content)
+            
+            # 保存为新文件
+            new_py_path = os.path.join(py_folders, f"{name}.py")
+            backup_path = os.path.join(py_folders, f"{name}_back.py")
+            
+            # 如果新文件已存在，先备份
+            if os.path.exists(new_py_path):
+                shutil.copy2(new_py_path, backup_path)
+            
+            # 写入新文件
+            with open(new_py_path, "w", encoding="utf-8", newline='\n') as f:
+                f.write(new_content)
+            
+            print(f"DEBUG: 新模板文件已创建: {new_py_path}")
+            return new_py_path
+        else:
+            print(f"DEBUG: 旧模板文件不存在: {old_py_path}，使用标准流程生成")
+    
+    # 标准流程：从模板中提取信息并生成文件
     # 提取模板中的变量和字体信息
     doc = DocxTemplate(template_file_steam)
     try:
@@ -189,34 +240,71 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
         print(e)
         raise APIException(ErrorCode.INVALID_TEMPLATE_FIELD)
 
-    # 使用 python-docx 读取字体信息
-    template_file_steam.seek(0)
-    docx_doc = Document(template_file_steam)
-    
-    # 建立占位符到字体信息的映射
-    var_font_info = {}
-    for para in docx_doc.paragraphs:
-        text = para.text
-        for var in context_vars:
-            if var in text:
-                # 从该段落的 run 中获取字体信息
-                for run in para.runs:
-                    if var in run.text:
-                        font_name = run.font.name or '宋体'  # 默认宋体
-                        font_size = run.font.size
-                        if font_size:
-                            font_size_pt = font_size / 20  # 转换为磅
-                        else:
-                            # 从样式继承
-                            style_font_size = para.style.font.size
-                            font_size_pt = style_font_size / 20 if style_font_size else 12
-                        
-                        var_font_info[var] = {
-                            'font': font_name,
-                            'font_size': int(font_size_pt)
-                        }
-                        break
+    # 如果没有传入 title_mapping，则从模板和 common_data 中提取
+    if not title_mapping:
+        # 加载 common_data 的 title_mapping（用于查询已有的标题描述）
+        try:
+            common_mod = importlib.import_module('template_structure.common_data')
+            common_title_mapping = common_mod.title_mapping if hasattr(common_mod, 'title_mapping') else {}
+        except Exception as e:
+            print(f"加载 common_data title_mapping 失败: {e}")
+            common_title_mapping = {}
 
+        # 使用 python-docx 读取字体信息
+        template_file_steam.seek(0)
+        docx_doc = Document(template_file_steam)
+        
+        # 建立占位符到字体信息的映射
+        var_font_info = {}
+        for para in docx_doc.paragraphs:
+            text = para.text
+            for var in context_vars:
+                if var in text:
+                    # 从该段落的 run 中获取字体信息
+                    for run in para.runs:
+                        if var in run.text:
+                            font_name = run.font.name or '宋体'  # 默认宋体
+                            font_size = run.font.size
+                            if font_size:
+                                font_size_pt = font_size / 20  # 转换为磅
+                            else:
+                                # 从样式继承
+                                style_font_size = para.style.font.size
+                                font_size_pt = style_font_size / 20 if style_font_size else 12
+                            
+                            var_font_info[var] = {
+                                'font': font_name,
+                                'font_size': int(font_size_pt)
+                            }
+                            break
+        
+        # 构建 title_mapping 用于生成文件
+        title_mapping = {}
+        for var in title_vars:
+            # 从 common_data 中查找对应的文字描述
+            common_entry = common_title_mapping.get(var)
+            
+            # 如果 common_entry 是字典，从中提取 'name'；否则当字符串使用
+            if isinstance(common_entry, dict):
+                title_text = common_entry.get('name', var.replace('_t', ''))
+                # 如果字典中已有字体信息，优先使用
+                if 'font' in common_entry:
+                    font_info = {
+                        'font': common_entry['font'],
+                        'font_size': common_entry.get('font_size', 12)
+                    }
+                else:
+                    font_info = var_font_info.get(var, {'font': '宋体', 'font_size': 12})
+            else:
+                title_text = common_entry or var.replace('_t', '')  # 如果没找到，就用变量名
+                font_info = var_font_info.get(var, {'font': '宋体', 'font_size': 12})
+            
+            title_mapping[var] = {
+                'name': title_text,
+                'font': font_info['font'],
+                'font_size': font_info['font_size']
+            }
+    
     # 生成 Python 文件内容
     py_lines = [
         "# 模板字段定义\n",
@@ -230,36 +318,29 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     for i, var in enumerate(value_vars):
         comma = "," if i < len(value_vars) - 1 else ""
         py_lines.append(f'    "{var}": {{"fill_type": 0}}{comma}\n')
-    
+
     py_lines.append("}\n")
 
     # 生成 title_mapping（带字体信息）
     py_lines.append("\n# 标题映射（包含字体和字号信息）\n")
     py_lines.append("title_mapping = {\n")
-    
+
     for i, var in enumerate(title_vars):
-        # 从 common_data 中查找对应的文字描述
-        common_entry = common_title_mapping.get(var)
-        
-        # 如果 common_entry 是字典，从中提取 'name'；否则当字符串使用
-        if isinstance(common_entry, dict):
-            title_text = common_entry.get('name', var.replace('_t', ''))
-            # 如果字典中已有字体信息，优先使用
-            if 'font' in common_entry:
-                font_info = {
-                    'font': common_entry['font'],
-                    'font_size': common_entry.get('font_size', 12)
-                }
-            else:
-                font_info = var_font_info.get(var, {'font': '宋体', 'font_size': 12})
+        if var in title_mapping:
+            mapping_info = title_mapping[var]
+            title_text = mapping_info.get('name', var.replace('_t', ''))
+            font = mapping_info.get('font', '宋体')
+            font_size = mapping_info.get('font_size', 12)
         else:
-            title_text = common_entry or var.replace('_t', '')  # 如果没找到，就用变量名
-            font_info = var_font_info.get(var, {'font': '宋体', 'font_size': 12})
-        
+            # 备用：如果没有在 title_mapping 中找到，使用默认值
+            title_text = var.replace('_t', '')
+            font = '宋体'
+            font_size = 12
+    
         # 构建字典（单行格式）
         comma = "," if i < len(title_vars) - 1 else ""
-        py_lines.append(f"    '{var}': {{'name': '{title_text}', 'font': '{font_info['font']}', 'font_size': {font_info['font_size']}}}{comma}\n")
-    
+        py_lines.append(f"    '{var}': {{'name': '{title_text}', 'font': '{font}', 'font_size': {font_size}}}{comma}\n")
+
     py_lines.append("}\n")
 
     # 获取表格结构
@@ -275,32 +356,32 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
         'project_name': '项目名称',
         'note': '备注',
     }
-    
+
     # 添加 custom_bookmark 到生成的文件中
     py_lines.append("\n# 字段渲染表格\n")
     py_lines.append("custom_bookmark = {\n")
     for key, values in custom_bookmark.items():
         py_lines.append(f"    '{key}':'{values}',\n")
     py_lines.append("}\n\n")
-    
+
     py_lines.append("table_fields = ")
     table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False, separators=(',', ': '))
     table_fields_str = table_fields_str.replace("null", "None")
     py_lines.append(f"{table_fields_str}\n")
-    
+
     # 创建文件
     py_path = os.path.join(py_folders, f"{name}.py")
     backup_path = os.path.join(py_folders, f"{name}_back.py")
-    
+
     # 如果原文件存在，先备份
     if os.path.exists(py_path):
         shutil.copy2(py_path, backup_path)
-    
+
     # 写入文件
     with open(py_path, "w", encoding="utf-8", newline='\n') as f:
         for line in py_lines:
             f.write(line)
-     
+ 
     return py_path
 
 async def get_table_structure_by_template_name(template_id, template_name, connection):

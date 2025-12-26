@@ -33,7 +33,7 @@ from constants.template_constant import TemplateBookMarkType
 router = APIRouter()
 
 class BookmarkItem(BaseModel):
-    bm_id: int = Field(None, description="书签唯一ID")
+    desc_t: str = Field(None, description="time_mapping 的key")
     font: Optional[str] = Field(None, description="字体")
     font_size: Optional[int] = Field(None, description="字号")
     value: Optional[str] = Field(None, description="书签内容")
@@ -66,69 +66,81 @@ class OutSchema(BaseModel):
 @router.post('/update_bookmark', response_model=OutSchema)
 @log_response
 async def update_bookmark(data: InputSchema):
-
-    operation_type = data.operation_type
     template = await TemplateDoc.get_or_none(id=data.template_id)
     if not template:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
     template_name = template.name
-    title_mapping = get_title_mapping(template_name)
+    origin_title_mapping = get_title_mapping(template_name)
+    operation_type = data.operation_type
+    input_title_mapping = data.bookmark_list
+    new_title_mapping = {}
+    for item in input_title_mapping:
+        new_title_mapping[item.desc_t] = {
+            'name': item.value,
+            'font': item.font,
+            'font_size': item.font_size
+        }
+    if operation_type == 1:  # 另存为
+        new_name = data.name
+        if not new_name:
+            raise APIException(ErrorCode.TEMPLATE_NAME_EMPTY)
+        # 合并标题映射
+        merged_title_mapping = {**origin_title_mapping, **new_title_mapping}
+        content_base64 = template.template_content
+        content = base64.b64decode(content_base64)  # 解码 base64 回原始 DOCX 字节
+        await create_template(data.name, content_base64, content=content, template_type=template.type, 
+        industry_type=template.industry_type, experiment_type=template.experiment_type, 
+        title_mapping=merged_title_mapping, old_template_name=template_name)
+        return {'code': 200, 'message': '模板另存为成功'}
 
-    doc = await get_doc_obj_by_template_id(template_id=data.template_id)
-    output_stream = BytesIO()
-    doc.save(output_stream)
-    output_stream.seek(0)
+    else:  # 预览
 
-    # 先获取原始字节数据
-    doc_raw_bytes = output_stream.getvalue()
+        doc = await get_doc_obj_by_template_id(template_id=data.template_id)
+        output_stream = BytesIO()
+        doc.save(output_stream)
+        output_stream.seek(0)
+
+        # 先获取原始字节数据
+        doc_raw_bytes = output_stream.getvalue()
     
-    # 为显示创建流（处理docxtpl标识）
-    show_output_stream = BytesIO(doc_raw_bytes)
-    template_instance = await TemplateDoc.get_or_none(id=data.template_id)
-    template_name = template_instance.name
-    fill_data_utils = FillDataUtils(template_name, data.template_id, fake=True)
-    await fill_data_utils.get_table_context(doc_stream=show_output_stream)
-    # await fill_data_utils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info, additional_context=blank_table_context)
-    await fill_data_utils.fill_common_data(doc_stream=show_output_stream)
-    doc_stream = fill_data_utils.fill_template_by_jinja(doc_stream=show_output_stream)
-    doc_stream = fill_data_utils.insert_header_page_number(doc_stream)
+        # 为显示创建流（处理docxtpl标识）
+        show_output_stream = BytesIO(doc_raw_bytes)
+        template_instance = await TemplateDoc.get_or_none(id=data.template_id)
+        template_name = template_instance.name
+        fill_data_utils = FillDataUtils(template_name, data.template_id, fake=True, new_title_mapping=new_title_mapping)
+        await fill_data_utils.get_table_context(doc_stream=show_output_stream)
+        # await fill_data_utils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info, additional_context=blank_table_context)
+        await fill_data_utils.fill_common_data(doc_stream=show_output_stream)
+        doc_stream = fill_data_utils.fill_template_by_jinja(doc_stream=show_output_stream)
+        doc_stream = fill_data_utils.insert_header_page_number(doc_stream)
     
-    # 调试：保存Word文件到当前目录查看
-    debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
-    doc_stream.seek(0)
-    word_bytes = doc_stream.read()
-    with open(debug_word_path, "wb") as f:
-        f.write(word_bytes)
-    print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
+        # 调试：保存Word文件到当前目录查看
+        debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
+        doc_stream.seek(0)
+        word_bytes = doc_stream.read()
+        with open(debug_word_path, "wb") as f:
+            f.write(word_bytes)
+        print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
     
-    # 从磁盘读取Word文件后转换为PDF
-    try:
-        with open(debug_word_path, "rb") as f:
-            word_content = f.read()
-        pdf_bytes = convert_docx_to_pdf(word_content)
-        # 调试：保存PDF文件到当前目录查看格式
-        debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
-        with open(debug_pdf_path, "wb") as f:
-            f.write(pdf_bytes)
-        print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
+        # 从磁盘读取Word文件后转换为PDF
+        try:
+            with open(debug_word_path, "rb") as f:
+                word_content = f.read()
+            pdf_bytes = convert_docx_to_pdf(word_content)
+            # 调试：保存PDF文件到当前目录查看格式
+            debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
+            with open(debug_pdf_path, "wb") as f:
+                f.write(pdf_bytes)
+            print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
         
-        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-        show_base64_str = f"data:application/pdf;base64,{pdf_base64}"
-    except Exception as e:
-        print(f"PDF转换失败: {e}")
-        import traceback
-        traceback.print_exc()
-        show_base64_str = ""
-    
-    # 为保存创建流（保持原始内容）
-    save_output_stream = BytesIO(doc_raw_bytes)
-    base64_str, _ = file_stream_to_base64(file_stream=save_output_stream)
-
-    if operation_type == 1: # 另存为
-        await create_template(data.name, base64_str, doc_raw_bytes)
-    if operation_type == 2: # 保存
-        await TemplateDoc.filter(id=data.template_id).update(template_content=base64_str)
-    return {'code': 200, 'message': '模板更新成功', 'data': {'file_base64': show_base64_str}}
+            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+            show_base64_str = pdf_base64
+        except Exception as e:
+            print(f"PDF转换失败: {e}")
+            import traceback
+            traceback.print_exc()
+            show_base64_str = ""
+        return {'code': 200, 'message': '预览成功', 'data': {'file_base64': show_base64_str}}
 
 
 

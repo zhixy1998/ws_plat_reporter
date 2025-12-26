@@ -32,7 +32,7 @@ from utils.table_data_processor import TableDataProcessor, GetHeaderAndData
 load_dotenv(override=True)
 
 class FillDataUtils():
-    def __init__(self, name, template_id, fake=False):
+    def __init__(self, name, template_id, fake=False, new_title_mapping=None):
         self.name = name
         self.sample_id = None
         private_mod = None
@@ -47,6 +47,7 @@ class FillDataUtils():
         self.fake = fake
         self.table_data_processor = TableDataProcessor(name)
         self.init_data()
+        self.new_title_mapping = new_title_mapping
 
     def convert_tel_val_data_to_rows(self, tel_val_data_list):
         """
@@ -203,18 +204,25 @@ class FillDataUtils():
             private_title_mapping = self.table_data_processor.template_module.title_mapping
         doc = DocxTemplate(doc_stream)
         context_vars = doc.get_undeclared_template_variables()
-        for t in context_vars:
-            if t.endswith('_t'):
-                if has_private_title_mapping:
-                    v = private_title_mapping.get(t).get('name', '')
-                    if not v:
-                        v = self.common_title_mapping.get(v).get('name', '')
+        if self.new_title_mapping:
+            for t in self.new_title_mapping:
+                if t.endswith('_t'):
+                    v = self.new_title_mapping.get(t).get('name', '')
                     if v:
                         self.contexts[t] = v
-                else:
-                    v = self.common_title_mapping.get(t).get('name', '')
-                    if v:
-                        self.contexts[t] = v
+        else:
+            for t in context_vars:
+                if t.endswith('_t'):
+                    if has_private_title_mapping:
+                        v = private_title_mapping.get(t).get('name', '')
+                        if not v:
+                            v = self.common_title_mapping.get(v).get('name', '')
+                        if v:
+                            self.contexts[t] = v
+                    else:
+                        v = self.common_title_mapping.get(t).get('name', '')
+                        if v:
+                            self.contexts[t] = v
     
     async def fill_common_data_v(self):
         if not self.fake:
@@ -778,7 +786,7 @@ class FillDataUtils():
                     else:
                         temp_context[table_title_k] = self.TABLE_HEADER_MAP.get(table_title_k)
                         data = [f'样品{n+1}' for n in range(5)]
-                        table_origin_header_data_mapping[jinja_header_value] = ['', '', '','']
+                        table_origin_header_data_mapping[jinja_header_value] = ['测量值', '测量值', '测量值', '测量值']
                 
                 # 为每个表格生成行数据
                 if table_origin_header_data_mapping:
