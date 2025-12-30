@@ -20,7 +20,7 @@ load_dotenv(override=True)
 
 TORTOISE_ORM = {
     "connections": {
-        "default": config.database_url, 
+        "default": config.classic_database_url, 
         "classic_db": config.classic_database_url
     },
     
