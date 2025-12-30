@@ -21,12 +21,14 @@ class TemplateExtraInfo(Model):
     subtitle = fields.TextField(description="副标题", null=True)
     #和template_doc 建立虚拟外键关系
     template_doc_id = fields.IntField(description="关联的模板id")
+    page_num_type = fields.IntField(default=0, description="页码 0:不展示页码 1: 左边展示 2: 居中展示 3: 右边展示")
 
     class Meta:
         table = "template_extra_info"
 
 
     #根据模板id获取信息
+    @staticmethod
     async def get_custom_bookmark(template_id: int):
         template_extra_info = await TemplateExtraInfo.get_or_none(template_doc_id=template_id)
         if not template_extra_info:
@@ -35,6 +37,7 @@ class TemplateExtraInfo(Model):
         return template_extra_info
     
     # 根据参数更新数据库数据并维护外键
+    @staticmethod
     async def update_custom_bookmark(template_id: int,note: str = None, project_name: str = None, 
                                    header: str = None, footer: str = None,title: str=None,
                                    subtitle :str=None) -> bool:

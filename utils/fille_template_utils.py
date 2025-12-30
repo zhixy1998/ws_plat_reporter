@@ -463,6 +463,9 @@ class FillDataUtils():
             return True
         except Exception:
             return False
+
+    async def fill_remark(self, remark_item):
+        self.contexts['remark'] = remark_item.value
     
     async def decode_base64_image(self, bookmark_name, tpl, val):
         try:
@@ -496,14 +499,31 @@ class FillDataUtils():
             return ["-".join(map(str, group)) for group in zip(*headers)]
     
 
-    def insert_header_page_number(self, doc_stream: BytesIO) -> BytesIO:
+    def insert_header_page_number(self, doc_stream: BytesIO, alignment: int = 3) -> BytesIO:
+        """
+        在页眉中插入页码
+        
+        Args:
+            doc_stream: Word文档流
+            alignment: 对齐方式 (1:左对齐, 2:居中, 3:右对齐)
+        
+        Returns:
+            BytesIO: 修改后的文档流
+        """
         doc = Document(doc_stream)
 
         section = doc.sections[0]
         header = section.header
         paragraph = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
 
-        paragraph.alignment = 2  # 右对齐
+        # 清空段落内容
+        for run in paragraph.runs:
+            r = run._element
+            r.getparent().remove(r)
+
+        # 转换对齐方式：1:左, 2:中, 3:右 -> 0:左, 1:中, 2:右
+        alignment_map = {1: 0, 2: 1, 3: 2}
+        paragraph.alignment = alignment_map.get(alignment, 2)
 
         def add_field(p, field_code):
             run = p.add_run()
@@ -532,6 +552,34 @@ class FillDataUtils():
         doc.save(output_stream)
         output_stream.seek(0)
         return output_stream
+    
+    def remove_header_page_number(self, doc_stream: BytesIO) -> BytesIO:
+        """
+        移除页眉中的页码
+        
+        Args:
+            doc_stream: Word文档流
+        
+        Returns:
+            BytesIO: 修改后的文档流
+        """
+        doc = Document(doc_stream)
+
+        section = doc.sections[0]
+        header = section.header
+        
+        # 删除所有段落中的内容
+        for paragraph in header.paragraphs:
+            for run in paragraph.runs:
+                r = run._element
+                r.getparent().remove(r)
+
+        # 保存回字节流
+        output_stream = BytesIO()
+        doc.save(output_stream)
+        output_stream.seek(0)
+        return output_stream
+    
     
     async def get_all_child_bookmarks(self, parent_id):
         """
@@ -656,7 +704,7 @@ class FillDataUtils():
                         row_data.insert(0, head[index])
                 else:
                     for index, s in enumerate(stand):
-                        real_header= f'测量值-{index}'
+                        real_header= f'已知样-{index}'
                         head.append(real_header)
                         data = ['样品'+str(i+1) for i in range(6)]
                         row.append(data)
@@ -786,7 +834,7 @@ class FillDataUtils():
                     else:
                         temp_context[table_title_k] = self.TABLE_HEADER_MAP.get(table_title_k)
                         data = [f'样品{n+1}' for n in range(5)]
-                        table_origin_header_data_mapping[jinja_header_value] = ['测量值', '测量值', '测量值', '测量值']
+                        table_origin_header_data_mapping[jinja_header_value] = ['*', '*', '*', '*']
                 
                 # 为每个表格生成行数据
                 if table_origin_header_data_mapping:
