@@ -101,3 +101,10 @@ class MeasureType(ExperimentType):
 class TemplateOriginType(StorageInfo):
     system_default = MessageType(decs='系统默认模板', value=0, name="system_default")
     user_change = MessageType(decs='用户另存为模板', value=1, name="user_change")
+
+
+class TemplatePageNumType(StorageInfo):
+    no_page = MessageType(decs='不展示页码', value=0, name="no_page")
+    left_page = MessageType(decs='左边展示', value=1, name="left_page")
+    center_page = MessageType(decs='居中展示', value=2, name="center_page")
+    right_page = MessageType(decs='右边展示', value=3, name="right_page")

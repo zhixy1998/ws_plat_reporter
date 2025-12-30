@@ -28,7 +28,7 @@ from utils.LoadAndDelete import delete_bookmark_content
 from utils.handle_header_footer import set_header_footer
 from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
 from utils.doc_converter import get_libreoffice_command
-from constants.template_constant import TemplateBookMarkType
+from constants.template_constant import TemplateBookMarkType, TemplatePageNumType
 
 router = APIRouter()
 
@@ -47,8 +47,9 @@ class InputSchema(BaseModel):
     footer: BookmarkItem = Field(None, description='页脚')
     operation_type: int = Field(None, description='操作类型 0: 预览 1:另存为 2: 保存')
     name: str = Field(None, description='模板名称 当另存为的时候传入')
-    note: Optional[BookmarkItem]= Field(None, description='备注')
+    remark: Optional[BookmarkItem]= Field(None, description='备注')
     project_name: Optional[BookmarkItem] = Field(None, description='动态项目名称')
+    page_num_type: str = Field(TemplatePageNumType.no_page.value, description='页码类型')
 
 
 
@@ -96,6 +97,15 @@ async def update_bookmark(data: InputSchema):
     else:  # 预览
 
         doc = await get_doc_obj_by_template_id(template_id=data.template_id)
+
+        # 处理页眉页脚
+        header_info = data.header
+        if header_info:
+            set_header_footer(doc, header_text=header_info.value, header_font_name=header_info.font, header_font_size=header_info.font_size)
+        footer_info = data.footer
+        if footer_info:
+            set_header_footer(doc, footer_text=footer_info.value, footer_font_name=footer_info.font, footer_font_size=footer_info.font_size)
+        
         output_stream = BytesIO()
         doc.save(output_stream)
         output_stream.seek(0)
@@ -109,10 +119,21 @@ async def update_bookmark(data: InputSchema):
         template_name = template_instance.name
         fill_data_utils = FillDataUtils(template_name, data.template_id, fake=True, new_title_mapping=new_title_mapping)
         await fill_data_utils.get_table_context(doc_stream=show_output_stream)
+        if data.remark:
+            await fill_data_utils.fill_remark(data.remark)
         # await fill_data_utils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info, additional_context=blank_table_context)
         await fill_data_utils.fill_common_data(doc_stream=show_output_stream)
         doc_stream = fill_data_utils.fill_template_by_jinja(doc_stream=show_output_stream)
-        doc_stream = fill_data_utils.insert_header_page_number(doc_stream)
+        
+        # 根据页码类型处理
+        # 从字符串描述转换为对应的value值
+        template_desc_value_map = TemplatePageNumType.generate_decs_value_map()
+        page_num_value = template_desc_value_map.get(data.page_num_type)
+        
+        if page_num_value == TemplatePageNumType.no_page.value:
+            doc_stream = fill_data_utils.remove_header_page_number(doc_stream)
+        else:
+            doc_stream = fill_data_utils.insert_header_page_number(doc_stream, alignment=page_num_value)
     
         # 调试：保存Word文件到当前目录查看
         debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
@@ -121,6 +142,8 @@ async def update_bookmark(data: InputSchema):
         with open(debug_word_path, "wb") as f:
             f.write(word_bytes)
         print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
+
+
     
         # 从磁盘读取Word文件后转换为PDF
         try:

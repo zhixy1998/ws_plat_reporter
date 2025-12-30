@@ -53,9 +53,9 @@ title_mapping = {
 }
 
 # 字段渲染表格
-custom_bookmark = {
-    'project_name':'项目名称',
-    'note':'备注',
+extra_info = {
+    'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
+    'page_num_type': 0
 }
 
 table_fields = []
