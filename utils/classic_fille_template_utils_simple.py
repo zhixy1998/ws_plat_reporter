@@ -452,8 +452,8 @@ class ClassicFillDataUtils():
                         label=f'未知点 ({len(unknown_points)}个)', zorder=10, edgecolors='darkred', linewidth=2)
             
         # 设置图表样式
-        plt.xlabel('浓度', fontsize=12)
-        plt.ylabel('吸光度', fontsize=12)
+        plt.xlabel('', fontsize=12)
+        plt.ylabel('', fontsize=12)
         plt.title('定量分析标准曲线', fontsize=14, fontweight='bold')
         plt.grid(True, alpha=0.3)
         plt.legend(loc='best', fontsize=10)
