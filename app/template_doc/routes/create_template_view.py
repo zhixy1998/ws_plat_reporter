@@ -16,7 +16,7 @@ from utils.LoadAndDelete import AnalysisBookMark
 from utils.doc_converter import convert_doc_to_docx, detect_file_format
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
-from constants.template_constant import TemplateBookMarkType, TemplateType, ExperimentType
+from constants.template_constant import TemplateBookMarkType, TemplateOriginType, TemplateType, ExperimentType
 from app.db import execute_safe_sql
 from utils.log_decorator import log_response
 import importlib
@@ -105,6 +105,8 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
                 'type': template_type, # 模版类型
                 'industry_type': industry_type,
             }
+            if old_template_name:
+                create_info['origin_type'] = TemplateOriginType.user_change.value
             # 先创建base模型，方便以后回滚
             template_base_instance = await TemplateDocBase.create(**create_info)
             # 创建模版
@@ -352,16 +354,25 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
             table_list.append(table_structure)
 
     # 自定义书签
-    custom_bookmark = {
-        'project_name': '项目名称',
-        'note': '备注',
+    extra_info = {
+        'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
+        'page_num_type': 0
     }
 
     # 添加 custom_bookmark 到生成的文件中
     py_lines.append("\n# 字段渲染表格\n")
-    py_lines.append("custom_bookmark = {\n")
-    for key, values in custom_bookmark.items():
-        py_lines.append(f"    '{key}':'{values}',\n")
+    py_lines.append("extra_info = {\n")
+    for key, values in extra_info.items():
+        # 根据值的类型决定如何格式化
+        if isinstance(values, dict):
+            # 字典类型，使用 repr() 保持字典格式
+            py_lines.append(f"    '{key}': {values},  # 备注\n")
+        elif isinstance(values, (int, float)):
+            # 数字类型，不加引号
+            py_lines.append(f"    '{key}': {values}\n")
+        else:
+            # 字符串类型，加引号
+            py_lines.append(f"    '{key}': '{values}'\n")
     py_lines.append("}\n\n")
 
     py_lines.append("table_fields = ")

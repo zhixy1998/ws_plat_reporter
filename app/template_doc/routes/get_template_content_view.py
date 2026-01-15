@@ -1,4 +1,6 @@
 import base64
+import importlib
+import inspect
 from io import BytesIO
 
 from fastapi import APIRouter, UploadFile, File, Form
@@ -15,6 +17,7 @@ router = APIRouter()
 
 class DataSchema(BaseModel):
     template_content: str
+    module_code: str
 
 
 class OutSchema(BaseModel):
@@ -35,11 +38,22 @@ async def get_template_content(template_id: int):
     doc_stream = BytesIO(content_bytes)
     
     # 2. 使用FillDataUtils去除docxtpl标识符
-    cleaned_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=doc_stream)
+    # cleaned_stream = FillDataUtils.fill_template_jinja_blank(doc_stream=doc_stream)
     
     # 3. 读取处理后的内容并重新编码为base64
-    cleaned_stream.seek(0)
-    cleaned_bytes = cleaned_stream.read()
+    # cleaned_stream.seek(0)
+    cleaned_bytes = doc_stream.read()
     cleaned_base64 = base64.b64encode(cleaned_bytes).decode('utf-8')
 
-    return {'code': 200, 'message': '获取成功', 'data': {'template_content': cleaned_base64}}
+
+    # 获取私有文件
+    module_name = "template_structure." + template.name  # 比如 name = "my_template"
+    try:
+        private_mod = importlib.import_module(module_name)
+        source_code = inspect.getsource(private_mod)
+    except Exception as e:
+        raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)
+    
+
+    return {'code': 200, 'message': '获取成功', 'data': {'template_content': cleaned_base64, 
+            'module_code': source_code}}

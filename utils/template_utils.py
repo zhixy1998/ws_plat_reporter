@@ -1,22 +1,22 @@
 import os
-import importlib
-import tempfile
-import base64, json
-import subprocess
-import threading
 import time
+import tempfile
 import platform
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+import threading
+import importlib
+import subprocess
+import base64, json
 from io import BytesIO
 from typing import List
 from docx import Document
 from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
 from docx2pdf import convert
+from fastapi import UploadFile
+from docx.oxml import OxmlElement
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
-from app.db import execute_safe_sql
 from config import config
+from app.db import execute_safe_sql
 from utils.doc_converter import get_libreoffice_command
 from app.template_doc.model.template_doc import TemplateDoc
 
@@ -200,7 +200,7 @@ def _try_convert_with_docx2pdf(docx_path: str, pdf_path: str, timeout: int = 10)
 def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
     for attempt in range(2):
         try:
-            print(f" [DEBUG] DOCX → PDF 转换开始（尝试 {attempt + 1}/2）...")
+            # print(f" [DEBUG] DOCX → PDF 转换开始（尝试 {attempt + 1}/2）...")
             cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
 
             timeout = 30 if platform.system() == 'Windows' else 30
@@ -247,7 +247,7 @@ def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
                     continue
                 return b""
 
-            print(f" [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
+            # print(f" [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
             return pdf_bytes
 
         except subprocess.TimeoutExpired as e:
@@ -293,9 +293,9 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
         custom_tmp_root = tempfile.gettempdir()
     os.makedirs(custom_tmp_root, exist_ok=True)
     can_write = os.access(custom_tmp_root, os.W_OK)
-    print(f"[DEBUG] 使用自定义临时目录: {custom_tmp_root} | exists={os.path.exists(custom_tmp_root)} | writable={can_write}")
+    # print(f"[DEBUG] 使用自定义临时目录: {custom_tmp_root} | exists={os.path.exists(custom_tmp_root)} | writable={can_write}")
     with tempfile.TemporaryDirectory(dir=custom_tmp_root) as tmpdir:
-        print(f"[DEBUG] 创建具体临时目录: {tmpdir}")
+        # print(f"[DEBUG] 创建具体临时目录: {tmpdir}")
         docx_path = os.path.join(tmpdir, "input.docx")
         pdf_path = os.path.join(tmpdir, "input.pdf")
 
@@ -304,7 +304,7 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
             f.write(doc_raw_bytes)
         doc_exists = os.path.exists(docx_path)
         doc_size = os.path.getsize(docx_path) if doc_exists else 0
-        print(f"[DEBUG] 写入 DOCX: exists={doc_exists} size={doc_size} path={docx_path}")
+        # print(f"[DEBUG] 写入 DOCX: exists={doc_exists} size={doc_size} path={docx_path}")
         
         pdf_bytes = _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path)
 
@@ -325,7 +325,7 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
                 files_snapshot = os.listdir(tmpdir)
             except Exception as snapshot_err:
                 files_snapshot = f"无法列出目录: {snapshot_err}"
-            print(f"[DEBUG] 清理前 PDF 不存在, tmpdir 内容: {files_snapshot}")
+            # print(f"[DEBUG] 清理前 PDF 不存在, tmpdir 内容: {files_snapshot}")
         
 
         return b""
@@ -443,14 +443,14 @@ def get_title_mapping(template_name):
     common_title_mapping = {}
     private_title_mapping = {}
     
-    # 先加载通用 title_mapping
-    try:
-        common_data_module_path = "template_structure.common_data"
-        common_mod = importlib.import_module(common_data_module_path)
-        if hasattr(common_mod, 'title_mapping'):
-            common_title_mapping = common_mod.title_mapping
-    except Exception as e:
-        print(f"加载通用 title_mapping 失败: {e}")
+    # # 先加载通用 title_mapping
+    # try:
+    #     common_data_module_path = "template_structure.common_data"
+    #     common_mod = importlib.import_module(common_data_module_path)
+    #     if hasattr(common_mod, 'title_mapping'):
+    #         common_title_mapping = common_mod.title_mapping
+    # except Exception as e:
+    #     print(f"加载通用 title_mapping 失败: {e}")
     
     # 再尝试加载私有 title_mapping（优先级更高）
     try:
@@ -463,5 +463,27 @@ def get_title_mapping(template_name):
 
     result = []
     # 合并映射：私有的优先级更高
-    title_mapping = {**common_title_mapping, **private_title_mapping}
-    return title_mapping
+    # title_mapping = {**common_title_mapping, **private_title_mapping}
+    return private_title_mapping
+
+
+async def validate_python_file(content: str) -> tuple:
+    """
+    验证Python代码是否符合语法要求
+    
+    Args:
+        content: Python代码字符串
+        
+    Returns:
+        (is_valid, error_msg) 的元组
+    """
+    try:
+        compile(content, '<string>', 'exec')
+        return (True, '')
+    except SyntaxError as e:
+        error_msg = f'语法错误: {e.msg} (第{e.lineno}行)'
+        return (False, error_msg)
+    except Exception as e:
+        return (False, f'验证失败: {str(e)}')
+    except Exception as e:
+        return {'valid': False, 'error': f'验证失败: {str(e)}'}

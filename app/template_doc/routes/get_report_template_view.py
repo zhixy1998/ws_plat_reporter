@@ -35,11 +35,14 @@ class OutSchema(BaseModel):
 @log_response
 async def get_report_template(
     name: Optional[str]= Query(None, description='模板名称'), 
+    industry: Optional[str]= Query(None, description='行业类型'),
+    origin_type: Optional[int]= Query(None, description='模板来源类型'),
+    experiment_type: Optional[int]= Query(None, description='实验类型'),
+    template_type: Optional[int]= Query(None, description='模板类型'),
     desc: Optional[int] = Query(0, description='0: 升序，1: 降序'),
     sort_field: Optional[int] = Query(None, description='排序字段 0: id, 1: 创建时间, 2: 更新时间'),
     page: int = Query(1, ge=1, description='页码，从1开始'),
     page_size: int = Query(10, ge=1, le=100, description='每页条数，默认10，最大100'),
-    type: Optional[int] = Query(0, description='模板类型 0: 原始记录模版 1: 报告模版')
     ):
 
     # 排序字段映射
@@ -54,14 +57,22 @@ async def get_report_template(
     else:
         sort_key = f'-{sort_key}'  # 降序排序，Tortoise ORM语法
 
-    if type not in [0, 1]:
-        raise APIException(ErrorCode.REPORT_TEMPLATE_TYPE_ERROR)
+    # if type not in [0, 1]:
+    #     raise APIException(ErrorCode.REPORT_TEMPLATE_TYPE_ERROR)
 
     # 构建基础查询（如果 name 存在就加筛选）
-    query = TemplateDoc.filter(is_del=0, type=type)
+    query = TemplateDoc.filter(is_del=0)
     sum_count = await query.count()
     if name:
         query = query.filter(name__contains=name)
+    if industry:
+        query = query.filter(industry_type=industry)
+    if origin_type is not None:
+        query = query.filter(origin_type=origin_type)
+    if experiment_type is not None:
+        query = query.filter(experiment_type=experiment_type)
+    if template_type is not None:
+        query = query.filter(type=template_type)
 
     total = await query.count()
     # 排序 + 分页

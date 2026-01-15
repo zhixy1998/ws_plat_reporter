@@ -41,3 +41,4 @@ class ErrorCode(Enum):
     DOCX_CONVERSION_FAILED = Error(10019, zh='DOCX文件转换失败')
     IMPORT_ERROR = Error(10020, zh='数据库操作失败')
     TEMPLATE_NAME_EMPTY = Error(10021, zh='模板名称不能为空')
+    TEMPLATE_PRIVATE_CODE_INVALID = Error(10022, zh='模板私有代码无效')

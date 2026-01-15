@@ -1,3 +1,5 @@
+
+
 title_mapping = { # 全部加t
     'project_t': {'name': '检测项目', 'font': '宋体', 'font_size': 12},
     'instrument_num_t': {'name': '仪器编号', 'font': '宋体', 'font_size': 12},
@@ -12,7 +14,47 @@ title_mapping = { # 全部加t
     'regression_equation_t': {'name': '回归方程', 'font': '宋体', 'font_size': 12}, # Regression equation
     'calculation_formula_t': {'name': '计算公式', 'font': '宋体', 'font_size': 12},
     'remark_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
-    'sample_preparation_t': {'name': '样品前处理', 'font': '宋体', 'font_size': 12}
+    'sample_preparation_t': {'name': '样品前处理', 'font': '宋体', 'font_size': 12},
+
+    # 原始数据模版用 也可能在原始记录中用
+
+    '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
+    '仪器序号_t': {'name': '仪器序号', 'font': '宋体', 'font_size': 12},
+    '光谱带宽_t': {'name': '光谱带宽', 'font': '宋体', 'font_size': 12},
+    '扫描范围_t': {'name': '扫描范围', 'font': '宋体', 'font_size': 12},
+    '光度模式_t': {'name': '光度模式', 'font': '宋体', 'font_size': 12},
+    '增益_t': {'name': '增益', 'font': '宋体', 'font_size': 12},
+    '扫描间隔_t': {'name': '扫描间隔', 'font': '宋体', 'font_size': 12},
+    '扫描速度_t': {'name': '扫描速度', 'font': '宋体', 'font_size': 12},
+    '能量灯_t': {'name': '能量灯', 'font': '宋体', 'font_size': 12},
+    '数据文件_t': {'name': '数据文件', 'font': '宋体', 'font_size': 12},
+    '分析时间_t': {'name': '分析时间', 'font': '宋体', 'font_size': 12},
+    '方法名称_t': {'name': '方法名称', 'font': '宋体', 'font_size': 12},
+    '检测项目_t': {'name': '检测项目', 'font': '宋体', 'font_size': 12},
+    '备注_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
+    '光谱扫描图片_t': {'name': '光谱扫描图片', 'font': '宋体', 'font_size': 12},
+    # 定量
+    '切换样品池_t' : {'name': '切换样品池', 'font': '宋体', 'font_size': 12},
+    '零点插入_t': {'name': '零点插入', 'font': '宋体', 'font_size': 12},
+    '测量波长_t': {'name': '测量波长', 'font': '宋体', 'font_size': 12},
+    '强制过零点_t': {'name': '强制过零点', 'font': '宋体', 'font_size': 12},
+    '数据文件_t': {'name': '数据文件', 'font': '宋体', 'font_size': 12},
+    '分析时间_t': {'name': '分析时间', 'font': '宋体', 'font_size': 12},
+    '波长模式_t': {'name': '波长模式', 'font': '宋体', 'font_size': 12},
+    '曲线方程_t': {'name': '曲线方程', 'font': '宋体', 'font_size': 12},
+    '方程次数_t': {'name': '方程次数', 'font': '宋体', 'font_size': 12},
+    '公式_t': {'name': '公式', 'font': '宋体', 'font_size': 12},
+    '方法名称_t': {'name': '方法名称', 'font': '宋体', 'font_size': 12},
+    # 'k0': '',
+    # 'k1': '',
+    # 'k2': '',
+    # 'k3': '',
+    # 'r2_t': {'name': 'r2', 'font': '宋体', 'font_size': 12},
+    # 'r_t': {'name': 'r', 'font': '宋体', 'font_size': 12},
+    '重复测量_t': {'name': '重复测量', 'font': '宋体', 'font_size': 12},
+    'k_t': {'name': 'k', 'font': '宋体', 'font_size': 12},
+    '标准浓度_t': {'name': '标准浓度', 'font': '宋体', 'font_size': 12},
+
 }
 
 data = {
@@ -65,6 +107,8 @@ data = {
     'step': {"fill_type": 0, 'get_type': 0, 'position': ['steps']}, # 步骤
     'formula_params': {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']}, # 公式参数
     "sample_preparation": {"fill_type": 0, 'get_type': 0, 'children': ['step', 'formula_params'], 'connect_str': ' '}, 
+    "sample_preparation_1": {"fill_type": 0, 'get_type': 0, 'position': ['steps']}, 
+    "sample_preparation_2": {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']}, 
     'storage_condition': {"fill_type": 0, 'get_type': 0, 'position': ['storageConditions']}, # 存放条件 □室温   □冷藏   冷冻
     'standard_solution_number': {"fill_type": 0, 'get_type': 0, 'position': ['standardSolutionInfo']}, # 标准溶液及编号
     'regression_equation': {"fill_type": 0, 'get_type': 0, 'position': ['regressionEquation']}, # 回归方程
@@ -133,6 +177,74 @@ class BaseTableDataHandler():
                 l[table_name] = []
             l[table_name].append(book_mark_name)
         return l
+
+    def columns_to_rows(self, data):
+        """
+        将 {'a':[1,2,3], 'b':[4,5,6], 'c':[7,8,9]}
+        转成 [{'a':1,'b':4,'c':7}, {'a':2,'b':5,'c':8}, {'a':3,'b':6,'c':9}]
+        """
+        if not data:
+            return []
+        keys = list(data.keys())
+        columns = [data[k] for k in keys]
+        return [dict(zip(keys, row)) for row in zip(*columns)]
+    
+    
+    def table_handle_get_unknown_sample_header(self, m):
+        """
+        未知样品:
+            头: 
+                1 去mapRelation list[dict] 里面取  paramIdentity=m 然后取headIdentity = identity 
+                    真实表头 paramName
+                    if paramName is None:
+                        拿  identity  去 unknowHeadList 匹配 identity 取 printTitle 就是真实的表头
+                2 去unknowHeadList 里面找
+                    identity = m    printTitle就是真实的表头
+            数据:
+                unknowDataList 
+                根据identity取数据
+        """
+        identity = None
+        real_header = None
+        if self.end_point_header_and_data:
+            map_relation = self.end_point_header_and_data.get('mapRelation')
+            for one_map_relation in map_relation:
+                if one_map_relation.get('paramIdentity') == m:
+                    identity = one_map_relation.get('headIdentity')
+                    real_header = one_map_relation.get('paramName')
+                    if not real_header:
+                        unknown_header_list = self.end_point_header_and_data.get('unknowHeadList')
+                        for one_unknown_header in unknown_header_list:
+                            if one_unknown_header.get('identity') == identity:
+                                real_header = one_unknown_header.get('printTitle')
+        if identity is None and real_header is None:
+            unknown_header_list = self.end_point_header_and_data.get('unknowHeadList')
+            for one_unknown_header in unknown_header_list:
+                if one_unknown_header.get('identity') == m:
+                    real_header = one_unknown_header.get('printTitle')
+                    identity = m
+        return real_header, identity
+    
+
+    def table_handle_get_unknown_sample_data(self, identity: str):
+        """
+        未知样品:
+            头: 
+                1 去mapRelation list[dict] 里面取  paramIdentity=m 然后取headIdentity = identity 
+                    真实表头 paramName
+                    if paramName is None:
+                        拿  identity  去 unknowHeadList 匹配 identity 取 printTitle 就是真实的表头
+                2 去unknowHeadList 里面找
+                    identity = m    printTitle就是真实的表头
+            数据:
+                unknowDataList 
+                根据identity取数据
+        """
+        data = []
+        for one_unknown_data in self.end_point_header_and_data.get('unknowDataList'):
+            if one_unknown_data.get(identity) or one_unknown_data.get(identity) == '':
+                data.append(one_unknown_data.get(identity))
+        return data
 
              
 def checkbox(checked: bool) -> str:

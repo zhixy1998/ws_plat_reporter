@@ -42,7 +42,7 @@ async def export_docx(data: InputSchema):
     test_data_report_id = data.test_data_report_id # 测量数据
     if not raw_data_report_id and not test_data_report_id:
         raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
-    task_id = data.task_id
+    task_id = "61aa663028192bcc8d73b54562af000d"
     sample_id = data.sample_id
     if raw_data_report_id: # 原始记录
         report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(raw_data_report_id)
@@ -59,13 +59,23 @@ async def export_docx(data: InputSchema):
         # lock_table_width_on_document(doc_original)
 
     if raw_data_report_id and test_data_report_id:
-        # 清理第一个文档末尾，避免空白页
-        clean_document_for_merge(doc_report)
+        # 在第一个文档末尾添加分节符，确保第二个文档从新页开始
+        # 并且保持第一个文档的页面方向不受影响
+        from docx.enum.section import WD_SECTION
         
-        # add_section_page_break(doc_report)
+        # 获取第一个文档最后一个section的页面方向设置
+        last_section = doc_report.sections[-1]
+        original_orientation = last_section.orientation
+        original_page_width = last_section.page_width
+        original_page_height = last_section.page_height
         
-        # 清理第二个文档，避免空白页
-        clean_document_for_merge(doc_original)
+        # 添加新的section（分节符 - 下一页）
+        new_section = doc_report.add_section(WD_SECTION.NEW_PAGE)
+        
+        # 保持原来section的页面方向和尺寸
+        new_section.orientation = original_orientation
+        new_section.page_width = original_page_width
+        new_section.page_height = original_page_height
         
         composer = Composer(doc_report)
         composer.append(doc_original)

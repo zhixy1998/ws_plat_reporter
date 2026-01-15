@@ -33,6 +33,7 @@ class TableDataProcessor:
             if hasattr(self.template_module, 'TableDataHandler'):
                 self.handler_instance = self.template_module.TableDataHandler()
         except Exception as e:
+            print(e)
             raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)
     
     def get_known_sample_jinja_v(self):

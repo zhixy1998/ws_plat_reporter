@@ -36,7 +36,7 @@ python_template_var = {
 
 # 标题映射（包含字体和字号信息）
 title_mapping = {
-    'regression_equation_t': {'name': '回归方程', 'font': '宋体', 'font_size': 12},
+    'regression_equation_t': {'name': '回归方程11111', 'font': '宋体', 'font_size': 12},
     'instrument_num_t': {'name': '仪器编号', 'font': '宋体', 'font_size': 12},
     'standard_solution_number_t': {'name': '标准溶液及编号', 'font': '宋体', 'font_size': 12},
     'remark_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
@@ -71,12 +71,12 @@ class TableDataHandler(BaseTableDataHandler):
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING_LIST = [{
-        "t1": "sampleNumber",  
-        "t2":"2191OJP", 
-        "t3":"Abs", 
-        "t4":"2191OJP",
-        "t5":"2191OJP",
-        "t6":"2191OJP",
+        "t1": "sampleName",
+        "t2": "2191OJP",
+        "t3": "Abs",
+        "t4": "574-1",
+        "t5": "sumAbs",
+        "t6": "2191OJP"
     }]
 
     TABLE_HEADER_MAP = {
@@ -84,7 +84,7 @@ class TableDataHandler(BaseTableDataHandler):
         't2_h': '水样体积V（   ）',
         't3_h': '空白试验吸光度A0',
         't4_h': '试份溶液吸光度A',
-        't5_h': '亚硝酸盐氮含量ρ(NO2-N)（   ）',
+        't5_h': '亚硝酸盐',
         't6_h': '平均值（   ）',
     }
 

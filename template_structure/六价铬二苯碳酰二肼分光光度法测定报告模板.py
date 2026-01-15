@@ -57,9 +57,9 @@ title_mapping = {
 }
 
 # 字段渲染表格
-custom_bookmark = {
-    'project_name':'项目名称',
-    'note':'备注',
+extra_info = {
+    'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
+    'page_num_type': 0
 }
 
 table_fields = []
@@ -76,12 +76,13 @@ class TableDataHandler(BaseTableDataHandler):
         "t2":"2191OJP", 
         "t3":"2191OJP", 
         "t4":"2191OJP", 
-        "t9":"2191OJP", 
-        "t10":"fitConcentration",  
-        "t11":"2191OJP",
+        "t5":"2191OJP", 
         "t6":"Abs",
         "t7":"2191OJP",
-        "t8":"Abs"
+        "t8":"Abs",
+        "t9":"2191OJP", 
+        "t10":"fitConcentration",  
+        "t11":"2191OJP"
     }]
 
     TABLE_HEADER_MAP = {
@@ -103,51 +104,87 @@ class TableDataHandler(BaseTableDataHandler):
         # TABLE_NAME_MAP_REVERSE = {'表格': ['吸光值']}
         pass
     
-    def handle_吸光值(self, data, m):
-        """处理检测时间和对应的吸光值列"""
-        real_header, sample_data = self.get_standard_head_and_data(data, m)
-        return real_header, sample_data     
+    def handle_unknown_sample_table(self, fake=False, end_point_header_and_data=None):
+        if end_point_header_and_data:
+            self.end_point_header_and_data = end_point_header_and_data
+        temp_context = {}
+        for index, origin_header_map in enumerate(self.HEADER_M_MAPPING_LIST):
+            table_name = 'grouped_data'
+            table_origin_header_data_mapping = {}  # 每个表格单独的数据映射
+            for jinja_header_value, m in origin_header_map.items():
+                # 表头映射
+                table_title_k = jinja_header_value + '_h'
+                if table_title_k not in self.TABLE_HEADER_MAP:
+                    print(f'数据字段{jinja_header_value}没有在TABLE_HEADER_MAP中定义，跳过该字段。 应该定义{table_title_k}')
+                    continue
+                if not fake:
+                    real_header, identity = self.table_handle_get_unknown_sample_header(m)
+                    temp_context[table_title_k] = real_header if real_header else ''
+                    if identity:
+                        # 表格数据
+                        data = self.table_handle_get_unknown_sample_data(identity)
+                        table_origin_header_data_mapping[jinja_header_value] = data
+                else:
+                    temp_context[table_title_k] = self.TABLE_HEADER_MAP.get(table_title_k)
+                    data = [f'样品{n+1}' for n in range(6)]
+                    table_origin_header_data_mapping[jinja_header_value] = ['*', '*', '*', '*']
+                
+            # 为每个表格生成行数据
+            if table_origin_header_data_mapping:
+                rows = self.columns_to_rows(table_origin_header_data_mapping)
+                
+                # 将行数据转换为分组格式（每2行一组，t1/t3/t11合并）
+                grouped_data = self.convert_to_grouped_format(rows, group_size=2, merge_fields=['t1', 't3', 't11'])
+                temp_context['grouped_data'] = grouped_data
+        return temp_context
     
-  
-    def handle_样品编号(self, data, context):
-        """处理样品编号列的逻辑"""
-        return
-    
-    def handle_取样量(self, data, context):
-        """处理取样量列"""
-        return 
-    
-    def handle_稀释倍数(self, data, context):
-        """处理稀释倍数列"""
-        return 
-
-    def handle_试料的体积(self, data, context):
-        """处理试料的体积列"""
-        return
-    
-    def handle_校准曲线查得试料中六价铬的量(self, data, context):
-        """校准曲线查得试料中六价铬的量"""
-        return 
-
-    def handle_浸出液中六价铬的浓度(self, data, context):
-        """浸出液中六价铬的浓度"""
-        return
-    
-    def handle_平均值(self, data, context):
-        """平均值"""
-        return
-    
-    def handle_吸光值空白(self, data, context):
-        """吸光值空白"""
-        return
-    
-    def handle_吸光值样品(self, data, context):
-        """吸光值样品"""
-        return
-    
-    def handle_吸光值平均(self, data, context):
-        """吸光值平均"""
-        return
+    def convert_to_grouped_format(self, rows, group_size=2, merge_fields=None):
+        """
+        将行数据转换为分组格式，支持合并字段
+        
+        Args:
+            rows (list): 原始行数据列表，每个元素是一个字典
+            group_size (int): 每组的行数，默认为2
+            merge_fields (list): 需要合并的字段列表，如 ['t1', 't3', 't11']
+        
+        Returns:
+            list: 分组后的数据列表
+        """
+        if not rows:
+            return []
+        
+        if merge_fields is None:
+            merge_fields = []
+        
+        grouped_data = []
+        
+        # 按 group_size 分组
+        for i in range(0, len(rows), group_size):
+            group_rows = rows[i:i + group_size]
+            
+            if not group_rows:
+                continue
+            
+            # 从第一行提取合并字段的值
+            first_row = group_rows[0]
+            group_info = {}
+            
+            # 设置合并字段（从第一行取值）
+            for field in merge_fields:
+                group_info[field] = first_row.get(field, '')
+            
+            # 提取每行的非合并字段
+            group_info['rows'] = []
+            for row in group_rows:
+                row_data = {}
+                for key, value in row.items():
+                    if key not in merge_fields:
+                        row_data[key] = value
+                group_info['rows'].append(row_data)
+            
+            grouped_data.append(group_info)
+        
+        return grouped_data
     
     def group_table_data_for_merge(self, original_data, group_size=2):
        
@@ -186,10 +223,7 @@ class TableDataHandler(BaseTableDataHandler):
     
     def get_grouped_context_for_template(self, original_data, group_size=2):
          """
-    #     为docxtpl模板准备分组上下文数据的便捷方法。
-    #     此函数将原始数据按指定大小分组，并确保组内需要合并的字段值与第一个元素一致。
  
-    #     Args:
     #         original_data (list): 原始单行数据列表，每个元素是一个字典。
     #         group_size (int): 分组大小，默认为2。
  

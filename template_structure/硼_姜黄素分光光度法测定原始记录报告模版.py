@@ -3,298 +3,170 @@
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
-from .common_data import BaseTableDataHandler
-
+from .common_data import BaseTableDataHandler, checkbox
 python_template_var = {
-    "grouped_data": {"fill_type": 0},
-    "检测日期": {"fill_type": 0},
-    "计算公式": {"fill_type": 0},
-    "a": {"fill_type": 0},
+    "project": {"fill_type": 0},
+    "solution_concentration": {"fill_type": 0},
+    "instrument_num": {"fill_type": 0},
+    "known_sample_sub_table": {"fill_type": 0},
+    "storage_condition": {"fill_type": 0},
+    "instrument_name": {"fill_type": 0},
+    "remark": {"fill_type": 0},
+    "detection_basis": {"fill_type": 0},
+    "calculation_formula": {"fill_type": 0},
+    "standard_solution_number": {"fill_type": 0},
     "b": {"fill_type": 0},
-    "溶液浓度": {"fill_type": 0},
-    "备注": {"fill_type": 0},
-    "检测项目": {"fill_type": 0},
-    "温度": {"fill_type": 0},
+    "t3_h": {"fill_type": 0},
+    "sample_status": {"fill_type": 0},
+    "t": {"fill_type": 0},
+    "t4_h": {"fill_type": 0},
     "r": {"fill_type": 0},
-    "仪器编号": {"fill_type": 0},
-    "回归方程": {"fill_type": 0},
-    "仪器名称": {"fill_type": 0},
-    "湿度": {"fill_type": 0},
-    "标准溶液及编号": {"fill_type": 0},
-    "检测依据": {"fill_type": 0},
-    "前处理": {"fill_type": 0}
+    "t1_h": {"fill_type": 0},
+    "detection_time": {"fill_type": 0},
+    "t5_h": {"fill_type": 0},
+    "grouped_data": {"fill_type": 0},
+    "a": {"fill_type": 0},
+    "t2_h": {"fill_type": 0},
+    "sample_preparation": {"fill_type": 0},
+    "rh": {"fill_type": 0},
+    "t6_h": {"fill_type": 0},
+    "regression_equation": {"fill_type": 0}
 }
 
-# 表格字段分组
-table_jinja_values = {
-    '吸光度': ['吸光度_0', '吸光度_1', '吸光度_2', '吸光度_3', '吸光度_4', '吸光度_5', '吸光度_6'],
-    '硼含量': ['硼含量_0', '硼含量_1', '硼含量_2', '硼含量_3', '硼含量_4', '硼含量_5', '硼含量_6']
+# 标题映射（包含字体和字号信息）
+title_mapping = {
+    'project_t': {'name': '检测项目', 'font': '宋体', 'font_size': 12},
+    'storage_condition_t': {'name': '存放条件', 'font': '宋体', 'font_size': 12},
+    'remark_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
+    'detection_basis_t': {'name': '检测依据', 'font': '宋体', 'font_size': 12},
+    'sample_preparation_t': {'name': '样品前处理', 'font': '宋体', 'font_size': 12},
+    'sample_status_t': {'name': '样品状态', 'font': '宋体', 'font_size': 12},
+    'standard_solution_number_t': {'name': '标准溶液及编号', 'font': '宋体', 'font_size': 12},
+    'instrument_name_t': {'name': '仪器名称', 'font': '宋体', 'font_size': 12},
+    'trh_t': {'name': '环境条件', 'font': '宋体', 'font_size': 12},
+    'regression_equation_t': {'name': '回归方程', 'font': '宋体', 'font_size': 12},
+    'instrument_num_t': {'name': '仪器编号', 'font': '宋体', 'font_size': 12},
+    'solution_concentration_t': {'name': '溶液浓度()', 'font': '宋体', 'font_size': 12},
+    'calculation_formula_t': {'name': '计算公式', 'font': '宋体', 'font_size': 12},
+    'detection_time_t': {'name': '分析日期', 'font': '宋体', 'font_size': 12}
 }
 
 # 字段渲染表格
-custom_bookmark = {
-    'project_name':'项目名称',
-    'note':'备注',
+extra_info = {
+    'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
+    'page_num_type': 0
 }
-
-table_fields = [
-    {
-        "headers": [
-            [
-                "硼含量"
-            ],
-            [
-                "吸光度"
-            ]
-        ],
-        "col_count": 2,
-        "data_rows": [],
-        "row_count": 0,
-        "table_name": "已知样表格",
-        "column_width": [
-            2779,
-            2779
-        ],
-        "structure_type": 1
-    },
-    {
-        "has_tr": 1,
-        "headers": [
-            [
-                "样品编号",
-                "所取试样体积",
-                "空白吸光度",
-                "试样吸光度",
-                "由校准曲线上查得的硼含量",
-                "水样中硼含量",
-                "平均值"
-            ]
-        ],
-        "col_count": 7,
-        "data_rows": [],
-        "row_count": 0,
-        "table_name": "未知样表格1",
-        "column_width": [
-            2779,
-            2112,
-            2112,
-            2112,
-            2114,
-            2112,
-            2115
-        ],
-        "structure_type": 0
-    },
-    {
-        "has_tr": 1,
-        "headers": [
-            [
-                "样品编号",
-                "所取试样体积",
-                "空白吸光度",
-                "试样吸光度",
-                "由校准曲线上查得的硼含量",
-                "水样中硼含量",
-                "平均值"
-            ]
-        ],
-        "col_count": 7,
-        "data_rows": [],
-        "row_count": 0,
-        "table_name": "未知样表格2",
-        "column_width": [
-            2781,
-            2112,
-            2112,
-            2112,
-            2112,
-            2112,
-            2115
-        ],
-        "structure_type": 0
-    }
-]
 
 
 class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
     
     # 简单字段映射：表头名称 -> 数据库字段名
-    HEADER_M_MAPPING = {
-        "吸光度": "Abs",
-        "硼含量": "normalConcentration",
-        "样品编号": "sampleNumber",
-        "所取试样体积": "2191OJP",
-        "空白吸光度": "sumAbs",
-        "试样吸光度": "Abs",
-        "由校准曲线上查得的硼含量": "Abs",
-        "水样中硼含量": "2191OJP",
-        "平均值": "2191OJP",
+    STAND = ['normalConcentration', 'Abs', 'sumAbs']
+    
+    # 简单字段映射：表头名称 -> 数据库字段名
+    HEADER_M_MAPPING_LIST = [{
+        "t1": "sampleNumber",  
+        "t2":"2191OJP", 
+        "t3":"2191OJP", 
+        "t4":"2191OJP", 
+        "t5":"2191OJP", 
+        "t6":"Abs",
+        "t7":"2191OJP",
+    }]
+
+    TABLE_HEADER_MAP = {
+        't1_h': '样品编号',
+        't2_h': '所取试样体积v（   ）',
+        't3_h': '空白吸光度A0（   ）',
+        't4_h': '试样吸光度A（   ）',
+        't5_h': '由校准曲线上查得的硼含量m（   ）',
+        't6_h': '水样中硼含量C（   ）',
+        't7_h': '平均值（   ）'
     }
 
-    # TABLE_NAME_MAP = {
-    #     '甲醛含量': '小表格',
-    #     '吸光度': '小表格',
-    #     '样品编号': '表格',
-    #     '空白吸光度': '表格',
-    #     '水样吸光度': '表格',
-    #     '从标准曲线上查得的甲醛量': '表格',
-    #     '样品中甲醛质量浓度': '表格',
-    #     '平均值': '表格'
-    # }
-
-    TEMPLATE_INFO_MAP = {
-            '已知样表格': {
-             'tpl_type': 1,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
-             'column_count': 3
-            },
-            '未知样表格1': {
-             'tpl_type': 2,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
-             'column_count': 7
-            },
-            '未知样表格2': {
-             'tpl_type': 2,   # 1: 每个单元格一个tpl对象，就是横向表格那种 2: 通过docxtpl循环语法渲染
-             'column_count': 7
-            }
-        }
-    
-    standard = ['硼含量', '吸光度']
-
-    TABLE_NAME_MAP_REVERSE = {
-        '已知样表格': ['硼含量', '吸光度'],
-        '未知样表格1': ['样品编号', '所取试样体积', '空白吸光度', '试样吸光度', '由校准曲线上查得的硼含量', '水样中硼含量', '平均值'],
-        '未知样表格2': ['样品编号', '所取试样体积', '空白吸光度', '试样吸光度', '由校准曲线上查得的硼含量', '水样中硼含量', '平均值']
-    }
-    
     def __init__(self):
-        # TABLE_NAME_MAP_REVERSE = {'表格': ['样品编号', '水样体积', '空白吸光度', '水样吸光度', '标准曲线上氨氮质量', '从标准曲线上查得的甲醛量', '平均值']}
-        # self.TABLE_NAME_MAP_REVERSE = {v: [k for k, v2 in self.TABLE_NAME_MAP.items() if v2 == v] for v in set(self.TABLE_NAME_MAP.values())}
         pass
-    
-    def handle_硼含量(self, data, m):
-        real_header, sample_data = self.get_standard_head_and_data(data, m)
-        return real_header, sample_data
-    
-    def handle_吸光度(self, data, m):
-        real_header, sample_data = self.get_standard_head_and_data(data, m)
-        return real_header, sample_data
-    
-    # def handle_校正吸光度(self, data, m):
-    #     """处理序号列的逻辑"""
-    #     real_header, sample_data = self.get_standard_head_and_data(data, m)
-    #     return real_header, sample_data
-    
-    # def handle_样品编号(self, data, context, row_index=0):
-    #     """处理序号列的逻辑"""
-    #     return
-    
-    # def handle_空白试验吸光度(self, data, context):
-    #     """处理空白试验吸光度"""
-    #     return
-    
-    # def handle_水样体积(self, data, context):
-    #     """处理检测时间和对应的吸光值列"""
-    #     return
-    
-    # def handle_稀释倍数(self, data, context):
-    #     """处理T(min)列"""
-    #     return
 
-    # def handle_水样吸光度(self, data, context):
-    #     """处理T(min)列"""
-    #     return
+    def handle_unknown_sample_table(self, fake=False, end_point_header_and_data=None):
+        if end_point_header_and_data:
+            self.end_point_header_and_data = end_point_header_and_data
+        temp_context = {}
+        for index, origin_header_map in enumerate(self.HEADER_M_MAPPING_LIST):
+            table_name = 'grouped_data'
+            table_origin_header_data_mapping = {}  # 每个表格单独的数据映射
+            for jinja_header_value, m in origin_header_map.items():
+                # 表头映射
+                table_title_k = jinja_header_value + '_h'
+                if table_title_k not in self.TABLE_HEADER_MAP:
+                    print(f'数据字段{jinja_header_value}没有在TABLE_HEADER_MAP中定义，跳过该字段。 应该定义{table_title_k}')
+                    continue
+                if not fake:
+                    real_header, identity = self.table_handle_get_unknown_sample_header(m)
+                    temp_context[table_title_k] = real_header if real_header else ''
+                    if identity:
+                        # 表格数据
+                        data = self.table_handle_get_unknown_sample_data(identity)
+                        table_origin_header_data_mapping[jinja_header_value] = data
+                else:
+                    temp_context[table_title_k] = self.TABLE_HEADER_MAP.get(table_title_k)
+                    data = [f'样品{n+1}' for n in range(6)]
+                    table_origin_header_data_mapping[jinja_header_value] = ['*', '*', '*', '*']
+                
+            # 为每个表格生成行数据
+            if table_origin_header_data_mapping:
+                rows = self.columns_to_rows(table_origin_header_data_mapping)
+                
+                # 将行数据转换为分组格式（每2行一组，t1/t3/t11合并）
+                grouped_data = self.convert_to_grouped_format(rows, group_size=2, merge_fields=['t1', 't2', 't7'])
+                temp_context['grouped_data'] = grouped_data
+        return temp_context
     
-    # def handle_水样中氨氮质量浓度(self, data, context):
-    #     """处理T(min)列"""
-    #     return
-    
-    # def handle_平均值(self, data, context):
-    #     """处理T(min)列"""
-    #     return
-    
-
-    def group_table_data_for_merge(self, original_data, group_size=2):
-       
-        if not original_data:
-            return {'grouped_data': [], 'original_data': []}
+    def convert_to_grouped_format(self, rows, group_size=2, merge_fields=None):
+        """
+        将行数据转换为分组格式，支持合并字段
+        
+        Args:
+            rows (list): 原始行数据列表，每个元素是一个字典
+            group_size (int): 每组的行数，默认为2
+            merge_fields (list): 需要合并的字段列表，如 ['t1', 't3', 't11']
+        
+        Returns:
+            list: 分组后的数据列表
+        """
+        if not rows:
+            return []
+        
+        if merge_fields is None:
+            merge_fields = []
         
         grouped_data = []
         
-        # 按group_size分组处理
-        for i in range(0, len(original_data), group_size):
-            group_rows = original_data[i:i + group_size]
+        # 按 group_size 分组
+        for i in range(0, len(rows), group_size):
+            group_rows = rows[i:i + group_size]
             
             if not group_rows:
                 continue
             
-            # 从第一行提取需要合并的共同字段
+            # 从第一行提取合并字段的值
             first_row = group_rows[0]
+            group_info = {}
             
-            # 构建分组信息
-            group_info = {
-                # 需要合并的三个字段：样品编号、稀释倍数、平均值
-                '样品编号': first_row.get('样品编号', ''),
-                '所取试样体积': first_row.get('所取试样体积', ''), 
-                '平均值': first_row.get('平均值', ''),
-                
-                # 保留组内所有行的完整数据，供内层循环使用
-                'rows': group_rows
-            }
+            # 设置合并字段（从第一行取值）
+            for field in merge_fields:
+                group_info[field] = first_row.get(field, '')
+            
+            # 提取每行的非合并字段
+            group_info['rows'] = []
+            for row in group_rows:
+                row_data = {}
+                for key, value in row.items():
+                    if key not in merge_fields:
+                        row_data[key] = value
+                group_info['rows'].append(row_data)
             
             grouped_data.append(group_info)
         
-        return {
-            'grouped_data': grouped_data,
-            'original_data': original_data
-        }
-
-
-    def get_grouped_context_for_template(self, original_data, group_size=3):
-        """
-        为docxtpl模板准备分组上下文数据的便捷方法。
-        此函数将原始数据按指定大小分组，并确保组内需要合并的字段值与第一个元素一致。
-
-        Args:
-            original_data (list): 原始单行数据列表，每个元素是一个字典。
-            group_size (int): 分组大小，默认为2。
-
-        Returns:
-            dict: 可直接用于docxtpl.render()的上下文字典。
-        """
-        key = ['未知样表格1_rows','未知样表格2_rows']
-        # key = ['表格1_rows']
-        if not original_data:
-            return {
-                'grouped_data': [],
-                key: []
-            }
-        print(original_data)
-        need_equal_filed = ['样品编号', '所取试样体积', '平均值']
-        for i in key:
-            rows = original_data.get(i)
-            # 1. 按 group_size 对数据进行分组
-            grouped_list = [rows[i:i + group_size] for i in range(0, len(rows), group_size)]
-
-            # 2. 遍历每个分组，统一需要合并的字段值
-            for group in grouped_list:
-                if not group:
-                    continue
-                
-                # 获取该组的第一个元素作为参考
-                first_item = group[0]
-
-                # 从第二个元素开始遍历（如果存在）
-                for i in range(1, len(group)):
-                    current_item = group[i]
-                    # 将需要统一的字段值设置成与第一个元素相同
-                    for field in need_equal_filed:
-                        if field in first_item:
-                            current_item[field] = first_item[field]
-
-            # 3. 调用现有的 group_table_data_for_merge 方法进行最终的结构转换
-            # 注意：此时传入的 rows 列表已经被修改，其分组字段已对齐
-            group_result = self.group_table_data_for_merge(rows, group_size)
-            original_data['grouped_data'] = group_result['grouped_data']
-        print(original_data)
-        return original_data 
+        return grouped_data
 

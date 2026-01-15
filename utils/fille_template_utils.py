@@ -1,13 +1,13 @@
-from json.encoder import encode_basestring
 import os
+
 
 import re
 import base64
 import importlib
 import urllib.parse
 from io import BytesIO
+from decimal import Decimal
 from typing import List, Dict
-from annotated_types import doc
 from dotenv import load_dotenv
 
 import requests
@@ -21,10 +21,8 @@ from config import config
 
 from app.db import execute_safe_sql
 from exceptions.error import ErrorCode
-from utils.EditDocxXML import fill_word_bookmark
-from constants.template_constant import MeasureType, ExperimentType
+from constants.template_constant import MeasureType, ExperimentType, TemplateType
 from exceptions.command_exception import APIException
-from constants.template_constant import TemplateBookMarkType
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from constants.template_constant import GetTypeConstant, FillTypeConstant
 from utils.table_data_processor import TableDataProcessor, GetHeaderAndData
@@ -164,33 +162,46 @@ class FillDataUtils():
         doc_stream = self.insert_header_page_number(doc_stream)
         return doc_stream
 
-    async def get_table_context(self, doc_stream, task_id=None):
+    async def get_table_context(self, doc_stream, task_id=None, image_base64=None):
+        template = await TemplateDoc.filter(id=self.template_id).first()
+        template_type = template.type
         if task_id:
             measure_type = await self.get_measure_type(task_id)
         else:
-            template = await TemplateDoc.filter(id=self.template_id).first()
             measure_type = ExperimentType.get_name_desc_by_value(template.experiment_type)
-        origin_header_real_header_mapping = {}
-        tpl_context = {}
-        # 光谱扫描和时间扫描
+        # 原始记录报告
+        if template_type == TemplateType.report_template.value:
+            origin_header_real_header_mapping = {}
+            tpl_context = {}
+            # 光谱扫描和时间扫描
 
 
-        self.HEADER_M_MAPPING_LIST = self.table_data_processor.handler_instance.HEADER_M_MAPPING_LIST  # 每个私有文件都要声明的
-        self.TABLE_HEADER_MAP  = self.table_data_processor.handler_instance.TABLE_HEADER_MAP
+            self.HEADER_M_MAPPING_LIST = self.table_data_processor.handler_instance.HEADER_M_MAPPING_LIST  # 每个私有文件都要声明的
+            self.TABLE_HEADER_MAP  = self.table_data_processor.handler_instance.TABLE_HEADER_MAP
 
-        if measure_type in [MeasureType.spectral_scanning.decs, MeasureType.time_scanning.decs]:
-            pass
-        # 定量和光度测量
-        elif measure_type in [MeasureType.quantitative_determination.decs, MeasureType.photometric_measurement.decs]:
-            photometric_measurement_context = await self.get_quantitative_determination_photometric_measurement_from_endpoint(doc_stream)
-            # origin_header_real_header_mapping, tpl_context = self.get_quantitative_determination_photometric_measurement_from_database(doc_stream, task_id)
-            self.contexts.update(photometric_measurement_context)
-        else:
-            pass
-        # for name, value in origin_header_real_header_mapping.items(): # name就是标签名字
-        #     # template_bookmark_instance = await TemplateBookmark.get_or_none(template_doc_id=self.template_id, name=name)
-        #     doc_stream = fill_word_bookmark(doc_stream, name, value, TemplateBookMarkType.text.value)
-        # return doc_stream
+            if measure_type in [MeasureType.spectral_scanning.decs, MeasureType.time_scanning.decs]:
+                pass
+            # 定量和光度测量
+            elif measure_type in [MeasureType.quantitative_determination.decs, MeasureType.photometric_measurement.decs]:
+                photometric_measurement_context = await self.get_quantitative_determination_photometric_measurement_from_endpoint(doc_stream)
+                # origin_header_real_header_mapping, tpl_context = self.get_quantitative_determination_photometric_measurement_from_database(doc_stream, task_id)
+                self.contexts.update(photometric_measurement_context)
+            else:
+                pass
+        if template_type == TemplateType.original_records.value:
+            # 光谱
+            if measure_type == MeasureType.spectral_scanning.decs:
+                contexts = await self.get_spectral_scanning_table_context()
+            # 时间扫描
+            if measure_type == MeasureType.time_scanning.decs:
+                contexts = await self.get_time_scanning_table_context()
+            # 定量
+            if measure_type  == MeasureType.quantitative_determination.decs:
+                contexts = await self.get_quantitative_determination_table_context()
+            # 光度测量
+            if measure_type  == MeasureType.photometric_measurement.decs:
+                contexts = await self.photometric_measurement_table_context()
+        
     
     async def fill_common_data(self, doc_stream):
         # 填充
@@ -202,6 +213,7 @@ class FillDataUtils():
         if hasattr(self.table_data_processor.template_module, 'title_mapping'):
             has_private_title_mapping = True
             private_title_mapping = self.table_data_processor.template_module.title_mapping
+        doc_stream.seek(0)
         doc = DocxTemplate(doc_stream)
         context_vars = doc.get_undeclared_template_variables()
         if self.new_title_mapping:
@@ -377,6 +389,7 @@ class FillDataUtils():
     def fill_template_by_jinja(self, doc_stream: BytesIO) -> BytesIO:
         """
         """
+        doc_stream.seek(0)
         tpl = DocxTemplate(doc_stream)
         # 合并context
         tpl.render(context=self.contexts)
@@ -394,6 +407,7 @@ class FillDataUtils():
         """移除表格中的空行"""
         try:
             from docx import Document
+            doc_stream.seek(0)
             doc = Document(doc_stream)
             
             for table in doc.tables:
@@ -510,6 +524,7 @@ class FillDataUtils():
         Returns:
             BytesIO: 修改后的文档流
         """
+        doc_stream.seek(0)
         doc = Document(doc_stream)
 
         section = doc.sections[0]
@@ -563,6 +578,7 @@ class FillDataUtils():
         Returns:
             BytesIO: 修改后的文档流
         """
+        doc_stream.seek(0)
         doc = Document(doc_stream)
 
         section = doc.sections[0]
@@ -620,16 +636,17 @@ class FillDataUtils():
             private_mod = importlib.import_module(module_name)
         except Exception as e:
             private_mod = None
-        if private_mod and hasattr(private_mod, 'custom_bookmark'):
-            custom_bookmark=private_mod.custom_bookmark
-        else:
-            custom_bookmark = {'note': '备注', 'project_name': '项目名称'}
+        # if private_mod and hasattr(private_mod, 'custom_bookmark'):
+        #     custom_bookmark=private_mod.custom_bookmark
+        # else:
+        #     custom_bookmark = {'note': '备注', 'project_name': '项目名称'}
 
         try:
             from docxtpl import DocxTemplate
             from io import BytesIO
 
             # 创建DocxTemplate对象
+            doc_stream.seek(0)
             tpl = DocxTemplate(doc_stream)
 
             # 获取模板中所有未声明的变量
@@ -638,12 +655,12 @@ class FillDataUtils():
             blank_context = {}
             for var in undeclared_vars:
                 blank_context[var] = ""
-            if custom_info:
-                for i in undeclared_vars:
-                    if i in custom_bookmark['project_name']:
-                        blank_context[i] = custom_info.get('project_name')
-                    if i in custom_bookmark['note']:
-                        blank_context[i] = custom_info.get('note')
+            # if custom_info:
+            #     for i in undeclared_vars:
+            #         if i in custom_bookmark['project_name']:
+            #             blank_context[i] = custom_info.get('project_name')
+            #         if i in custom_bookmark['note']:
+            #             blank_context[i] = custom_info.get('note')
 
             # 为所有未声明的变量创建空字符串映射
 
@@ -727,7 +744,7 @@ class FillDataUtils():
                     if rows > default_rows:
                         # 需要额外增加的高度（乘以倍数系数）
                         extra_height = int((rows - default_rows) * row_height * height_multiplier)
-                        print(f"DEBUG: 嵌入表格行数({rows}) > 默认行数({default_rows})，需增加高度: {extra_height} EMU (倍数系数: {height_multiplier})")
+                        # print(f"DEBUG: 嵌入表格行数({rows}) > 默认行数({default_rows})，需增加高度: {extra_height} EMU (倍数系数: {height_multiplier})")
                     
                     # 在外层表格的单元格中查找并嵌入表格
                     found_and_embedded = False
@@ -747,7 +764,7 @@ class FillDataUtils():
                                     for offset in range(rows):
                                         if row_idx + offset < len(table.rows):
                                             table.rows[row_idx + offset].height = height_per_row
-                                            print(f"DEBUG: 设置外层表格第 {row_idx + offset + 1} 行高度为: {height_per_row} EMU")
+                                            # print(f"DEBUG: 设置外层表格第 {row_idx + offset + 1} 行高度为: {height_per_row} EMU")
                                     
                                     # 清空该单元格的所有内容
                                     cell.text = ""
@@ -791,21 +808,21 @@ class FillDataUtils():
                                         para.paragraph_format.space_before = 0
                                         para.paragraph_format.space_after = 0
                                     
-                                    print(f"DEBUG: 在外层单元格[行{row_idx}, 列{cell_idx}]中嵌入表格 (行数: {rows}, 列数: {cols})")
-                                    print(f"DEBUG: 每行高度: {height_per_row} EMU (基础: {row_height}, 增加: {extra_height // rows if extra_height > 0 else 0})")
+                                    # print(f"DEBUG: 在外层单元格[行{row_idx}, 列{cell_idx}]中嵌入表格 (行数: {rows}, 列数: {cols})")
+                                    # print(f"DEBUG: 每行高度: {height_per_row} EMU (基础: {row_height}, 增加: {extra_height // rows if extra_height > 0 else 0})")
                                     found_and_embedded = True
                                     break
                             if found_and_embedded:
                                 break
                         if found_and_embedded:
                             break
-        
-                    # 保存修改回doc_stream
-                    doc_stream.seek(0)
-                    outer_doc.save(doc_stream)
-                    doc_stream.seek(0)
-                    print(f"DEBUG: 已保存嵌入表格到doc_stream")
     
+        # 无论是否处理了已知样品，都需要保存文档回流（因为Document已经加载了doc_stream）
+        doc_stream.seek(0)
+        doc_stream.truncate(0)  # 清空流内容
+        outer_doc.save(doc_stream)
+        doc_stream.seek(0)
+        # print(f"DEBUG: 已保存文档到doc_stream")
 
         # 处理未知样品
         if self.table_data_processor.handler_instance:
@@ -815,33 +832,37 @@ class FillDataUtils():
             # standard = table_data_processor.handler_instance.standard
             # if not standard:
             #     standard = []
-            for index, origin_header_map in enumerate(self.HEADER_M_MAPPING_LIST):
-                table_name = 'table_' + str(index+1)
-                table_origin_header_data_mapping = {}  # 每个表格单独的数据映射
-                for jinja_header_value, m in origin_header_map.items():
-                    # 表头映射
-                    table_title_k = jinja_header_value + '_h'
-                    if table_title_k not in self.TABLE_HEADER_MAP:
-                        print(f'数据字段{jinja_header_value}没有在TABLE_HEADER_MAP中定义，跳过该字段。 应该定义{table_title_k}')
-                        continue
-                    if not self.fake:
-                        real_header, identity = self.get_unknown_sample_header(m)
-                        temp_context[table_title_k] = real_header if real_header else ''
-                        if identity:
-                            # 表格数据
-                            data = self.get_unknown_sample_data(identity)
-                            table_origin_header_data_mapping[jinja_header_value] = data
-                    else:
-                        temp_context[table_title_k] = self.TABLE_HEADER_MAP.get(table_title_k)
-                        data = [f'样品{n+1}' for n in range(5)]
-                        table_origin_header_data_mapping[jinja_header_value] = ['*', '*', '*', '*']
+            if hasattr(self.table_data_processor.handler_instance, 'handle_unknown_sample_table'):
+                private_context = self.table_data_processor.handler_instance.handle_unknown_sample_table(fake=self.fake, end_point_header_and_data=self.end_point_header_and_data)
+                self.contexts.update(private_context)
+            else:
+                for index, origin_header_map in enumerate(self.HEADER_M_MAPPING_LIST):
+                    table_name = 'table_' + str(index+1)
+                    table_origin_header_data_mapping = {}  # 每个表格单独的数据映射
+                    for jinja_header_value, m in origin_header_map.items():
+                        # 表头映射
+                        table_title_k = jinja_header_value + '_h'
+                        if table_title_k not in self.TABLE_HEADER_MAP:
+                            print(f'数据字段{jinja_header_value}没有在TABLE_HEADER_MAP中定义，跳过该字段。 应该定义{table_title_k}')
+                            continue
+                        if not self.fake:
+                            real_header, identity = self.get_unknown_sample_header(m)
+                            temp_context[table_title_k] = real_header if real_header else ''
+                            if identity:
+                                # 表格数据
+                                data = self.get_unknown_sample_data(identity)
+                                table_origin_header_data_mapping[jinja_header_value] = data
+                        else:
+                            temp_context[table_title_k] = self.TABLE_HEADER_MAP.get(table_title_k)
+                            data = [f'样品{n+1}' for n in range(5)]
+                            table_origin_header_data_mapping[jinja_header_value] = ['*', '*', '*', '*']
                 
-                # 为每个表格生成行数据
-                if table_origin_header_data_mapping:
-                    rows = self.columns_to_rows(table_origin_header_data_mapping)
-                    rows_name = table_name + '_rows'
-                    temp_context[rows_name] = rows
-            return temp_context
+                    # 为每个表格生成行数据
+                    if table_origin_header_data_mapping:
+                        rows = self.columns_to_rows(table_origin_header_data_mapping)
+                        rows_name = table_name + '_rows'
+                        temp_context[rows_name] = rows
+                return temp_context
         else:
             pass
         
@@ -1100,3 +1121,361 @@ class FillDataUtils():
                     tcW.set(qn('w:w'), str(other_col_width))
                 tcW.set(qn('w:type'), 'pct')
                 tcPr.append(tcW)
+    
+    # 光谱扫描 通用数据
+    async def get_spectral_scanning_common_context(self, tpl, image_base64, contexts):
+        spectral_scanning_mapping = common_data_mapping.get(self.measure_type)
+        for jinja_val, common_val_key in spectral_scanning_mapping.items():
+            if jinja_val == '光谱扫描图片':
+                contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+            elif jinja_val == '扫描范围':
+                scan_range = self.common_val.get('startWaveLength', '')  + '至' + self.common_val.get('endWaveLength', '')
+                self.contexts[jinja_val] = scan_range
+            else:
+                self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+
+    # 时间扫描 通用数据
+    async def get_time_scanning_common_context(self, tpl, image_base64, contexts):
+        time_scanning_mapping = common_data_mapping.get(self.measure_type)
+        for jinja_val, common_val_key in time_scanning_mapping.items():
+            if jinja_val != '时间扫描图片':
+                self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+            else:
+                self.contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+    
+    # 定量测定 通用数据
+    async def get_quantitative_determination_common_context(self, tpl, contexts):
+        quantitative_determination = common_data_mapping.get(self.measure_type)
+        if self.common_val:
+            for jinja_val, common_val_key in quantitative_determination.items():
+                    self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+            # 处理图片
+            curve_info = self.end_point_header_and_data.get('curveInfo')
+            if curve_info:
+                image_data_list = curve_info.get('dataList') or []
+                image_stand_point_list = curve_info.get('standPoints') or []
+                image_unknown_point_list = curve_info.get('unknowPoints') or []
+                if image_data_list:
+                    quantitative_image = await self.generate_quantitative_chart(
+                        image_data_list, 
+                        image_stand_point_list, 
+                        image_unknown_point_list,
+                        tpl
+                    )
+                    self.contexts['定量分析图片'] = quantitative_image if quantitative_image else ''
+                else:
+                    self.contexts['定量分析图片'] = ''
+            else:
+                self.contexts['定量分析图片'] = ''
+            # k
+            k_str = self.common_val.get('curveParams')
+            if k_str:
+                k_parts = (k_str.split(',') + [None] * 5)[:5]
+                
+                for i, value in enumerate(k_parts):
+                    if value:
+                        value = str(Decimal(value))
+                        self.contexts[f'k{i}'] = f'k{i}: '
+                        self.contexts[f'k{i}_v'] = value
+            k_values = []
+            if contexts.get('k0'):  # k0 非空
+                k_values.append({'label': contexts['k0'], 'value': contexts['k0_v']})
+            if contexts.get('k1'):
+                k_values.append({'label': contexts['k1'], 'value': contexts['k1_v']})
+            if contexts.get('k2'):
+                k_values.append({'label': contexts['k2'], 'value': contexts['k2_v']})
+            if contexts.get('k3'):
+                k_values.append({'label': contexts['k3'], 'value': contexts['k3_v']})
+            if contexts.get('k4'):
+                k_values.append({'label': contexts['k4'], 'value': contexts['k4_v']})
+            self.contexts['k_values'] = k_values
+    
+    # 光度测量 通用数据
+    async def photometric_measurement_common_context(self, tpl, contexts):
+        # 光度测量
+        if self.common_val:
+            photometric_measurement = common_data_mapping.get(self.measure_type)
+            for jinja_val, common_val_key in photometric_measurement.items():
+                self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+    
+    # 光谱扫描 表格数据
+    async def get_spectral_scanning_table_context(self):
+        table_data = self.handle_spectral_scanning_table(self.end_point_header_and_data)
+        # 兼容旧模板（仍可用 Jinja 循环渲染）
+        self.contexts['table_data'] = table_data
+        # 新方式：预先用 python-docx 生成表格，再通过 docxtpl subdoc 插入（只改光谱）
+    
+    # 时间扫描 表格数据
+    async def get_time_scanning_table_context(self):
+        table_data = self.handle_time_scanning_table(self.end_point_header_and_data)
+        self.contexts['table_data'] = table_data
+    
+    # 定量测定 表格数据
+    async def get_quantitative_determination_table_context(self):
+        if self.fake:
+            knows_header, knows_data_list = self.get_quantitative_determination_standard_table_fake()
+            knows_table_data = {'headers': knows_header, 'row_data': knows_data_list}
+            self.contexts['knows_table_data'] = knows_table_data
+            unknown_header, unknown_data_list = self.get_quantitative_determination_unknown_table_fake()
+            unknown_table_data = {'headers': unknown_header, 'row_data': unknown_data_list}
+            self.contexts['unknown_table_data'] = unknown_table_data
+        else:
+            if self.end_point_header_and_data:
+                # 标准样品表格
+                standard_header_list = self.end_point_header_and_data.get('standHeadList')
+                standard_data_list = self.end_point_header_and_data.get('standDataList')
+                knows_header, knows_data_list = self.get_quantitative_determination_standard_table(standard_header_list, standard_data_list)
+                knows_table_data = {'headers': knows_header, 'row_data': knows_data_list}
+                self.contexts['knows_table_data'] = knows_table_data
+
+                # abs_identity = None
+                # same_number_identity = 'sampleNumber'
+                # for header in standard_header_list:
+                #     if header.get('locate') == 'measure' and 'Abs' in header.get('name') and '-' in header.get('identity'):
+                #         abs_identity = header.get('identity')
+
+                # contexts['波长'] = str(abs_identity.split('-')[0]) if abs_identity and '-' in abs_identity else ''
+
+                # 未知样品表格
+                unknown_data_list = self.end_point_header_and_data.get('unknowDataList')
+                unknown_header_list = self.end_point_header_and_data.get('unknowHeadList')
+                unknown_header, unknown_data_list = self.get_quantitative_determination_unknown_table(unknown_header_list, unknown_data_list)
+                unknown_table_data = {'headers': unknown_header, 'row_data': unknown_data_list}
+                self.contexts['unknown_table_data'] = unknown_table_data
+            else:
+                self.contexts['knows_table_data'] = {'headers': [], 'row_data': []}
+                self.contexts['unknown_table_data'] = {'headers': [], 'row_data': []}
+    
+    # 光度测量 表格数据
+    async def photometric_measurement_table_context(self):
+        if self.end_point_header_and_data:
+            header_list = self.end_point_header_and_data.get('headList')
+            data_list = self.end_point_header_and_data.get('dataList')
+            headers, row_data = self.photometric_measurement_table_data(header_list, data_list)
+            table_data = {'headers': headers, 'row_data': row_data}
+            self.contexts['table_data'] = table_data
+        else:
+            self.contexts['table_data'] = {'headers': [], 'row_data': []}
+    
+    # 光谱扫描
+    def handle_spectral_scanning_table(self, end_point_header_and_data):
+        if self.fake:
+            header = ['编号', '波长', '样品1', '峰谷', '样品2', '峰谷', '样品3', '峰谷']
+            row_data = []
+            for i in range(10):
+                row = [i+1, 200 + i*10]
+                for j in range(3):
+                    row.append(round(0.1 * (i+1) * (j+1), 3))
+                    row.append('峰' if (i+j) % 2 == 0 else '谷')
+                row_data.append(row)
+            return {'header': header, 'row_data': row_data}
+        else:
+            head_list = end_point_header_and_data.get('headList')
+            data_list = end_point_header_and_data.get('dataList')
+            if self.single_sample:
+                identity_list = []
+                header = []
+                row_data = []
+                if head_list:
+                    for head_mapping in head_list:
+                        header.append(head_mapping.get('name'))
+                        identity_list.append(head_mapping.get('identity'))
+                    for data in data_list:
+                        row = []
+                        for index, identity in enumerate(identity_list):
+                            if data.get(identity):
+                                row.append(data.get(identity))
+                            else:
+                                row.append('')
+                        row_data.append(row)
+            else:
+                sample_num = 0 # 样品数量
+                sample_name = []
+                row_data = []
+                if head_list:
+                    for i in head_list:
+                        if i.get('identity') == 'sampleNumber':
+                            sample_num += 1
+                            sample_name.append(i.get('name'))
+                    header = [h.get("name") for h in head_list]
+                    # header = ['编号', '波长']
+                    # for name in sample_name:
+                    #     header.append(name)
+                    #     header.append('峰谷')
+                    for wave_length_data_mapping in data_list:
+                        row = []
+                        for wave_length, data in wave_length_data_mapping.items():
+                            row.append(data.get('id'))
+                            row.append(wave_length)
+                            for index, sample_num in enumerate(data.get('sampleNumber')):
+                                row.append(sample_num)
+                                row.append(data.get('peakValley')[index])
+                        row_data.append(row)
+                else:
+                    row_data = []
+
+        return {'header': header, 'row_data': row_data}
+    
+    # 时间扫描
+    def handle_time_scanning_table(self, end_point_header_and_data):
+        if self.fake:
+            pass
+        else:
+            head_list = end_point_header_and_data.get('headList')
+            data_list = end_point_header_and_data.get('dataList')
+            if self.single_sample:
+                identity_list = []
+                header = []
+                for head_mapping in head_list:
+                    header.append(head_mapping.get('name'))
+                    identity_list.append(head_mapping.get('identity'))
+                row_data = []
+                for data in data_list:
+                    row = []
+                    for index, identity in enumerate(identity_list):
+                        if data.get(identity):
+                            row.append(data.get(identity))
+                        else:
+                            row.append('')
+                    row_data.append(row)
+            else:
+                sample_num = 0 # 样品数量
+                sample_name = []
+                for i in head_list:
+                    if i.get('identity') == 'sampleNumber':
+                        sample_num += 1
+                        sample_name.append(i.get('name'))
+                header = [h.get("name") for h in head_list]
+                row_data = []
+                for wave_length_data_mapping in data_list:
+                    row = []
+                    for time, data in wave_length_data_mapping.items():
+                        row.append(data.get('id'))
+                        row.append(time)
+                        for index, sample_num in enumerate(data.get('sampleNumber')):
+                            row.append(sample_num)
+                            if data.get('peakValley')[index]:
+                                row.append(data.get('peakValley')[index])
+                            else:
+                                row.append('')
+                    row_data.append(row)
+
+        return {'header': header, 'row_data': row_data}
+        
+
+    # 定量已知样
+    def get_quantitative_determination_standard_table(self, standard_header_list, standard_data_list):
+        if self.fake:
+            pass
+        else:
+            name_identity_mapping = {header.get('name'): header.get('identity') for header in standard_header_list}
+            headers = []
+            for h in standard_header_list:
+                if h.get('printTitle'):
+                    headers.append(h.get('printTitle'))
+                else:
+                    headers.append(h.get('name'))
+            row_data = []
+            for data in standard_data_list:
+                row = []
+                for _, identity in name_identity_mapping.items():
+                    row_value = data.get(identity)
+                    if row_value:
+                        row.append(row_value)
+                    else:
+                        row.append('')
+                row_data.append(row)
+                if data.get('children', []):
+                    for children_data in data.get('children', []):
+                        row = []
+                        for _, identity in name_identity_mapping.items():
+                            row_value = children_data.get(identity)
+                            if row_value:
+                                row.append(row_value)
+                            else:
+                                row.append('')
+                        row_data.append(row)
+        return headers, row_data
+
+    def get_quantitative_determination_standard_table_fake(self):
+        header = ['样品编号', '浓度', '已知样1', '已知样2','吸光度', '备注']
+        row_data = []
+        for i in range(5):
+            row = [f'STD-{i+1}', round(10.0 * (i+1), 2), round(0.5 * (i+1), 3), round(0.6 * (i+1), 3), round(0.05 * (i+1), 3), '无']
+            row_data.append(row)
+        return header, row_data
+    
+    # 定量未知样
+    def get_quantitative_determination_unknown_table(self, unknown_header_list, unknown_data_list):
+        name_identity_mapping = {header.get('name'): header.get('identity') for header in unknown_header_list}
+        headers = []
+        for h in unknown_header_list:
+            if h.get('printTitle'):
+                headers.append(h.get('printTitle'))
+            else:
+                headers.append(h.get('name'))
+        row_data = []
+        for data in unknown_data_list:
+            row = []
+            for _, identity in name_identity_mapping.items():
+                row_value = data.get(identity)
+                if row_value:
+                    row.append(row_value)
+                else:
+                    row.append('')
+            row_data.append(row)
+            if data.get('children', []):
+                for children_data in data.get('children', []):
+                    row = []
+                    for _, identity in name_identity_mapping.items():
+                        row_value = children_data.get(identity)
+                        if row_value:
+                            row.append(row_value)
+                        else:
+                            row.append('')
+                    row_data.append(row)
+        return headers, row_data
+
+    def get_quantitative_determination_unknown_table_fake(self):
+        header = ['样品编号', '未知样1', '未知样2','吸光度', '备注']
+        row_data = []
+        for i in range(5):
+            row = [f'UNK-{i+1}', round(0.7 * (i+1), 3), round(0.8 * (i+1), 3), round(0.06 * (i+1), 3), '无']
+            row_data.append(row)
+        return header, row_data
+    
+    # 光度测量
+    def photometric_measurement_table_data(self, header_list, data_list):
+        if self.fake:
+            pass
+        else:
+            name_identity_mapping = {header.get('name'): header.get('identity') for header in header_list}
+            headers = []
+            for h in header_list:
+                if h.get('printTitle'):
+                    headers.append(h.get('printTitle'))
+                else:
+                    headers.append(h.get('name'))
+            row_data = []
+            for data in data_list:
+                row = []
+                for _, identity in name_identity_mapping.items():
+                    row_value = data.get(identity)
+                    if row_value:
+                        row.append(row_value)
+                    else:
+                        row.append('')
+                row_data.append(row)
+                if data.get('children', []):
+                    for children_data in data.get('children', []):
+                        row = []
+                        for name in headers:
+                            identity = name_identity_mapping.get(name)
+                            if identity:
+                                row_value = children_data.get(identity)
+                                if row_value:
+                                    row.append(row_value)
+                                else:
+                                    row.append('')
+                        row_data.append(row)
+        return headers, row_data

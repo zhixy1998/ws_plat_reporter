@@ -17,10 +17,13 @@ from .get_template_extra_info import router as get_template_extra_info_router
 from .del_template_view import router as del_template_router
 from .get_template_industry import router as get_template_industry_router
 from .export_original_report_doc_view import router as export_original_report_doc_router
+from .save_template_private_code_view import router as save_template_private_code_router
 # from .classic_export_original_data_doc_view import router as classic_export_original_data_doc_router
 from .debug_url import router as debug_url_router
 from .get_m import router as get_m_router
+from .update_m import router as update_m_router
 from .merge_docx import router as merge_docx_router
+from .get_report_filter_info import router as get_template_filter_info_router
 
 router.include_router(create_template_router, prefix='', tags=['导入模板'])
 router.include_router(export_doc_router, prefix='', tags=['替换书签, 导出word'])
@@ -37,7 +40,10 @@ router.include_router(get_template_extra_info_router, prefix='', tags=['获取�
 router.include_router(del_template_router, prefix='', tags=['删除模板'])
 router.include_router(get_template_industry_router, prefix='', tags=['获取模板行业'])
 router.include_router(export_original_report_doc_router, prefix='', tags=['导出原始记录报告和原始数据'])
+router.include_router(get_template_filter_info_router, prefix='', tags=['获取模版过滤的晒选项'])
+router.include_router(save_template_private_code_router, prefix='', tags=['保存模板私有代码'])
 # router.include_router(classic_export_original_data_doc_router, prefix='', tags=['导出单独原始数据'])
 router.include_router(get_m_router, prefix='', tags=['获取m'])
+router.include_router(update_m_router, prefix='', tags=['更新m'])
 router.include_router(merge_docx_router, prefix='', tags=['合并word'])
 # router.include_router(test_url_router, prefix='', tags=['测试'])

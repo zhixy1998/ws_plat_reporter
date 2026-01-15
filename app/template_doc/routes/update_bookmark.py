@@ -92,7 +92,7 @@ async def update_bookmark(data: InputSchema):
         await create_template(data.name, content_base64, content=content, template_type=template.type, 
         industry_type=template.industry_type, experiment_type=template.experiment_type, 
         title_mapping=merged_title_mapping, old_template_name=template_name)
-        return {'code': 200, 'message': '模板另存为成功'}
+        return {'code': 200, 'message': '模板另存为成功', 'data': {'file_base64': ''}}
 
     else:  # 预览
 
