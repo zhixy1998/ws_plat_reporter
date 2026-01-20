@@ -1,0 +1,182 @@
+from docxtpl import DocxTemplate
+from docx import Document
+from docx.shared import Cm
+
+template_path = 'test_ex.docx' # 模板文件在utils目录下
+
+doc = DocxTemplate(template_path)
+
+# 您的数据，直接对应 JSON 结构
+data_for_template = {
+  "sample_info_list": [
+    {
+      "index": 1,
+      "id": "S001",
+      "volume": 10.0,
+      "absorbance": {
+        "a1": 0.123,
+        "a2": 0.125,
+        "a3": 0.124,
+        "a_avg": 0.124
+      },
+      "result": 5.6,
+      "concentration": 0.45,
+      "remark": ""
+    },
+    {
+      "index": 2,
+      "id": "S002",
+      "volume": 12.5,
+      "absorbance": {
+        "a1": 0.201,
+        "a2": 0.203,
+        "a3": 0.202,
+        "a_avg": 0.202
+      },
+      "result": 8.1,
+      "concentration": 0.648,
+      "remark": "高"
+    }
+  ],
+}
+abs_data_1 = [
+        {"label": "管号", "cols": ["1", "2", "3", "4", "5", "6", "7"]},
+        {"label": "标准系列, (μg)", "cols": ["0.0", "1.00", "2.00", "6.00", "10.00", "20.00", "30.00"]},
+        {"label": "吸光度（A）", "cols": ["1", "5", "8", "12", "16", "20", "24"]},
+        {"label": "吸光度均值(A̅)", "cols": ["1", "4", "8", "12", "16", "20", "24"]}
+    ]
+abs_data_2 = [
+        {"label": "扣除空白后", "cols": ["0.5", "1", "4", "7", "19", "11", "14"]}
+    ]
+data_for_template['abs_data_1'] = abs_data_1
+data_for_template['abs_data_2'] = abs_data_2
+data_for_template['blank_abs'] = {"label": "空白吸光度A0", "value": "0.5"}
+
+# data_s = {
+#   'a': [2131,2123,34124,41241,51241,61241,71241],
+#   'b': [512739,612312,712312,812312,912312,1012312,1112312],
+#   'c': [212312,312312,412312,512312,612312,712312,812312],
+#   'g': [212312,312312,412312,512312,612312,712312,812312]
+# }
+# data_s = [
+#   [2131,2123,34124,41241],
+#   [512739,612312,712312,812312],
+#   [212312,312312,412312,512312],
+#   [212312,312312,412312,512312]
+# ]
+data_s = {
+  'a': [2131,2123],
+  'b': [512739,612312],
+  'c': [212312,312312],
+  'g': [212312,312312]
+}
+data_for_template['data_s'] = data_s
+# `doc.render` 的上下文就是这个数据
+
+grouped_data = [
+      {
+         "样品编号":"A001",
+         "吸光度":"1:10",
+         "平均值":"1.25",
+         "rows":[
+            {
+               "样品编号":"A001",
+               "浓度":"10ml",
+               "吸光度":"1:10",
+               "稀释倍数":"1:100",
+               "测定值":"1.23",
+               "平均值":"1.25"
+            },
+            {
+               "样品编号":"A001",
+               "浓度":"20ml",
+               "吸光度":"1:10",
+               "稀释倍数":"1:100",
+               "测定值":"1.27",
+               "平均值":"1.25"
+            }
+         ]
+      },
+      {
+         "样品编号":"B002",
+         "吸光度":"1:20",
+         "平均值":"2.15",
+         "rows":[
+            {
+               "样品编号":"B002",
+               "浓度":"15ml",
+               "吸光度":"1:20",
+               "稀释倍数":"1:50",
+               "测定值":"2.08",
+               "平均值":"2.15"
+            },
+            {
+               "样品编号":"B002",
+               "浓度":"12ml",
+               "吸光度":"1:20",
+               "稀释倍数":"1:50",
+               "测定值":"2.22",
+               "平均值":"2.15"
+            }
+         ]
+      },
+      {
+         "样品编号":"C003",
+         "吸光度":"1:30",
+         "平均值":"3.40",
+         "rows":[
+            {
+               "样品编号":"C003",
+               "浓度":"18ml",
+               "吸光度":"1:30",
+               "稀释倍数":"1:200",
+               "测定值":"3.35",
+               "平均值":"3.40"
+            },
+            {
+               "样品编号":"C003",
+               "浓度":"25ml",
+               "吸光度":"1:30",
+               "稀释倍数":"1:200",
+               "测定值":"3.45",
+               "平均值":"3.40"
+            }
+         ]
+      }
+   ]
+
+dynamic_table = {'header': [1,2,3,4,5,6], 'data_double_list': [['1_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','2_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','3_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','4_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','5_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','6_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv'], ['1_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','2_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','3_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','4_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','5_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv','6_vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv']]}
+data_for_template['dynamic_table'] = dynamic_table
+data_for_template['grouped_data'] = grouped_data
+k_values = [{'label': 'k0:', 'value': '1312321312'}, {'label': 'k1:', 'value': '35235235'}, {'label': 'k2:', 'value': '64645645'}, {'label': 'k3:', 'value': '756756756'}]
+data_for_template['k_values'] = k_values
+
+doc.render(data_for_template)
+
+output_filename = 'report_from_nested_data.docx'
+doc.save(output_filename)
+
+# 再打开生成后的 Word，设置列宽
+# docx_doc = Document(output_filename)
+# # 遍历所有表格
+# print(docx_doc.tables)
+# for table in docx_doc.tables:
+#     col_count = len(table.columns)
+#     print('col_count:', col_count)
+#     if col_count == 0:
+#         continue
+
+#     # 设置每列宽度（例如平均分 14cm 宽度）
+#     col_width = Cm(14 / col_count)
+#     for row in table.rows:
+#         for cell in row.cells:
+#             cell.width = col_width
+#     for i in range(col_count):
+#         table.columns[i].width = col_width
+
+# 保存最终调整后的 Word 文件
+
+
+
+
+print(f"报告 '{output_filename}' 已成功生成！")
