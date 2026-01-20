@@ -197,136 +197,169 @@ def _try_convert_with_docx2pdf(docx_path: str, pdf_path: str, timeout: int = 10)
     return False
 
 def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
+    print("调试：开始LibreOffice转换")
+    
+    # 检查文件和目录
+    if not os.path.exists(docx_path):
+        print("调试：DOCX文件不存在：" + docx_path)
+        return b""
+    
+    print("调试：DOCX文件大小：" + str(os.path.getsize(docx_path)) + "字节")
+    
+    # 检查LibreOffice命令
+    try:
+        which_result = subprocess.run(['which', 'libreoffice'], capture_output=True, text=True, timeout=5)
+        if which_result.returncode != 0:
+            print("调试：libreoffice命令未找到")
+            # 尝试soffice
+            which_soffice = subprocess.run(['which', 'soffice'], capture_output=True, text=True, timeout=5)
+            if which_soffice.returncode != 0:
+                print("调试：soffice命令也未找到")
+                return b""
+            else:
+                print("调试：找到soffice命令：" + which_soffice.stdout.strip())
+        else:
+            print("调试：找到libreoffice命令：" + which_result.stdout.strip())
+    except Exception as e:
+        print("调试：检查LibreOffice命令失败：" + str(e))
+    
     for attempt in range(2):
         try:
-            print(f" [DEBUG] DOCX → PDF 转换开始（尝试 {attempt + 1}/2）...")
+            print("调试：尝试转换，第" + str(attempt + 1) + "次")
             cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
+            print("调试：执行命令：" + str(cmd))
 
-            timeout = 30 if platform.system() == 'Windows' else 30
-            print('cmd======', cmd)
             result = subprocess.run(
                 cmd, 
                 check=True, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE, 
-                timeout=timeout
+                timeout=30
             )
 
             stdout_text = result.stdout.decode('utf-8', errors='ignore').strip()
             stderr_text = result.stderr.decode('utf-8', errors='ignore').strip()
             if stdout_text:
-                print(f"LibreOffice stdout: {stdout_text}")
+                print("调试：LibreOffice输出：" + stdout_text)
             if stderr_text:
-                print(f"LibreOffice stderr: {stderr_text}")
+                print("调试：LibreOffice错误：" + stderr_text)
 
-            # 给系统一点时间确保文件写入完成
             time.sleep(0.5)
 
-            # 检查 PDF 是否生成
+            # 检查PDF是否生成
             if not os.path.exists(pdf_path):
-                print(f" PDF 生成失败（文件不存在）")
-                if stdout_text or stderr_text:
-                    print(" 上次 LibreOffice 执行输出已记录，如上所示")
+                print("调试：PDF文件未生成")
                 if attempt == 0:
-                    # 第一次失败，继续重试
                     _kill_libreoffice_processes()
                     time.sleep(1)
                     continue
                 return b""
 
-            # 读取 PDF 文件
+            # 读取PDF文件
             with open(pdf_path, "rb") as pdf_file:
                 pdf_bytes = pdf_file.read()
 
             if len(pdf_bytes) == 0:
-                print(f" PDF 文件为空")
+                print("调试：PDF文件为空")
                 if attempt == 0:
                     _kill_libreoffice_processes()
                     time.sleep(1)
                     continue
                 return b""
 
-            print(f" [DEBUG] PDF 生成成功: {len(pdf_bytes)} bytes")
+            print("调试：PDF生成成功，大小：" + str(len(pdf_bytes)) + "字节")
             return pdf_bytes
 
-        except subprocess.TimeoutExpired as e:
-            print(f" LibreOffice 转换超时（{timeout} 秒）- 尝试 {attempt + 1}/2")
+        except subprocess.TimeoutExpired:
+            print("调试：LibreOffice超时，第" + str(attempt + 1) + "次尝试")
             if attempt == 0:
-                # 第一次超时，强制杀死进程并重试
                 _kill_libreoffice_processes()
-                time.sleep(2)  # 等待进程清理
+                time.sleep(2)
                 continue
-            print(f" 重试失败，放弃")
             return b""
 
         except subprocess.CalledProcessError as e:
-            print(f" LibreOffice 转换失败（返回码 {e.returncode}）: {e.stderr.decode() if e.stderr else 'unknown error'}")
-            if e.stdout:
-                try:
-                    print(f" LibreOffice stdout: {e.stdout.decode('utf-8', errors='ignore')}")
-                except Exception:
-                    pass
+            print("调试：LibreOffice执行失败，返回码：" + str(e.returncode))
+            if e.stderr:
+                print("调试：错误信息：" + e.stderr.decode('utf-8', errors='ignore'))
             if attempt == 0:
                 _kill_libreoffice_processes()
                 time.sleep(1)
                 continue
             return b""
 
+        except FileNotFoundError:
+            print("调试：LibreOffice命令未找到")
+            return b""
+
         except Exception as e:
-            print(f" 转换过程出错: {e}")
-            import traceback
-            traceback.print_exc()
+            print("调试：转换异常：" + str(e))
             if attempt == 0:
                 _kill_libreoffice_processes()
                 time.sleep(1)
                 continue
             return b""
+    
+    print("调试：所有尝试都失败了")
+    return b""
 
 
 def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
     """
     实际的转换逻辑（在锁内执行）
     """
+    print("调试：开始转换，输入文件大小：" + str(len(doc_raw_bytes) if doc_raw_bytes else 0) + "字节")
+    
     custom_tmp_root = config.deploy_python_path
     if custom_tmp_root is None:
         custom_tmp_root = tempfile.gettempdir()
-    os.makedirs(custom_tmp_root, exist_ok=True)
-    can_write = os.access(custom_tmp_root, os.W_OK)
-    print(f"[DEBUG] 使用自定义临时目录: {custom_tmp_root} | exists={os.path.exists(custom_tmp_root)} | writable={can_write}")
-    with tempfile.TemporaryDirectory(dir=custom_tmp_root) as tmpdir:
-        print(f"[DEBUG] 创建具体临时目录: {tmpdir}")
-        docx_path = os.path.join(tmpdir, "input.docx")
-        pdf_path = os.path.join(tmpdir, "input.pdf")
+    
+    print("调试：使用临时目录：" + str(custom_tmp_root))
+    
+    try:
+        os.makedirs(custom_tmp_root, exist_ok=True)
+    except Exception as e:
+        print("调试：创建临时目录失败：" + str(e))
+        return b""
+    
+    if not os.access(custom_tmp_root, os.W_OK):
+        print("调试：临时目录不可写")
+        return b""
+    
+    try:
+        with tempfile.TemporaryDirectory(dir=custom_tmp_root) as tmpdir:
+            print("调试：创建临时目录：" + str(tmpdir))
+            docx_path = os.path.join(tmpdir, "input.docx")
+            pdf_path = os.path.join(tmpdir, "input.pdf")
 
-        # 保存 docx 文件
-        with open(docx_path, "wb") as f:
-            f.write(doc_raw_bytes)
-        doc_exists = os.path.exists(docx_path)
-        doc_size = os.path.getsize(docx_path) if doc_exists else 0
-        print(f"[DEBUG] 写入 DOCX: exists={doc_exists} size={doc_size} path={docx_path}")
-        
-        pdf_bytes = _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path)
-
-        if pdf_bytes:
-            return pdf_bytes
-        print("LibreOffice 转换失败，尝试使用office自动化（仅限Windows）")
-        system = platform.system()
-        if system in ['Windows'] and has_ms_word():
-            if _try_convert_with_docx2pdf(docx_path, pdf_path, timeout=10):
-                return open(pdf_path, "rb").read()
-            print("docx2pdf 转换失败或超时")
-
-        # 如果 docx2pdf 不可用或失败，使用 LibreOffice
-
-        pdf_exists = os.path.exists(pdf_path)
-        if not pdf_exists:
+            # 保存docx文件
             try:
-                files_snapshot = os.listdir(tmpdir)
-            except Exception as snapshot_err:
-                files_snapshot = f"无法列出目录: {snapshot_err}"
-            print(f"[DEBUG] 清理前 PDF 不存在, tmpdir 内容: {files_snapshot}")
-        
+                with open(docx_path, "wb") as f:
+                    f.write(doc_raw_bytes)
+                print("调试：DOCX文件写入成功")
+            except Exception as e:
+                print("调试：DOCX文件写入失败：" + str(e))
+                return b""
+            
+            # 调用LibreOffice转换
+            pdf_bytes = _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path)
 
+            if pdf_bytes:
+                print("调试：转换成功，返回PDF数据")
+                return pdf_bytes
+            
+            print("调试：LibreOffice转换失败")
+            system = platform.system()
+            if system == 'Windows' and has_ms_word():
+                print("调试：尝试Windows备用方案")
+                if _try_convert_with_docx2pdf(docx_path, pdf_path, timeout=10):
+                    return open(pdf_path, "rb").read()
+
+            print("调试：所有转换方案都失败了")
+            return b""
+            
+    except Exception as e:
+        print("调试：临时目录创建失败：" + str(e))
         return b""
 
 
@@ -376,20 +409,29 @@ def convert_docx_to_pdf_base64(file_stream) -> str:
     将 Word 文档转换为 PDF，返回 base64 编码
     使用 LibreOffice 转换，支持所有页面
     """
-    # 重置流指针到开头（如果可能）
+    print("调试：开始转换DOCX到PDF，系统：" + platform.system())
+    
+    # 重置流指针到开头
     try:
         file_stream.seek(0)
-    except:
-        pass
+    except Exception as e:
+        print("调试：文件流重置失败：" + str(e))
     
-    # 复用 convert_docx_to_pdf_bytes 逻辑
-    pdf_bytes = convert_docx_to_pdf_bytes(file_stream)
+    # 调用转换函数
+    try:
+        pdf_bytes = convert_docx_to_pdf_bytes(file_stream)
+        print("调试：转换完成，PDF字节长度：" + str(len(pdf_bytes) if pdf_bytes else 0))
+    except Exception as e:
+        print("调试：转换异常：" + str(e))
+        return ""
     
     if not pdf_bytes:
+        print("调试：PDF转换失败，返回空字符串")
         return ""
     
     # 转换为 base64
     pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+    print("调试：Base64编码完成，长度：" + str(len(pdf_base64)))
     return f"data:application/pdf;base64,{pdf_base64}"
 
 
