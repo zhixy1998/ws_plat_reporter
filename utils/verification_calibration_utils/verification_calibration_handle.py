@@ -375,7 +375,7 @@ class InspectionAndCorrectionReport():
     def __init__(self, vc_data_list):
         # 获取模板文件的完整路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        self.template_path = os.path.join(current_dir, 'verification_and_calibration_jinja.docx')
+        self.template_path = os.path.join(current_dir, 'verification_jinja.docx')
         self.doc = DocxTemplate(self.template_path)
         self.vc_data_list = vc_data_list
         self.section_index = 1
