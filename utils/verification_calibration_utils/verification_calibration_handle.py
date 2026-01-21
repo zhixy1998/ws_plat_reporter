@@ -1,3 +1,4 @@
+from io import BytesIO
 from datetime import datetime
 from docxtpl import DocxTemplate
 from docx import Document
@@ -5,7 +6,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from jinja2 import Environment, FileSystemLoader
 from docx.shared import Cm, Inches, Pt
-from itertools import groupby
+from itertools import combinations, groupby
 import os
 
 """
@@ -17,6 +18,7 @@ bdn: baseline_dark_noise 基线暗噪声
 sb: spectral_bandwidth 光谱带宽
 n: noise 噪声
 d: drift 漂移
+wen: wavelength_edge_noise 波长边缘噪声
 va: voltage_adaptability 电压适应性
 ds: dielectric_strength  介电强度
 cc: contact_current  接触电流
@@ -402,6 +404,8 @@ class InspectionAndCorrectionReport():
         self.get_noise()
         # 漂移
         self.get_drift()
+        # 波长边缘噪声
+        self.wavelength_edge_noise()
         # 电压适应性
         self.get_voltage_adaptability()
         # 介电强度
@@ -426,11 +430,15 @@ class InspectionAndCorrectionReport():
         #     data['index'] = i
         # contexts = {'table_data': self.table_data}
         # contexts.update(self.contexts)
-        print(self.contexts)
         self.doc.render(self.contexts, jinja_env=env)
+        out_stream = BytesIO()
+        self.doc.save(out_stream)
+        # 保存一份在本地
         current_dir = os.path.dirname(os.path.abspath(__file__))
         output_filename = os.path.join(current_dir, 'verification_and_calibration_result.docx')
         self.doc.save(output_filename)
+
+        return out_stream
 
     def create_subdoc_table(self, rows, is_vertical=True, merge_enabled=False, merge_key=None, row_height=None, parent_cell_height=None, width=None):
         """
@@ -607,8 +615,15 @@ class InspectionAndCorrectionReport():
                 else:
                     cell_text = ""
                 
-                # 设置单元格文本
-                t.cell(r, c).text = cell_text
+                # 设置单元格文本并明确设置字体
+                cell = t.cell(r, c)
+                cell.text = cell_text
+                # 为单元格中的所有段落设置字体
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        run.font.name = '宋体'
+                        run._element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
+                        run.font.size = Pt(9)
         
         # 处理单元格合并
         if merge_enabled:
@@ -937,7 +952,7 @@ class InspectionAndCorrectionReport():
             print(vertical_table)
             # 为纵向表格创建一个subdoc对象
             # 传入父单元格高度（单位：英寸），如果不传则使用默认值3.0英寸
-            sub_doc = self.create_subdoc_table(vertical_table, is_vertical=True, merge_key='项目名称', merge_enabled=True, parent_cell_height=9.18)
+            sub_doc = self.create_subdoc_table(vertical_table, is_vertical=True, merge_key='项目名称', merge_enabled=True, parent_cell_height=7)
             
             wt_contexts['unique'] = {
                     'name': unique.get('name'),
@@ -962,8 +977,8 @@ class InspectionAndCorrectionReport():
                         'sub_doc': sub_doc
                     }
                 )
+            wt_contexts['index'] = self.section_index
             self.contexts['wt'] = wt_contexts
-            self.contexts['wt_index'] = self.section_index
             self.section_index += 1
 
     def get_transmission_table(self):
@@ -1017,7 +1032,7 @@ class InspectionAndCorrectionReport():
                     new_vertical_table.append(new_row)
                 vertical_table = new_vertical_table
 
-                sub_doc = self.create_subdoc_table(vertical_table, is_vertical=True, merge_key='', merge_enabled=True, parent_cell_height=9.18, width=13.7)
+                sub_doc = self.create_subdoc_table(vertical_table, is_vertical=True, merge_key='', merge_enabled=True, parent_cell_height=7, width=13.7)
                 if tt_contexts.get('repeated') is None:
                     tt_contexts['repeated'] = []    
                 tt_contexts['repeated'].append(
@@ -1051,122 +1066,333 @@ class InspectionAndCorrectionReport():
                     new_row.extend(v[1:])
                     new_vertical_table.append(new_row)
                 vertical_table = new_vertical_table
-                sub_doc = self.create_subdoc_table(vertical_table, is_vertical=True, merge_key='', merge_enabled=True, parent_cell_height=9.18, width=13.7)
+                sub_doc = self.create_subdoc_table(vertical_table, is_vertical=True, merge_key='', merge_enabled=True, parent_cell_height=7, width=13.7)
                 tt_contexts['unique'] = {
                         'name': unique.get('name'),
                         'test_tool': unique.get('test_tool'),
                         'project_name': unique.get('qualified_standard'),
                         'sub_doc': sub_doc,
                     }
-    
+                
+        tt_contexts['index'] = self.section_index
         self.contexts['tt'] = tt_contexts
-        self.contexts['tt_index'] = self.section_index
         self.section_index += 1
             
     def get_stray_light(self):
         """
         杂散光
         """
-        
-        self.contexts['sl'] = {
-            'index': 4,
-            'title': '杂散光',
-            'test_tool_desc': '检验工具',
-            'test_tool': {'tool_1':{'label': '碘化钠标准溶液', 'value': {'v1': '220nm', 'v2': '<0.01%'}},
-                          'tool_2':{'label': '亚硝酸钠标准溶液', 'value': {'v1': '360nm', 'v2': '≤0.02%'}},
-                           },
-            'test_value_desc': '测量值（%)',
-            'test_values': {
-               'headers' : {'v1': 1, 'v2': 2, 'v3': 3},
-               'data': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000', 'v6': '0.000'}
-            },
-            'test_result_v': '结果',
-            'test_results': {'v1': '未检测', 'v2': '未检测'}
-        }
+        sl_contexts = {}
+        sl = None
+        for i in self.vc_data_list:
+            if i.get('name') == '杂散光校验':
+                sl = i
+                break
+        head = sl.get('head_data')
+        name = sl.get('name')
+        repeat = []
+        rows = []
+        qualified_line_data = sl.get('qualifiedLine')
+        for test_tool, test_info_dict in qualified_line_data.items():
+            qualified_standard = test_info_dict.get('qualified_standard')
+            row = test_info_dict.get('related_rows')
+            rows.append(row[0])
+ 
+        # data_dict_list = convert_table_to_dicts(head, rows)
+        # vertical_table = convert_dicts_to_vertical_table(data_dict_list)[::-1]
+        combined = [head] + rows
+        sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+        sl_contexts['sub_doc'] = sub_doc
+        sl_contexts['name'] = name
+        sl_contexts['index'] = self.section_index
+        self.section_index += 1
+
+        self.contexts['sl'] = sl_contexts
+
+        # self.contexts['sl'] = {
+        #     'index': 4,
+        #     'title': '杂散光',
+        #     'test_tool_desc': '检验工具',
+        #     'test_tool': {'tool_1':{'label': '碘化钠标准溶液', 'value': {'v1': '220nm', 'v2': '<0.01%'}},
+        #                   'tool_2':{'label': '亚硝酸钠标准溶液', 'value': {'v1': '360nm', 'v2': '≤0.02%'}},
+        #                    },
+        #     'test_value_desc': '测量值（%)',
+        #     'test_values': {
+        #        'headers' : {'v1': 1, 'v2': 2, 'v3': 3},
+        #        'data': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000', 'v6': '0.000'}
+        #     },
+        #     'test_result_v': '结果',
+        #     'test_results': {'v1': '未检测', 'v2': '未检测'}
+        # }
     
     def get_baseline_straightness(self):
-        self.contexts['bs'] = {
-            'index': 5,
-            'title': '基线平直度',
-            'straightness': '≤±0.0005（2.0nm光谱带宽）',
-            'test_value_desc': '测量值(Abs)',
-            'test_value': '0.00000'
-        }
+        """
+        基线平直度
+        """
+        bs_contexts = {}
+        bs = None
+        for i in self.vc_data_list:
+            if i.get('name') == '基线平直度检验':
+                bs = i
+                break
+        head = bs.get('head_data')
+        name = bs.get('name')
+        repeat = []
+        rows = []
+        qualified_line_data = bs.get('qualifiedLine')
+        for test_tool, test_info_dict in qualified_line_data.items():
+            qualified_standard = test_info_dict.get('qualified_standard')
+            row = test_info_dict.get('related_rows')
+            rows.append(row[0])
+        
+        combined = [head] + rows
+        new_combined = []
+        for c in combined:
+            c.pop(0)
+            new_combined.append(c)
+        combined = new_combined
+        sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+        bs_contexts['sub_doc'] = sub_doc
+        bs_contexts['name'] = name
+        bs_contexts['index'] = self.section_index
+        self.section_index += 1
+
+        self.contexts['bs'] = bs_contexts
 
 
     def get_baseline_dark_noise(self):
-        self.contexts['bdn'] = {
-            'index': 6,
-            'title': '基线暗噪声',
-            'dark_noise': '≤±0.1%',
-            'test_value_desc': '测量值(%)',
-            'test_value': '0.00'
-        }
+        """
+        基线暗噪声
+        """
+        bdn_contexts = {}
+        bdn = None
+        for i in self.vc_data_list:
+            if i.get('name') == '基线暗噪声检验':
+                bdn = i
+                break
+        head = bdn.get('head_data')
+        name = bdn.get('name')
+        repeat = []
+        rows = []
+        qualified_line_data = bdn.get('qualifiedLine')
+        for test_tool, test_info_dict in qualified_line_data.items():
+            qualified_standard = test_info_dict.get('qualified_standard')
+            row = test_info_dict.get('related_rows')
+            rows.append(row[0])
+        
+        # for index, r in enumerate(rows):
+        #     if r[0] == '项目名称':
+        #         break
+        #     r.pop(index)
+        
+        combined = [head] + rows
+        new_combined = []
+        for c in combined:
+            c.pop(0)
+            new_combined.append(c)
+        combined = new_combined
+        sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+        bdn_contexts['sub_doc'] = sub_doc
+        bdn_contexts['name'] = name
+        bdn_contexts['index'] = self.section_index
+        self.section_index += 1
+
+        self.contexts['bdn'] = bdn_contexts
 
 
     def get_spectral_bandwidth(self):
-        self.contexts['sb'] = {
-            'index': 7,
-            'title': '光谱带宽',
-            'standard_v': '不超过标称光谱带宽的±20%',
-            'corner_cell': '光谱带宽（nm）',
-            'ch': {'h1': '测量值(nm)', 'h2': '偏差（%）'}, # ch Column header
-            'rh': {'h1': '氘灯5.0', 'h2': '氘灯2.0', 'h3': '氘灯1.0', 'h4':'氘灯0.5', 'h5': '氘灯0.2'}, # rh Row header
-            'rows': {'row_1': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000'},
-                     'row_2': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000'}
-                     }
-        }
+        """
+        光谱带宽
+        """
+        sb_contexts = {}
+        sb = None
+        for i in self.vc_data_list:
+            if i.get('name') == '光谱带宽与仪器最小光谱带宽':
+                sb = i
+                break
+        head = sb.get('head_data')
+        name = sb.get('name')
+        repeat = []
+        rows = []
+        qualified_line_data = sb.get('qualifiedLine')
+        for test_tool, test_info_dict in qualified_line_data.items():
+            qualified_standard = test_info_dict.get('qualified_standard')
+            row = test_info_dict.get('related_rows')
+            rows.append(row[0])
+        
+
+        data_dict_list = convert_table_to_dicts(head, rows)
+        vertical_table = convert_dicts_to_vertical_table(data_dict_list)[::-1]
+        sub_doc = self.create_subdoc_table(vertical_table, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+        sb_contexts['sub_doc'] = sub_doc
+        sb_contexts['name'] = name
+        sb_contexts['index'] = self.section_index
+        sb_contexts['project_name'] = qualified_standard
+        self.section_index += 1
+
+        self.contexts['sb'] = sb_contexts
+        # self.contexts['sb'] = {
+        #     'index': 7,
+        #     'title': '光谱带宽',
+        #     'standard_v': '不超过标称光谱带宽的±20%',
+        #     'corner_cell': '光谱带宽（nm）',
+        #     'ch': {'h1': '测量值(nm)', 'h2': '偏差（%）'}, # ch Column header
+        #     'rh': {'h1': '氘灯5.0', 'h2': '氘灯2.0', 'h3': '氘灯1.0', 'h4':'氘灯0.5', 'h5': '氘灯0.2'}, # rh Row header
+        #     'rows': {'row_1': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000'},
+        #              'row_2': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000'}
+        #              }
+        # }
 
     def get_noise(self):
+        """
+        噪声
+        """
         i= 8
-        self.contexts['n'] = {
-            'index': i,
-            'row_1': {'i': i, 'n_desc': '噪声500nm', 'pct': '100%', 'deviation': '≤0.05%', 'test_pct_desc_1': '测量值(%)', 'test_v_1': '0.000', 'test_pct': '0%', 'dev_pct': '≤0.005%', 'test_pct_desc_2': '测量值(%)', 'test_v_2': '0.0000'},
-            'grouped_data':[
-                {
-                'i': i,
-                'rows': [
-                    {'i': i, 'n_desc': '噪声250nm', 'pct': '100%', 'deviation': '≤0.5%', 'test_pct_desc_1': '测量值(%)', 'test_v_1': '0.000', 'test_pct': '0%', 'dev_pct': '≤0.05%', 'test_pct_desc_2': '测量值(%)', 'test_v_2': '0.0000'},
-                    {'i': i, 'n_desc': '边缘噪声1090 nm', 'pct': '100%', 'deviation': '≤0.1%', 'test_pct_desc_1': '测量值(%)', 'test_v_1': '0.000', 'test_pct': '0%', 'dev_pct': '≤0.02%', 'test_pct_desc_2': '测量值(%)', 'test_v_2': '0.0000'},
-                    {'i': i, 'n_desc': '边缘噪声200nm', 'pct': '100%', 'deviation': '≤0.1%', 'test_pct_desc_1': '测量值(%)', 'test_v_1': '0.000', 'test_pct': '0%', 'dev_pct': '≤0.02%', 'test_pct_desc_2': '测量值(%)', 'test_v_2': '0.0000'}
-                ]
-                },
-            ]
-        }
+        n_contexts = {}
+        n = None
+        for i in self.vc_data_list:
+            if i.get('name') == '噪声检验':
+                n = i
+                break
+        head = n.get('head_data')
+        name = n.get('name')
+        repeat = []
+        rows = []
+        qualified_line_data = n.get('qualifiedLine')
+        for test_tool, test_info_dict in qualified_line_data.items():
+            qualified_standard = test_info_dict.get('qualified_standard')
+            row = test_info_dict.get('related_rows')
+            rows.append(row[0])
+        new_rows = []
+        for r in rows:
+            new_one_rows = []
+            for index, one_row_v in enumerate(r):
+                new_one_rows.append(head[index])
+                new_one_rows.append(one_row_v)
+            new_rows.append(new_one_rows)
+        sub_doc = self.create_subdoc_table(new_rows, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.6)
+        n_contexts['sub_doc'] = sub_doc
+        n_contexts['name'] = name
+        n_contexts['index'] = self.section_index
+        self.section_index += 1
+        self.contexts['n'] = n_contexts
 
     def get_drift(self):
-        self.contexts['d'] = {
-            'index': 9,
-            'title': '漂移',
-            'test_v_1': '500nm ≤0.1%/h',
-            'test_v_desc': '测量值（%)',
-            'test_v_2': '0.00'
-        }
+        """
+        漂移
+        """
+        d_contexts = {}
+        d = None
+        for i in self.vc_data_list:
+            if i.get('name') == '漂移检验':
+                d = i
+                break
+        head = d.get('head_data')
+        name = d.get('name')
+        rows = []
+        qualified_line_data = d.get('qualifiedLine')
+        for test_tool, test_info_dict in qualified_line_data.items():
+            qualified_standard = test_info_dict.get('qualified_standard')
+            row = test_info_dict.get('related_rows')
+            rows = row
+        
+        new_rows = []
+        for r in rows:
+            new_one_rows = []
+            for index, one_row_v in enumerate(r):
+                if index > 1:
+                    new_one_rows.append(head[index])
+                    new_one_rows.append(one_row_v)
+            new_rows.append(new_one_rows)
+        d_contexts['sub_doc'] = self.create_subdoc_table(new_rows, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.6)
+        d_contexts['name'] = name
+        d_contexts['index'] = self.section_index
+        self.section_index += 1
+        self.contexts['d'] = d_contexts
+    
+    def wavelength_edge_noise(self):
+        """
+        波长边缘噪声
+        """
+        wen_contexts = {}
+        wen = None
+        for i in self.vc_data_list:
+            if i.get('name') == '波长边缘噪声':
+                wen = i
+                break
+        head = wen.get('head_data')
+        head.insert(0, '--')
+        name = wen.get('name')
+        rows = []
+        qualified_line_data = wen.get('qualifiedLine')
+        for test_tool, test_info_dict in qualified_line_data.items():
+            qualified_standard = test_info_dict.get('qualified_standard')
+            row = test_info_dict.get('related_rows')
+            rows.append([qualified_standard] + row[0])
+        combined = [head] + rows
+        wen_contexts['sub_doc'] = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+        wen_contexts['name'] = name
+        wen_contexts['index'] = self.section_index
+        self.section_index += 1
+        self.contexts['wen'] = wen_contexts
+
 
     def get_voltage_adaptability(self):
-        self.contexts['va'] = {
-           'index': 10,
-           'title': '电压适应性',
-           'title_v': '±0.2%',
-           'test_tool_desc': '检验工具',
-           'tool_1': '调压器，数字万用表',
-           'headers': {'v1': '电压', 'v2': '198V', 'v3': '220V', 'v4': '242V'},
-           'data': {
-               'row_1': {'v1': '500nm测量值（%）', 'v2': '', 'v3': '', 'v4': ''},
-               'row_2': {'v1': '500nm处的透射比变化（%）', 'v2': '', 'v3': '', 'v4': ''},
-               'row_3': {'v1': '250nm测量值（%）', 'v2': '', 'v3': '', 'v4': ''},
-               'row_4': {'v1': '250nm处的透射比变化（%）', 'v2': '', 'v3': '', 'v4': ''},
-           }
-        }
+        """
+        电压适应性
+        """
+        va_contexts = {}
+        va = None
+        for i in self.vc_data_list:
+            if i.get('name') == '电压适应性检验':
+                va = i
+                break
+        if va:
+            pass
+        else:
+            self.contexts['va'] = {
+            'index': self.section_index,
+            'title': '电压适应性',
+            'title_v': '--',
+            'test_tool_desc': '检验工具',
+            'tool_1': '调压器，数字万用表',
+            'headers': {'v1': '电压', 'v2': '--', 'v3': '--', 'v4': '--'},
+            'data': {
+                'row_1': {'v1': '--', 'v2': '', 'v3': '', 'v4': ''},
+                'row_2': {'v1': '--', 'v2': '', 'v3': '', 'v4': ''},
+                'row_3': {'v1': '--', 'v2': '', 'v3': '', 'v4': ''},
+                'row_4': {'v1': '--', 'v2': '', 'v3': '', 'v4': ''},
+            }
+            }
+        self.section_index += 1
 
     def dielectric_strength(self):
-        self.contexts['ds'] = {
-            'index': 11,
-            'title': '介电强度',
-            'test_v_1': '500nm ≤0.1%/h',
-            'test_v_desc': '测量值（%)',
-            'test_v_2': '有□   有□', # ☑ □
-        }
+        """
+        介电强度
+        """
+        ds_contexts = {}
+        ds = None
+        for i in self.vc_data_list:
+            if i.get('name') == '介电强度检验':
+                ds = i
+                break
+        if ds:
+            head = ds.get('head_data')
+            name = ds.get('name')
+            rows = []
+            qualified_line_data = ds.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                rows = row
+        else:
+            self.contexts['ds'] = {
+                'index': self.section_index,
+                'title': '介电强度',
+                'test_v_1': '--',
+                'test_v_desc': '--',
+                'test_v_2': '--', # ☑ □
+            }
 
     def get_contact_current(self):
         self.contexts['cc'] = {
