@@ -3,6 +3,7 @@ import os
 import platform
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from io import BytesIO
 from typing import Dict, Any
 from datetime import datetime
@@ -14,8 +15,10 @@ from config import config
 from utils.log_decorator import log_response
 from utils.verification_calibration_utils.verification_calibration_handle import InspectionAndCorrectionReport
 from utils.template_utils import convert_docx_to_pdf_base64, convert_docx_to_pdf_bytes
+from utils.doc_converter import get_libreoffice_command
 
 router = APIRouter()
+_docx2pdf_disabled = False  # 一旦检测到 RPC 失败则禁用 docx2pdf，改走 PowerShell/LibreOffice
 
 
 def flatten_docx_for_conversion(file_path: str) -> str:
@@ -50,6 +53,54 @@ def flatten_docx_for_conversion(file_path: str) -> str:
         print(f"扁平化失败，使用原文件: {e}")
         return file_path
 
+def convert_docx_to_pdf_bytes_simple(docx_stream: BytesIO, output_dir: str, base_name: str) -> bytes:
+    """使用 LibreOffice 将 docx 流转换为 pdf（无任何降级或回退）。"""
+    output_dir = os.path.abspath(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx', dir=output_dir) as tmp_docx:
+        tmp_docx.write(docx_stream.read())
+        tmp_docx_path = tmp_docx.name
+
+    pdf_path = os.path.join(output_dir, f"{base_name}.pdf")
+
+    # 选择 LibreOffice 可执行文件
+    cmd = get_libreoffice_command(output_dir, tmp_docx_path, 'pdf')
+
+    if not cmd:
+        raise FileNotFoundError('未找到 LibreOffice 可执行文件，请确认已安装并在 PATH 中')
+
+    exe = cmd[0]
+    if not isinstance(exe, str) or not os.path.exists(exe):
+        raise FileNotFoundError(f"LibreOffice 可执行文件不存在: {exe}")
+
+    print(f"LibreOffice 命令: {cmd}")
+    print(f"输出目录: {output_dir}")
+    print(f"临时DOCX: {tmp_docx_path}")
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+    if result.returncode != 0:
+        raise RuntimeError(f"LibreOffice 转换失败，返回码 {result.returncode}")
+
+    if not os.path.exists(pdf_path) or os.path.getsize(pdf_path) == 0:
+        raise RuntimeError('LibreOffice 转换后未生成 PDF 文件')
+
+    with open(pdf_path, 'rb') as f:
+        pdf_bytes = f.read()
+
+    # 清理临时 docx（保留 pdf）
+    try:
+        os.remove(tmp_docx_path)
+    except Exception:
+        pass
+
+    return pdf_bytes
+
 
 def convert_docx_to_pdf_with_priority(docx_file_path: str) -> bytes:
     """
@@ -79,28 +130,28 @@ def convert_docx_to_pdf_with_priority(docx_file_path: str) -> bytes:
     print(f"Word文件: {docx_file_path}")
     print(f"目标PDF: {pdf_path}")
     
-    # 1. 尝试 WPS 转换
-    try:
-        print("正在尝试 WPS 转换...")
-        if _try_wps_conversion(docx_file_path, pdf_path, system):
-            with open(pdf_path, 'rb') as f:
-                return f.read()
-    except Exception as e:
-        conversion_errors.append(f"WPS转换失败: {str(e)}")
-        print(f"WPS转换失败: {e}")
+    # # 1. 尝试 WPS 转换
+    # try:
+    #     print("正在尝试 WPS 转换...")
+    #     if _try_wps_conversion(docx_file_path, pdf_path, system):
+    #         with open(pdf_path, 'rb') as f:
+    #             return f.read()
+    # except Exception as e:
+    #     conversion_errors.append(f"WPS转换失败: {str(e)}")
+    #     print(f"WPS转换失败: {e}")
     
     # 2. 尝试 Microsoft Office 转换（在macOS上暂时跳过权限问题）
-    if system != 'darwin':  # 非macOS系统才尝试Office
-        try:
-            print("正在尝试 Microsoft Office 转换...")
-            if _try_office_conversion(docx_file_path, pdf_path, system):
-                with open(pdf_path, 'rb') as f:
-                    return f.read()
-        except Exception as e:
-            conversion_errors.append(f"Office转换失败: {str(e)}")
-            print(f"Office转换失败: {e}")
-    else:
-        print("macOS上跳过Office转换（权限问题）")
+    # if system != 'darwin':  # 非macOS系统才尝试Office
+    #     try:
+    #         print("正在尝试 Microsoft Office 转换...")
+    #         if _try_office_conversion(docx_file_path, pdf_path, system):
+    #             with open(pdf_path, 'rb') as f:
+    #                 return f.read()
+    #     except Exception as e:
+    #         conversion_errors.append(f"Office转换失败: {str(e)}")
+    #         print(f"Office转换失败: {e}")
+    # else:
+    #     print("macOS上跳过Office转换（权限问题）")
     
     # 3. 最后尝试 LibreOffice 转换（使用扁平化处理）
     try:
@@ -113,7 +164,7 @@ def convert_docx_to_pdf_with_priority(docx_file_path: str) -> bytes:
         with open(flattened_docx_path, 'rb') as f:
             docx_bytes = f.read()
         docx_stream = BytesIO(docx_bytes)
-        return convert_docx_to_pdf_bytes(docx_stream)
+        return convert_docx_to_pdf_bytes_simple(docx_stream, output_dir, base_name)
     except Exception as e:
         conversion_errors.append(f"LibreOffice转换失败: {str(e)}")
         print(f"LibreOffice转换失败: {e}")
@@ -157,44 +208,115 @@ def _try_wps_conversion(docx_path: str, pdf_path: str, system: str) -> bool:
     
     for cmd in commands:
         try:
+            exe = cmd[0]
+            # 如果是绝对路径且不存在，直接跳过
+            if os.path.isabs(exe) and not os.path.exists(exe):
+                print(f"WPS 可执行文件不存在: {exe}")
+                continue
+
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             if result.returncode == 0 and os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
                 return True
-        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.CalledProcessError):
+
+            if result.stderr:
+                print(f"WPS stderr: {result.stderr}")
+            if result.stdout:
+                print(f"WPS stdout: {result.stdout}")
+        except FileNotFoundError:
+            print(f"未找到 WPS 命令: {cmd[0]} (请确认 WPS 安装路径或加入 PATH)")
+            continue
+        except subprocess.TimeoutExpired:
+            print(f"WPS 转换超时: {cmd}")
+            continue
+        except subprocess.CalledProcessError as e:
+            print(f"WPS 转换失败: {e}")
             continue
     
     return False
+
+
+def _call_docx2pdf_with_com(docx_path: str, pdf_path: str) -> None:
+    """在线程内初始化 COM 后调用 docx2pdf。"""
+    pythoncom = None
+    try:
+        try:
+            import pythoncom  # type: ignore
+            pythoncom.CoInitialize()
+        except Exception:
+            pythoncom = None
+        from docx2pdf import convert
+        convert(docx_path, pdf_path)
+    finally:
+        try:
+            if pythoncom:
+                pythoncom.CoUninitialize()
+        except Exception:
+            pass
+
+
+def _is_rpc_error(exc: BaseException) -> bool:
+    """检测 COM RPC 失败（0x800706BE / -2147023170）。"""
+    hresult = getattr(exc, "hresult", None)
+    if hresult is None and getattr(exc, "args", None):
+        first = exc.args[0]
+        if isinstance(first, int):
+            hresult = first
+    return hresult == -2147023170
 
 
 def _try_office_conversion(docx_path: str, pdf_path: str, system: str) -> bool:
     """尝试使用 Microsoft Office 进行转换"""
     if system == 'windows':
         # Windows - 使用 COM 自动化或命令行
-        try:
-            # 尝试使用docx2pdf（如果可用）
-            from docx2pdf import convert
-            convert(docx_path, pdf_path)
-            return os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0
-        except ImportError:
-            pass
-        except Exception:
-            pass
+        global _docx2pdf_disabled
+        if not _docx2pdf_disabled:
+            try:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(_call_docx2pdf_with_com, docx_path, pdf_path)
+                    future.result(timeout=20)
+                if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+                    return True
+                print("docx2pdf 运行后未生成有效 PDF，继续尝试 PowerShell")
+            except FuturesTimeoutError:
+                print("docx2pdf 超时，继续尝试 PowerShell")
+            except Exception as e:
+                if _is_rpc_error(e):
+                    _docx2pdf_disabled = True
+                    print("docx2pdf 检测到 RPC 失败，禁用后续 docx2pdf，改用 PowerShell")
+                else:
+                    print(f"docx2pdf 转换异常: {e}")
         
         # 尝试PowerShell脚本
-        powershell_script = f'''
-        $word = New-Object -ComObject Word.Application
-        $word.Visible = $false
-        $doc = $word.Documents.Open("{docx_path}")
-        $doc.SaveAs([ref]"{pdf_path}", [ref]17)
-        $doc.Close()
-        $word.Quit()
-        '''
+        powershell_script = "; ".join([
+            "$word = New-Object -ComObject Word.Application",
+            "$word.Visible = $false",
+            f"$doc = $word.Documents.Open(\"{docx_path}\")",
+            f"$doc.SaveAs([ref]\"{pdf_path}\", [ref]17)",
+            "$doc.Close()",
+            "$word.Quit()"
+        ])
+
         try:
-            subprocess.run(['powershell', '-Command', powershell_script], 
-                         capture_output=True, timeout=60, check=True)
-            return os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0
-        except:
-            pass
+            result = subprocess.run(
+                ['powershell', '-NoLogo', '-NonInteractive', '-Command', powershell_script],
+                capture_output=True, timeout=60, check=True
+            )
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print(result.stderr)
+            if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+                return True
+        except subprocess.CalledProcessError as e:
+            # 若 Word 已经成功保存但退出返回非零，也允许通过
+            if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+                print("PowerShell 返回非零，但 PDF 已生成，忽略错误")
+                return True
+            print(f"PowerShell 转换失败: {e.stderr.decode('utf-8', errors='ignore') if hasattr(e, 'stderr') else e}")
+        except subprocess.TimeoutExpired:
+            print("PowerShell 转换超时")
+        except Exception as e:
+            print(e)
     
     elif system == 'darwin':
         # macOS - 使用 Microsoft Office for Mac
@@ -286,7 +408,15 @@ async def verification_calibration(data: VerificationCalibrationInputSchema):
             }
         }
     except Exception as e:
+        import traceback
+        
+        # 获取调用栈字符串
+        error_traceback = traceback.format_exc()
+        
+        # 同时使用print和logging，确保在各种环境下都能看到
         print(f"验证校准失败: {str(e)}")
+        print('调用栈：')
+        print(error_traceback)
         return {
             'code': 500,
             'message': f'验证校准失败: {str(e)}',

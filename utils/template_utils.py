@@ -6,6 +6,7 @@ import threading
 import importlib
 import subprocess
 import base64, json
+import typing
 from io import BytesIO
 from typing import List
 from docx import Document
@@ -14,6 +15,11 @@ from docx2pdf import convert
 from fastapi import UploadFile
 from docx.oxml import OxmlElement
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+try:
+    import pywintypes  # type: ignore
+except Exception:  # pragma: no cover
+    pywintypes = None
 
 from config import config
 from app.db import execute_safe_sql
@@ -149,6 +155,9 @@ import platform
 # 全局锁：控制 LibreOffice 并发
 _libreoffice_lock = threading.Lock()
 
+# 避免重复触发 Word COM 异常导致的卡死；一旦检测到 COM RPC 失败，本进程内禁用 docx2pdf
+_docx2pdf_disabled = False
+
 def convert_docx_to_pdf_bytes(file_stream) -> bytes:
     """
     将 Word 文档转换为 PDF，返回字节流（用于文件下载）
@@ -173,11 +182,46 @@ def convert_docx_to_pdf_bytes(file_stream) -> bytes:
         return _do_convert_docx_to_pdf_bytes(doc_raw_bytes)
 
 
+def _call_docx2pdf_with_com(docx_path: str, pdf_path: str) -> None:
+    """调用 docx2pdf，必要时在线程内初始化 COM。"""
+    pythoncom = None
+    try:
+        try:
+            import pythoncom  # type: ignore
+            pythoncom.CoInitialize()
+        except Exception:
+            pythoncom = None
+        convert(docx_path, pdf_path)
+    finally:
+        try:
+            if pythoncom:
+                pythoncom.CoUninitialize()
+        except Exception:
+            pass
+
+
+def _is_com_rpc_error(exc: BaseException) -> bool:
+    """判断是否为 Windows COM RPC 失败（HRESULT 0x800706be = -2147023170）。"""
+    # pywintypes.com_error typically has hresult attr
+    hresult = getattr(exc, "hresult", None)
+    if hresult is None and hasattr(exc, "args") and exc.args:
+        # docx2pdf bubbles tuple (-2147023170, 'msg', None, None)
+        first = exc.args[0]
+        if isinstance(first, int):
+            hresult = first
+    return hresult == -2147023170
+
+
 def _try_convert_with_docx2pdf(docx_path: str, pdf_path: str, timeout: int = 10) -> bool:
     """尝试在限定时间内通过 docx2pdf 转换，失败或超时返回 False。"""
+    global _docx2pdf_disabled
+
+    if _docx2pdf_disabled:
+        return False
+
     try:
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(convert, docx_path, pdf_path)
+            future = executor.submit(_call_docx2pdf_with_com, docx_path, pdf_path)
             future.result(timeout=timeout)
 
         if not os.path.exists(pdf_path):
@@ -193,6 +237,10 @@ def _try_convert_with_docx2pdf(docx_path: str, pdf_path: str, timeout: int = 10)
     except FuturesTimeoutError:
         print(f"docx2pdf 转换超过 {timeout} 秒，自动跳过")
     except Exception as exc:
+        if _is_com_rpc_error(exc):
+            print("docx2pdf 检测到 COM RPC 失败，禁用后续 docx2pdf 尝试，改用 LibreOffice")
+            _docx2pdf_disabled = True
+            return False
         print(f"docx2pdf 转换异常: {exc}")
 
     return False
