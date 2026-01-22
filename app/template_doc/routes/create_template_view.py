@@ -225,6 +225,13 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
             with open(new_py_path, "w", encoding="utf-8", newline='\n') as f:
                 f.write(new_content)
             
+            # 同步存入数据库
+            template_doc = await TemplateDoc.get_or_none(id=template_id)
+            if template_doc:
+                template_doc.python_config = new_content
+                await template_doc.save()
+                print(f"DEBUG: Python配置已存入数据库（复制模式），template_id={template_id}")
+            
             print(f"DEBUG: 新模板文件已创建: {new_py_path}")
             return new_py_path
         else:
@@ -388,10 +395,19 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
     if os.path.exists(py_path):
         shutil.copy2(py_path, backup_path)
 
+    # 合并所有行为完整内容
+    python_config_content = "".join(py_lines)
+
     # 写入文件
     with open(py_path, "w", encoding="utf-8", newline='\n') as f:
-        for line in py_lines:
-            f.write(line)
+        f.write(python_config_content)
+    
+    # 同步存入数据库
+    template_doc = await TemplateDoc.get_or_none(id=template_id)
+    if template_doc:
+        template_doc.python_config = python_config_content
+        await template_doc.save()
+        print(f"DEBUG: Python配置已存入数据库，template_id={template_id}")
  
     return py_path
 

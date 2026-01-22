@@ -135,26 +135,27 @@ async def update_bookmark(data: InputSchema):
         else:
             doc_stream = fill_data_utils.insert_header_page_number(doc_stream, alignment=page_num_value)
     
-        # 调试：保存Word文件到当前目录查看
-        debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
+        # 获取 Word 字节内容
         doc_stream.seek(0)
         word_bytes = doc_stream.read()
-        with open(debug_word_path, "wb") as f:
-            f.write(word_bytes)
-        print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
 
+        # ========== DEBUG 模式：保存中间文件到硬盘（需要时取消注释） ==========
+        # debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
+        # with open(debug_word_path, "wb") as f:
+        #     f.write(word_bytes)
+        # print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
+        # ====================================================================
 
-    
-        # 从磁盘读取Word文件后转换为PDF
+        # 直接从内存转换为 PDF
         try:
-            with open(debug_word_path, "rb") as f:
-                word_content = f.read()
-            pdf_bytes = convert_docx_to_pdf(word_content)
-            # 调试：保存PDF文件到当前目录查看格式
-            debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
-            with open(debug_pdf_path, "wb") as f:
-                f.write(pdf_bytes)
-            print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
+            pdf_bytes = convert_docx_to_pdf(word_bytes)
+            
+            # ========== DEBUG 模式：保存 PDF 到硬盘（需要时取消注释） ==========
+            # debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
+            # with open(debug_pdf_path, "wb") as f:
+            #     f.write(pdf_bytes)
+            # print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
+            # ================================================================
         
             pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
             show_base64_str = pdf_base64

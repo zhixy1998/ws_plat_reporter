@@ -41,5 +41,11 @@ async def save_template_private_code(data: InputSchema):
             f.write(data.module_code)
     except Exception as e:
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED, f'保存私有代码失败: {str(e)}')
+    
+    template_doc = await TemplateDoc.get_or_none(id=data.template_id)
+    if template_doc:
+        template_doc.python_config = data.module_code
+        await template_doc.save()
+        print(f"DEBUG: Python配置已存入数据库（复制模式），template_id={data.template_id}")
 
     return {'code': 200, 'message': '私有代码保存成功'}

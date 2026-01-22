@@ -16,6 +16,7 @@ class TemplateDoc(TemplateDocBase):
     base_template_id = fields.IntField(null=True, help_text='基础模版的id')
     is_del = fields.SmallIntField(default=0)
     order = fields.IntField(null=True,help_text='默认顺序')
+    python_config = fields.TextField(null=True, help_text='Python配置文件内容（纯文本存储）')
 
     class Meta:
         table = "template_doc"
