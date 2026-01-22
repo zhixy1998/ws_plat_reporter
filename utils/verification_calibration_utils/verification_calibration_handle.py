@@ -1,13 +1,14 @@
+import os
 from io import BytesIO
 from datetime import datetime
-from docxtpl import DocxTemplate
-from docx import Document
+
+from docx.shared import Mm
 from docx.oxml.ns import qn
+from docx.shared import Cm, Pt
+from docxtpl import InlineImage
+from docxtpl import DocxTemplate
 from docx.oxml import OxmlElement
 from jinja2 import Environment, FileSystemLoader
-from docx.shared import Cm, Inches, Pt
-from itertools import combinations, groupby
-import os
 
 """
 wt: wavelength_table
@@ -376,6 +377,9 @@ class InspectionAndCorrectionReport():
         # 获取模板文件的完整路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.template_path = os.path.join(current_dir, 'verification_jinja.docx')
+        self.logo_image = os.path.join(current_dir, 'img/logo_image.png')
+
+        # 在渲染之前定义图片对象
         self.doc = DocxTemplate(self.template_path)
         self.vc_data_list = vc_data_list
         self.section_index = 1
@@ -407,7 +411,7 @@ class InspectionAndCorrectionReport():
         # 波长边缘噪声
         self.wavelength_edge_noise()
         # 电压适应性
-        self.get_voltage_adaptability()
+        # self.get_voltage_adaptability()
         # 介电强度
         self.dielectric_strength()
         # 接触电流
@@ -430,6 +434,8 @@ class InspectionAndCorrectionReport():
         #     data['index'] = i
         # contexts = {'table_data': self.table_data}
         # contexts.update(self.contexts)
+        logo_pic = InlineImage(self.doc, self.logo_image, width=Mm(40)) # 指定宽度
+        self.contexts['logo_image'] = logo_pic
         self.doc.render(self.contexts, jinja_env=env)
         out_stream = BytesIO()
         self.doc.save(out_stream)
@@ -674,7 +680,7 @@ class InspectionAndCorrectionReport():
             row_height_value = Cm(row_height)
         
         # 为每一行设置行高和单元格属性
-        for row in t.rows:
+        for row_idx, row in enumerate(t.rows):
             # 设置行高为精确值
             tr = row._tr
             trPr = tr.get_or_add_trPr()
@@ -689,7 +695,7 @@ class InspectionAndCorrectionReport():
             trPr.append(trHeight)
             
             # 设置单元格垂直居中对齐
-            for cell in row.cells:
+            for col_idx, cell in enumerate(row.cells):
                 # 设置垂直居中
                 tc = cell._element
                 tcPr = tc.get_or_add_tcPr()
@@ -703,6 +709,43 @@ class InspectionAndCorrectionReport():
                 vAlign = OxmlElement('w:vAlign')
                 vAlign.set(qn('w:val'), 'center')
                 tcPr.append(vAlign)
+                
+                # ========== 为每个单元格单独设置边框（只保留内侧边框，去掉外边框） ==========
+                tcBorders = OxmlElement('w:tcBorders')
+                
+                # 判断单元格位置，决定是否显示边框
+                is_first_row = (row_idx == 0)
+                is_last_row = (row_idx == table_rows - 1)
+                is_first_col = (col_idx == 0)
+                is_last_col = (col_idx == table_cols - 1)
+                
+                for border_name in ['top', 'left', 'bottom', 'right']:
+                    border = OxmlElement(f'w:{border_name}')
+                    
+                    # 外边框设置为无，内边框设置为单线
+                    should_hide = (
+                        (border_name == 'top' and is_first_row) or
+                        (border_name == 'bottom' and is_last_row) or
+                        (border_name == 'left' and is_first_col) or
+                        (border_name == 'right' and is_last_col)
+                    )
+                    
+                    if should_hide:
+                        border.set(qn('w:val'), 'none')
+                        border.set(qn('w:sz'), '0')
+                    else:
+                        border.set(qn('w:val'), 'single')
+                        border.set(qn('w:sz'), '4')
+                        border.set(qn('w:color'), '000000')
+                    border.set(qn('w:space'), '0')
+                    tcBorders.append(border)
+                
+                # 移除已有的边框定义
+                existing_borders = list(tcPr.findall(qn('w:tcBorders')))
+                for b in existing_borders:
+                    tcPr.remove(b)
+                tcPr.append(tcBorders)
+                # ================================================================
                 
                 # 设置单元格内段落无间距和缩进
                 for paragraph in cell.paragraphs:
@@ -892,17 +935,17 @@ class InspectionAndCorrectionReport():
 
     def get_common_data(self):
         # (你的数据... 保持不变)
-        self.contexts['产品型号'] = 'T700AS'
-        self.contexts['产品编号'] = '34U1704-01-0023'
-        self.contexts['检验员'] = '1'
+        self.contexts['产品型号'] = '---'
+        self.contexts['产品编号'] = '---'
+        self.contexts['检验员'] = '---'
         self.contexts['insp_date'] = datetime.now().strftime('%Y-%m-%d') # 检验日期
-        self.contexts['复核员'] = 'ttttttt'
-        self.contexts['temp'] = '25' # 温度
-        self.contexts['相对湿度'] = '50'
-        self.contexts['检验结果'] = '合格'
-        self.contexts['UV_v'] = '1.0' # 版本号
-        self.contexts['UVTouch_v'] = '1.dl2'
-        self.contexts['检验软件版本号'] = '2.23'
+        self.contexts['复核员'] = '---'
+        self.contexts['temp'] = '---' # 温度
+        self.contexts['相对湿度'] = '---'
+        self.contexts['检验结果'] = '--'
+        self.contexts['UV_v'] = '---' # 版本号
+        self.contexts['UVTouch_v'] = '---'
+        self.contexts['检验软件版本号'] = '---'
     
     def get_wavelength_table(self):
         wt = None
@@ -1027,7 +1070,7 @@ class InspectionAndCorrectionReport():
                 for v in vertical_table:
                     new_row = []
                     h = v[0]
-                    new_row.append({'text':h, 'width': 20})
+                    new_row.append({'text':h, 'width': 21})
                     new_row.extend(v[1:])
                     new_vertical_table.append(new_row)
                 vertical_table = new_vertical_table
@@ -1062,7 +1105,7 @@ class InspectionAndCorrectionReport():
                 for v in vertical_table:
                     new_row = []
                     h = v[0]
-                    new_row.append({'text':h, 'width': 20})
+                    new_row.append({'text':h, 'width': 21})
                     new_row.extend(v[1:])
                     new_vertical_table.append(new_row)
                 vertical_table = new_vertical_table
@@ -1388,64 +1431,70 @@ class InspectionAndCorrectionReport():
         else:
             self.contexts['ds'] = {
                 'index': self.section_index,
-                'title': '介电强度',
+                'title': '介电强度检验',
                 'test_v_1': '--',
                 'test_v_desc': '--',
                 'test_v_2': '--', # ☑ □
             }
 
+        self.section_index += 1
     def get_contact_current(self):
         self.contexts['cc'] = {
-            'index': 12,
-            'title': '接触电流',
-            'condition_1': '正常条件≤0.5mA',
-            'condition_2': '单一故障≤3.5mA',
-            'test_tool_desc': '检验工具：泄漏电流测试仪',
-            'test_1': {'desc': '测量值（mA）', 'v': ''},
-            'test_2': {'desc': '测量值（mA）', 'v': ''}
+            'index': self.section_index,
+            'title': '接触电流检验',
+            'condition_1': '---',
+            'condition_2': '---',
+            'test_tool_desc': '---',
+            'test_1': {'desc': '---', 'v': '---'},
+            'test_2': {'desc': '---', 'v': '---'}
         }
+        self.section_index += 1
 
 
     def get_protective_grounding(self):
         self.contexts['pg'] = {
-            'index': 13,
+            'index': self.section_index,
             'title': '保护地接地',
-            'title_v': '≤0.1Ω',
-            'test_tool_desc': '检验工具：程控接地电阻测试仪',
-            'test_1': {'desc': '测量值（Ω）', 'v': ''},
+            'title_v': '---',
+            'test_tool_desc': '---',
+            'test_1': {'desc': '---', 'v': '---'},
         }
+
+        self.section_index += 1
     
     def get_insulation_resistance(self):
         self.contexts['ir'] = {
-            'index': 14,
+            'index': self.section_index,
             'title': '绝缘电阻',
-            'title_v': '≥20MΩ',
-            'test_tool_desc': '检验工具：绝缘电阻测试仪',
-            'test_1': {'desc': '测量值（MΩ）', 'v': ''},
+            'title_v': '--',
+            'test_tool_desc': '---',
+            'test_1': {'desc': '---', 'v': '---'},
         }
+        self.section_index += 1
     
     def get_accuracy_verification(self):
         self.contexts['av'] = {
-            'index': 15,
+            'index': self.section_index,
             'title': '样品池准确度于重复性校验',
-            'title_v': '准确度：100%±0.1% 重复性：<0.1%',
-            'test_tool_desc': '检验工具：泄漏电流测试仪',
-            'test_1': {'desc': '1号池测量值(%)', 'v': ''},
-            'test_2': {'desc': '重复性(%)', 'v': ''}
+            'title_v': '---',
+            'test_tool_desc': '---',
+            'test_1': {'desc': '---', 'v': '---'},
+            'test_2': {'desc': '---', 'v': '---'}
         }
+        self.section_index += 1
     
     def get_appearance_and_structure(self):
         self.contexts['as'] = {
-            'index': 16,
+            'index': self.section_index,
             'title': '外观和结构',
-            'title_v': '仪器外观应清洁，所有电镀件表面不应有脱皮现象，喷漆表面色泽应均匀，无掉漆与划痕，不得有明显的擦伤、露底、裂纹、起泡现象，外露部件结合处应整齐，无粗糙不平现象。仪器应有下列标志：仪器名称、型号、制造厂名、出厂日期、仪器编号、工作电源电压、频率、制造计量器具许可证标志及编号，仪器的铭牌、二维码的内容及粘贴方向应正确。仪器的各紧固件均应紧固良好，外露螺钉无损伤，生锈，缺失。各按键、开关、指示灯工作正常，电缆线的接插件均能紧密配合且接地良好，启动后无异常杂音。',
-            'result': '合格□   不合格□' # ☑ □
+            'title_v': '---',
+            'result': '---' # ☑ □
         }
 
+        self.section_index += 1
+
     def get_result(self):
-        self.contexts['result'] = '合格□   不合格□'
+        self.contexts['result'] = '-----'
     
     def get_remark(self):
-        self.contexts['remark'] = """1.本表格依据T600T700系列紫外可见分光光度计整机检验工艺编制;
-        2. 测量结果保留的小数点位数应与指标要求的小数点位数一致；
-        3. 表格中的标准值依据有效期内的标准物质证书提供的标准值为准。"""
+        self.contexts['remark'] = """-----"""

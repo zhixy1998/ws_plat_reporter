@@ -8,6 +8,7 @@ from io import BytesIO
 from typing import Dict, Any
 from datetime import datetime
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from docx import Document
 
@@ -382,31 +383,34 @@ async def verification_calibration(data: VerificationCalibrationInputSchema):
         print(f"Word文档已保存至: {docx_filename}")
         
         # 使用已保存的Word文件进行PDF转换
-        pdf_bytes = convert_docx_to_pdf_with_priority(docx_filename)
+        # pdf_bytes = convert_docx_to_pdf_with_priority(docx_filename)
         
-        # 保存PDF到本地
-        pdf_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.pdf')
+        # # 保存PDF到本地
+        # pdf_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.pdf')
         
-        with open(pdf_filename, 'wb') as f:
-            f.write(pdf_bytes)
+        # with open(pdf_filename, 'wb') as f:
+        #     f.write(pdf_bytes)
         
-        # 将PDF字节流转换为base64用于返回
-        import base64
-        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        # # 将PDF字节流转换为base64用于返回
+        # import base64
+        # pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
         
-        print(f"验证校准成功, PDF已保存至: {pdf_filename}")
-        print(f"Verification Calibration Response: {res_json.get('data').get('worksheets')}")
+        # print(f"验证校准成功, PDF已保存至: {pdf_filename}")
+        # print(f"Verification Calibration Response: {res_json.get('data').get('worksheets')}")
 
-        return {
-            'code': 200,
-            'message': '验证校准成功',
-            'data': {
-                'pdf_base64': pdf_base64,
-                'pdf_bytes_size': len(pdf_bytes),
-                'docx_file': docx_filename,
-                'pdf_file': pdf_filename
-            }
+        # 返回 docx 文件流给前端（作为附件下载）
+        def file_iterator(path, chunk_size=8192):
+            with open(path, 'rb') as fh:
+                while True:
+                    chunk = fh.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+
+        headers = {
+            'Content-Disposition': f'attachment; filename="{os.path.basename(docx_filename)}"'
         }
+        return StreamingResponse(file_iterator(docx_filename), media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', headers=headers)
     except Exception as e:
         import traceback
         
