@@ -2,6 +2,7 @@ import os
 import configparser
 import tempfile
 from pathlib import Path
+from cryptography.fernet import Fernet
 
 class Config:
     def __init__(self, config_path: str = None):
@@ -13,14 +14,33 @@ class Config:
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
         self.config.read(config_path, encoding='utf-8')
+    
+    # 步骤1：生成和当前电脑相同的密钥
+    def get_cipher(self):
+        # uid = wmi.WMI().Win32_ComputerSystemProduct()[0].UUID
+        # key = base64.urlsafe_b64encode(uid.encode().ljust(32)[:32])
+        # print(key)
+        key = b'Qjc0QUIzODAtNkJFRS0xMUYwLTg5OTktREVDMDYzQUE='
+        return Fernet(key)
+
+
+    # 步骤2：创建解密函数
+    def decrypt_value(self, raw: str) -> str:
+        if not raw or not str(raw).startswith("ENC:"):
+            return raw  # 不是加密值，直接返回
+        try:
+            cipher = self.get_cipher()
+            return cipher.decrypt(raw[4:].encode()).decode()  # 跳过 "ENC:" 前缀解密
+        except:
+            return "ERROR_KEY"  # 解密失败
 
     @property
     def database_url(self):
-        return self.config.get('database', 'DB_URL')
+        return self.decrypt_value(self.config.get('database', 'DB_URL'))
     
     @property
     def classic_database_url(self):
-        return self.config.get('database', 'CLASSIC_DB_URL')
+        return self.decrypt_value(self.config.get('database', 'CLASSIC_DB_URL'))
     
     @property
     def classic_template_common_var_url(self):

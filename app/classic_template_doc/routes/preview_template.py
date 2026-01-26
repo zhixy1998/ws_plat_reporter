@@ -62,6 +62,15 @@ async def preview_template(data: InputSchema):
             'data': {'pdf': ''}
         }
     except Exception as e:
+        import traceback
+        
+        # 获取调用栈字符串
+        error_traceback = traceback.format_exc()
+        
+        # 同时使用print和logging，确保在各种环境下都能看到
+        print('预览模板异常：', str(e))
+        print('调用栈：')
+        print(error_traceback)
         return {
             'code': 200,
             'message': '预览成功',

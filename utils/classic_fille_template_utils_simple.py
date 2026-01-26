@@ -33,6 +33,7 @@ common_data_mapping = {
         '扫描范围': 'scanRange',
         '光度模式': 'luminosityMode',
         '增益': 'gain',
+        '波长间隔': 'waveLengthInterval',
         '扫描间隔': 'timeInterval',
         '扫描速度': 'scanSpeed',
         '能量灯': 'energyLight',
@@ -53,6 +54,8 @@ common_data_mapping = {
         '扫描时间': 'scanTime',
         '时间间隔': 'timeInterval',
         '扫描速度': 'scanSpeed',
+        '增益': 'gain',
+        '能量灯': 'energyLight',
         '采样数': 'totalNumber',
         '测量波长': 'instrumentWavelength',
         '数据文件': 'taskName',
@@ -117,6 +120,7 @@ class ClassicFillDataUtils():
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, is_repeat_mode=0, digit=None):
         common_val = self.get_common_data_by_endpoint(task_id, analysis_id)
+        print('通用接口返回数据==============：', common_val)
         if analysis_id and len(analysis_id.split(',')) == 1:
             self.single_sample = True
 
@@ -161,8 +165,30 @@ class ClassicFillDataUtils():
             elif jinja_val == '扫描范围':
                 scan_range = self.common_val.get('startWaveLength', '')  + '至' + self.common_val.get('endWaveLength', '')
                 contexts[jinja_val] = scan_range
+            elif jinja_val == '增益':
+                gain_value = self.common_val.get(common_val_key)
+                if gain_value not in [None, '']:
+                    contexts['show_gain'] = True
+                    contexts[jinja_val] = str(gain_value)
+                else:
+                    contexts[jinja_val] = ''
+            elif jinja_val == '能量灯':
+                energy_light_value = self.common_val.get(common_val_key)
+                if energy_light_value not in [None, '']:
+                    contexts['show_energy_light'] = True
+                    contexts[jinja_val] = str(energy_light_value)
+                else:
+                    contexts[jinja_val] = ''
             else:
                 contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+        if self.common_val.get('isRepeat'):
+            contexts['is_repeat'] = True
+            contexts['重复模式'] = '单池重复'
+            contexts['重复次数'] = self.common_val.get('repeatCount')
+            contexts['扫描间隔'] = self.common_val.get('timeInterval')
+        else:
+            contexts['is_repeat'] = False
+            contexts['重复模式'] = '不重复'
         table_data = self.handle_spectral_scanning_table(self.end_point_header_and_data)
         # 兼容旧模板（仍可用 Jinja 循环渲染）
         contexts['table_data'] = table_data
@@ -214,10 +240,24 @@ class ClassicFillDataUtils():
     async def get_time_scanning_context(self, tpl, image_base64, contexts):
         time_scanning_mapping = common_data_mapping.get(self.measure_type)
         for jinja_val, common_val_key in time_scanning_mapping.items():
-            if jinja_val != '时间扫描图片':
-                contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
-            else:
+            if jinja_val == '时间扫描图片':
                 contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+            elif jinja_val == '增益':
+                gain_value = self.common_val.get(common_val_key)
+                if gain_value not in [None, '']:
+                    contexts['show_gain'] = True
+                    contexts[jinja_val] = str(gain_value)
+                else:
+                    contexts[jinja_val] = ''
+            elif jinja_val == '能量灯':
+                energy_light_value = self.common_val.get(common_val_key)
+                if energy_light_value not in [None, '']:
+                    contexts['show_energy_light'] = True
+                    contexts[jinja_val] = str(energy_light_value)
+                else:
+                    contexts[jinja_val] = ''
+            else:
+                contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
         table_data = self.handle_time_scanning_table(self.end_point_header_and_data)
         contexts['table_data'] = table_data
         try:
@@ -412,8 +452,8 @@ class ClassicFillDataUtils():
                         label=f'未知点 ({len(unknown_points)}个)', zorder=10, edgecolors='darkred', linewidth=2)
             
         # 设置图表样式
-        plt.xlabel('浓度', fontsize=12)
-        plt.ylabel('吸光度', fontsize=12)
+        plt.xlabel('', fontsize=12)
+        plt.ylabel('', fontsize=12)
         plt.title('定量分析标准曲线', fontsize=14, fontweight='bold')
         plt.grid(True, alpha=0.3)
         plt.legend(loc='best', fontsize=10)
@@ -1110,5 +1150,7 @@ class ClassicFillDataUtils():
                                 row.append(row_value)
                             else:
                                 row.append('')
+                        else:
+                            row.append('')
                     row_data.append(row)
         return headers, row_data
