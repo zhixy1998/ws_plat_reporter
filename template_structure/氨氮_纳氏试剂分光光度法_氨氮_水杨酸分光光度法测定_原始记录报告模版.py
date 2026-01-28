@@ -63,13 +63,13 @@ class TableDataHandler(BaseTableDataHandler):
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING_LIST = [{
-        "t1": "sampleNumber",  
-        "t2":"2191OJP", 
-        "t3":"Abs", 
-        "t4":"2191OJP",
-        "t5":"2191OJP",
-        "t6":"2191OJP",
-        "t7":"2191OJP",
+        "t1": "sampleNumber",
+        "t2": "220-1",
+        "t3": "Abs",
+        "t4": "275-1",
+        "t5": "sampleType",
+        "t6": "fitConcentration",
+        "t7": "samplingTime"
     }]
 
     TABLE_HEADER_MAP = {

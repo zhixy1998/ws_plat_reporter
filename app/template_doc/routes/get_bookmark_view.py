@@ -1,6 +1,6 @@
 
 import importlib
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -20,7 +20,7 @@ class BookmarkItem(BaseModel):
     desc_t: Optional[str] = Field(None, description="time_mapping 的key")
     sort_order: int = Field(None, description="显示顺序（越小越靠前）")
     font: Optional[str] = Field(None, description="字体")
-    font_size: Optional[int] = Field(None, description="字号")
+    font_size: Optional[Union[int, float]] = Field(None, description="字号")
 
 class BookmarkDataSchema(BaseModel):
     bookmarks: Dict[int, List[BookmarkItem]] = Field({}, description=f'{TemplateBookMarkType.text.value}:{TemplateBookMarkType.text.name},\

@@ -104,7 +104,7 @@ common_data_mapping = {
 load_dotenv(override=True)
 
 class ClassicFillDataUtils():
-    def __init__(self, name, template_id, measure_type):
+    def __init__(self, name, template_id, measure_type, single_sample=False):
         self.name = name
         self.sample_id = None
         private_mod = None
@@ -116,7 +116,7 @@ class ClassicFillDataUtils():
         self.table_contexts = {}
         self.end_point_header_and_data = None
         self.measure_type = measure_type
-        self.single_sample = False
+        self.single_sample = single_sample
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, is_repeat_mode=0, digit=None):
         common_val = self.get_common_data_by_endpoint(task_id, analysis_id)
@@ -137,6 +137,14 @@ class ClassicFillDataUtils():
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
 
         return output_stream
+    
+    async def guide_get_context(self, common_val, end_point_header_and_data, tpl, image_base64=None):
+        self.common_val = common_val
+        self.end_point_header_and_data = end_point_header_and_data
+        flag, contexts = await self.get_context(tpl, image_base64=image_base64)
+        if not flag:
+            return None
+        return contexts
 
     async def get_context(self, tpl, image_base64):
         contexts = {}

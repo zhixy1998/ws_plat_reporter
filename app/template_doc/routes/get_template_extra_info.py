@@ -22,9 +22,9 @@ class InputSchema(BaseModel):
 
 class DataSchema(BaseModel):
     title_list: Optional[List[Dict[str, Union[str, int]]]] = Field(None, description='报告名称')
-    header: Dict[str, Union[str, int, None]] = Field(None, description='页眉')
-    footer: Dict[str, Union[str, int, None]] = Field(None, description='页脚')
-    remark: Dict[str, Union[str, int, None]] = Field(None, description='备注')
+    header: Dict[str, Union[str, int, float, None]] = Field(None, description='页眉')
+    footer: Dict[str, Union[str, int, float, None]] = Field(None, description='页脚')
+    remark: Dict[str, Union[str, int, float, None]] = Field(None, description='备注')
     page_num_type: str = Field(..., description='页码类型')
     page_num_type_list: List[str] = Field(..., description='页码类型列表')
 
@@ -53,7 +53,7 @@ async def get_template_extra_info(template_id: int):
 
     # 获取备注
     template_name = template_instance.name
-    template_extra_info = await TemplateExtraInfo.get_or_none(template_doc_id=template_id)
+    # template_extra_info = await TemplateExtraInfo.get_or_none(template_doc_id=template_id)
 
     module_name = "template_structure." + template_name
     try:

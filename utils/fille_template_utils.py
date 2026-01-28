@@ -1,3 +1,4 @@
+from math import sin
 import os
 
 
@@ -26,6 +27,7 @@ from exceptions.command_exception import APIException
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from constants.template_constant import GetTypeConstant, FillTypeConstant
 from utils.table_data_processor import TableDataProcessor, GetHeaderAndData
+from utils.classic_fille_template_utils_simple import ClassicFillDataUtils
 
 load_dotenv(override=True)
 
@@ -46,6 +48,8 @@ class FillDataUtils():
         self.table_data_processor = TableDataProcessor(name)
         self.init_data()
         self.new_title_mapping = new_title_mapping
+        self.single_sample = False
+        self.template_type = None
 
     def convert_tel_val_data_to_rows(self, tel_val_data_list):
         """
@@ -86,14 +90,13 @@ class FillDataUtils():
         self.private_key = private_mod.python_template_var
         
 
-    async def fill_data(self, doc_stream, task_id, sample_id=None, template_id=None):
-        common_val = self.get_common_data_by_endpoint(task_id)
+    async def fill_data(self, doc_stream, task_id, sample_id=None, template_id=None, analysis_id=None, image_base64=None):
+        common_val = self.get_common_data_by_endpoint(task_id, analysis_id=analysis_id)
 
-        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, self.sample_id)
+        # get_table_head_data_from_endpoint expects (task_id, analysis_id, ...)
+        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id)
         self.end_point_header_and_data = end_point_header_and_data
-        self.sample_id = sample_id
         # 先加载通用数据
-
 
         private_key_text_fields = self.private_mod.python_template_var    
         # 表格数据
@@ -135,80 +138,112 @@ class FillDataUtils():
             pass
         if get_data_from_database_bookmark:
             pass
+    
+        template = await TemplateDoc.filter(id=self.template_id).first()
+        template_type = template.type
+        self.template_type = template_type
+        self.experiment_type = template.experiment_type
+        await self.handle_measure_type(task_id=task_id)
+        if analysis_id and len(analysis_id.split(',')) == 1:
+            self.single_sample = True
 
-        await self.get_table_context(doc_stream, task_id)
-
-        # 处理表格
-        # for table_info in private_data_table_fields:
-        #     table_name = table_info.get('table_name')
-            # common_table_val = self.get_common_table_data(table_name, task_id)
-            # if table_name in common_table_info_dict:
-            #     # 如果表格名字在通用表格名称里（就是接口已经定义的）
-            #     # 就通过 通过表格接口传递参数获取
-            #     table_header_data_mapping = common_table_info_dict.get(table_name)
-            #     table_header_data_mapping = self.filter_table_header(table_info.get('headers'), table_header_data_mapping)
-            #     if hasattr(self.private_mod, 'handle_endpoint_data_to_table_row'):
-            #         row_list = common_table_val = self.private_mod.handle_endpoint_data_to_table_row(table_header_data_mapping, common_table_val)
-            #     else:
-            #         row_list = self.handle_endpoint_data_to_table_row(table_header_data_mapping, common_table_val)
-            #     bookmark_type = TemplateBookMarkType.sheet.value
-            #     # table_name实际就是表格名字
-            #     current_table_column_widths = table_info.get('column_width')
-            #     doc_stream = fill_word_bookmark(doc_stream, table_name, row_list, bookmark_type, specific_column_widths=current_table_column_widths)
-
-        # doc_stream = await self.common_fill_data_by_jinja(doc_stream, additional_context=self.table_contexts)
-        await self.fill_common_data(doc_stream=doc_stream)
-        doc_stream = self.fill_template_by_jinja(doc_stream)
+        # 原始记录报告 走的逻辑
+        await self.fill_common_data_title(doc_stream)
+        # 确保 tpl 在所有分支中都有定义，避免后续无条件使用时未声明报错
+        tpl = None
+        if self.template_type == TemplateType.report_template.value:
+            await self.get_table_context(doc_stream, task_id)
+            await self.fill_common_data(doc_stream=doc_stream)
+        # 测量数据走的逻辑
+        if self.template_type == TemplateType.original_records.value:
+            classic_fill_data_utils = ClassicFillDataUtils(self.name, self.template_id, self.measure_type, single_sample=self.single_sample)
+            tpl = DocxTemplate(doc_stream)
+            contexts = await classic_fill_data_utils.guide_get_context(self.common_val, self.end_point_header_and_data, tpl=tpl, image_base64=image_base64)
+            self.contexts.update(contexts)
+        doc_stream = self.fill_template_by_jinja(doc_stream, tpl=tpl)
         doc_stream = self.insert_header_page_number(doc_stream)
         return doc_stream
 
+    
+    async def handle_measure_type(self, task_id=None):
+        measure_type = None
+        measure_type = await self.get_measure_type(task_id)
+        if measure_type is None and self.experiment_type is not None:
+            measure_type = ExperimentType.get_name_desc_by_value(self.experiment_type)
+        self.measure_type = measure_type
+
+    async def preview_view(self, doc_stream, task_id=None, remark=None, image_base64=None):
+        # 获取表格上下文与通用数据
+        await self.get_table_context(doc_stream=doc_stream)
+        if remark:
+            await self.fill_remark(remark)
+        await self.fill_common_data(doc_stream=doc_stream, title=True, v=True)
+
+        if self.measure_type == MeasureType.spectral_scanning.decs: # 光谱扫描
+            await self.get_spectral_scanning_table_context()
+        elif self.measure_type == MeasureType.time_scanning.decs: # 时间扫描
+            await self.get_time_scanning_table_context()
+        elif self.measure_type == MeasureType.quantitative_determination.decs: # 定量测定
+            await self.get_quantitative_determination_table_context()
+        elif self.measure_type == MeasureType.photometric_measurement.decs: # 光度测量
+            await self.get_photometric_measurement_table_context()
+
+        # DEBUG: inspect incoming stream
+        try:
+            doc_stream.seek(0)
+            incoming_size = len(doc_stream.getvalue())
+        except Exception:
+            incoming_size = None
+        print(f"DEBUG preview_view: before fill_template_by_jinja, type={type(doc_stream)}, size={incoming_size}")
+
+        try:
+            doc_stream = self.fill_template_by_jinja(doc_stream=doc_stream)
+        except Exception as e:
+            print(f"ERROR preview_view: fill_template_by_jinja raised: {e}")
+            raise
+
+        # DEBUG: inspect returned stream
+        try:
+            doc_stream.seek(0)
+            out_size = len(doc_stream.getvalue())
+        except Exception:
+            out_size = None
+        print(f"DEBUG preview_view: after fill_template_by_jinja, type={type(doc_stream)}, size={out_size}")
+
+        return doc_stream
+
     async def get_table_context(self, doc_stream, task_id=None, image_base64=None):
-        template = await TemplateDoc.filter(id=self.template_id).first()
-        template_type = template.type
-        if task_id:
-            measure_type = await self.get_measure_type(task_id)
-        else:
-            measure_type = ExperimentType.get_name_desc_by_value(template.experiment_type)
         # 原始记录报告
-        if template_type == TemplateType.report_template.value:
-            origin_header_real_header_mapping = {}
-            tpl_context = {}
-            # 光谱扫描和时间扫描
+        if task_id:
+            await self.handle_measure_type(task_id)
+        else:
+            template = await TemplateDoc.filter(id=self.template_id).first()
+            if template:
+                self.measure_type = ExperimentType.get_name_desc_by_value(template.experiment_type)
+            if self.template_type is None:
+                self.template_type = template.type
 
-
+        if self.measure_type in [MeasureType.spectral_scanning.decs, MeasureType.time_scanning.decs]:
+            pass
+        # 定量和光度测量
+        elif self.measure_type in [MeasureType.quantitative_determination.decs, MeasureType.photometric_measurement.decs]:
             self.HEADER_M_MAPPING_LIST = self.table_data_processor.handler_instance.HEADER_M_MAPPING_LIST  # 每个私有文件都要声明的
             self.TABLE_HEADER_MAP  = self.table_data_processor.handler_instance.TABLE_HEADER_MAP
-
-            if measure_type in [MeasureType.spectral_scanning.decs, MeasureType.time_scanning.decs]:
-                pass
-            # 定量和光度测量
-            elif measure_type in [MeasureType.quantitative_determination.decs, MeasureType.photometric_measurement.decs]:
-                photometric_measurement_context = await self.get_quantitative_determination_photometric_measurement_from_endpoint(doc_stream)
-                # origin_header_real_header_mapping, tpl_context = self.get_quantitative_determination_photometric_measurement_from_database(doc_stream, task_id)
-                self.contexts.update(photometric_measurement_context)
-            else:
-                pass
-        if template_type == TemplateType.original_records.value:
-            # 光谱
-            if measure_type == MeasureType.spectral_scanning.decs:
-                contexts = await self.get_spectral_scanning_table_context()
-            # 时间扫描
-            if measure_type == MeasureType.time_scanning.decs:
-                contexts = await self.get_time_scanning_table_context()
-            # 定量
-            if measure_type  == MeasureType.quantitative_determination.decs:
-                contexts = await self.get_quantitative_determination_table_context()
-            # 光度测量
-            if measure_type  == MeasureType.photometric_measurement.decs:
-                contexts = await self.photometric_measurement_table_context()
-        
+            photometric_measurement_context = await self.get_quantitative_determination_photometric_measurement_from_endpoint(doc_stream)
+            # origin_header_real_header_mapping, tpl_context = self.get_quantitative_determination_photometric_measurement_from_database(doc_stream, task_id)
+            self.contexts.update(photometric_measurement_context)
+        else:
+            pass
     
-    async def fill_common_data(self, doc_stream):
+    async def fill_common_data(self, doc_stream, title=False, v=True):
         # 填充
-        await self.fill_common_data_title(doc_stream)
-        await self.fill_common_data_v()
+        if title:
+            await self.fill_common_data_title(doc_stream)
+        if v:
+            await self.fill_common_data_v()
 
     async def fill_common_data_title(self, doc_stream):
+
         has_private_title_mapping = False
         if hasattr(self.table_data_processor.template_module, 'title_mapping'):
             has_private_title_mapping = True
@@ -237,30 +272,30 @@ class FillDataUtils():
                             self.contexts[t] = v
     
     async def fill_common_data_v(self):
-        if not self.fake:
-            for private_k, v_dict in self.private_key.items():
-                if not private_k.endswith('_t'): # 不是标题代表数值
-                    v = self.common_val.get(private_k, '')
-                    if v:
-                        self.contexts[private_k] = v
-                
-                    if v_dict.get('position'):
-                        pass
-                    else:
-                    # 查看通用数据是否描述了这个变量的取值方法。
-                        if private_k in self.common_key:
-                            get_desc = self.common_key[private_k]
-                            if get_desc.get('position'):
-                                await self.handle_position(private_k, get_desc.get('position'))
-                            if get_desc.get('children'):
-                                await self.handle_children(private_k, get_desc.get('children'), connect_str=get_desc.get('connect_str', ''))
+        if self.template_type == TemplateType.report_template.value:
+            if not self.fake:
+                for private_k, v_dict in self.private_key.items():
+                    if not private_k.endswith('_t'): # 不是标题代表数值
+                        v = self.common_val.get(private_k, '')
+                        if v:
+                            self.contexts[private_k] = v
+                        if v_dict.get('position'):
+                            pass
                         else:
-                            if not self.contexts.get(private_k):
-                                self.contexts[private_k] = ''
-        else:
-            for private_k, v_dict in self.private_key.items():
-                if not private_k.endswith('_t') and not self.contexts.get(private_k): # 不是标题代表数值
-                    self.contexts[private_k] = ' '
+                        # 查看通用数据是否描述了这个变量的取值方法。
+                            if private_k in self.common_key:
+                                get_desc = self.common_key[private_k]
+                                if get_desc.get('position'):
+                                    await self.handle_position(private_k, get_desc.get('position'))
+                                if get_desc.get('children'):
+                                    await self.handle_children(private_k, get_desc.get('children'), connect_str=get_desc.get('connect_str', ''))
+                            else:
+                                if not self.contexts.get(private_k):
+                                    self.contexts[private_k] = ''
+            else:
+                for private_k, v_dict in self.private_key.items():
+                    if not private_k.endswith('_t') and not self.contexts.get(private_k): # 不是标题代表数值
+                        self.contexts[private_k] = ' '
 
         
         
@@ -272,8 +307,8 @@ class FillDataUtils():
 
 
 
-    def get_common_data_by_endpoint(self, task_id):
-        template_common_url = config.guide_template_common_var_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='')
+    def get_common_data_by_endpoint(self, task_id, analysis_id=None):
+        template_common_url = config.guide_template_common_var_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='')
         # print(f"DEBUG: 请求URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}")
         try:
@@ -344,13 +379,21 @@ class FillDataUtils():
     # 处理position position代表这个数据获取的描述方法。
     async def handle_position(self, private_k, position):
         val = await self.get_common_val_by_private_position(position)
+        if private_k == 'b':
+            self.contexts[private_k] = val.split(',')[0] if val else ''
+        elif private_k == 'a':
+            try:
+                self.contexts[private_k] = val.split(',')[1] if val else ''
+            except Exception:
+                self.contexts[private_k] = val if val else ''
         # if '图片' in private_k and isinstance(val, str) and self.is_base64(val):
         #     try:
         #         self.python_jinja_mapping[private_k] = await self.decode_base64_image(bookmark_name=private_k, tpl=tpl, val=val)
         #     except Exception as e:
         #         print(f"{private_k} 解码失败: {e}")
         # else:
-        self.contexts[private_k] = val if val else ''
+        else:
+            self.contexts[private_k] = val if val else ''
     
     # 处理children children代表这个数据获取的描述方法。
     async def handle_children(self, private_k, children, connect_str=''):
@@ -386,22 +429,71 @@ class FillDataUtils():
     def database_fill_data_by_bookmark(self):
         pass
 
-    def fill_template_by_jinja(self, doc_stream: BytesIO) -> BytesIO:
+    def fill_template_by_jinja(self, doc_stream: BytesIO, tpl=None) -> BytesIO:
         """
+        合并 context 并用 docxtpl 渲染模板。
+        如果传入了 DocxTemplate 实例 `tpl`，优先使用它（保证 subdoc 归属一致）。
+        否则根据 `doc_stream` 新建一个 `DocxTemplate`。
+        返回渲染后的 BytesIO（出错时尽量返回原始流的副本以避免 None）。
         """
-        doc_stream.seek(0)
-        tpl = DocxTemplate(doc_stream)
-        # 合并context
-        tpl.render(context=self.contexts)
-        # 写入内存流，返回
-        output_stream = BytesIO()
-        tpl.save(output_stream)
-        output_stream.seek(0)  # 很重要：回到开头，供后续读取
-        
-        # 移除表格中的空行
-        output_stream = self.remove_empty_table_rows(output_stream)
-        
-        return output_stream
+        try:
+            print(f"DEBUG fill_template_by_jinja: enter, doc_stream type={type(doc_stream)}, tpl_type={type(tpl)}")
+            from docxtpl import DocxTemplate as _DocxTemplate
+
+            used_tpl = None
+            if tpl is not None:
+                # 如果传入的是 DocxTemplate 实例，直接使用
+                if isinstance(tpl, _DocxTemplate):
+                    used_tpl = tpl
+                else:
+                    # 尝试将其构造为 DocxTemplate（tpl 可能是 path/stream）
+                    try:
+                        used_tpl = _DocxTemplate(tpl)
+                    except Exception:
+                        used_tpl = None
+
+            if used_tpl is None:
+                try:
+                    doc_stream.seek(0)
+                except Exception:
+                    pass
+                used_tpl = _DocxTemplate(doc_stream)
+
+            # 合并context 并保存
+            used_tpl.render(context=self.contexts)
+            output_stream = BytesIO()
+            used_tpl.save(output_stream)
+            output_stream.seek(0)
+
+            # 移除表格中的空行
+            output_stream = self.remove_empty_table_rows(output_stream)
+            try:
+                print(f"DEBUG fill_template_by_jinja: success, size={len(output_stream.getvalue())}")
+            except Exception:
+                pass
+            return output_stream
+
+        except Exception as e:
+            print(f"ERROR fill_template_by_jinja: {e}")
+            # 尝试返回原始流的副本，避免返回 None
+            try:
+                try:
+                    doc_stream.seek(0)
+                except Exception:
+                    pass
+                if hasattr(doc_stream, 'getvalue'):
+                    return BytesIO(doc_stream.getvalue())
+                elif hasattr(doc_stream, 'read'):
+                    try:
+                        doc_stream.seek(0)
+                    except Exception:
+                        pass
+                    data = doc_stream.read()
+                    if data is not None:
+                        return BytesIO(data)
+            except Exception:
+                pass
+            return doc_stream
     
     def remove_empty_table_rows(self, doc_stream: BytesIO) -> BytesIO:
         """移除表格中的空行"""
@@ -515,80 +607,126 @@ class FillDataUtils():
 
     def insert_header_page_number(self, doc_stream: BytesIO, alignment: int = 3) -> BytesIO:
         """
-        在页眉中插入页码
-        
+        在每个 section 的页脚追加页码（不覆盖已有 header/footer 内容），并确保每节都能显示。
+
         Args:
             doc_stream: Word文档流
             alignment: 对齐方式 (1:左对齐, 2:居中, 3:右对齐)
-        
+
         Returns:
             BytesIO: 修改后的文档流
         """
-        doc_stream.seek(0)
-        doc = Document(doc_stream)
+        try:
+            print(f"DEBUG insert_header_page_number: enter, doc_stream type={type(doc_stream)}, alignment={alignment}")
+            doc_stream.seek(0)
+            doc = Document(doc_stream)
 
-        section = doc.sections[0]
-        header = section.header
-        paragraph = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+            # 转换对齐方式：1:左, 2:中, 3:右 -> 0:左, 1:中, 2:右
+            alignment_map = {1: 0, 2: 1, 3: 2}
+            para_align = alignment_map.get(alignment, 2)
 
-        # 清空段落内容
-        for run in paragraph.runs:
-            r = run._element
-            r.getparent().remove(r)
+            def add_field(p, field_code):
+                run = p.add_run()
+                fldChar_begin = OxmlElement('w:fldChar')
+                fldChar_begin.set(qn('w:fldCharType'), 'begin')
+                instrText = OxmlElement('w:instrText')
+                instrText.set(qn('xml:space'), 'preserve')
+                instrText.text = field_code
+                fldChar_separate = OxmlElement('w:fldChar')
+                fldChar_separate.set(qn('w:fldCharType'), 'separate')
+                fldChar_end = OxmlElement('w:fldChar')
+                fldChar_end.set(qn('w:fldCharType'), 'end')
+                run._r.append(fldChar_begin)
+                run._r.append(instrText)
+                run._r.append(fldChar_separate)
+                run._r.append(fldChar_end)
 
-        # 转换对齐方式：1:左, 2:中, 3:右 -> 0:左, 1:中, 2:右
-        alignment_map = {1: 0, 2: 1, 3: 2}
-        paragraph.alignment = alignment_map.get(alignment, 2)
+            # 在每个 section 的 footer 中追加页码段落，且确保节设置不阻止显示
+            for section in doc.sections:
+                # 关闭不同首页/奇偶页导致的显示差异
+                try:
+                    section.different_first_page_header_footer = False
+                except Exception:
+                    pass
 
-        def add_field(p, field_code):
-            run = p.add_run()
-            fldChar_begin = OxmlElement('w:fldChar')
-            fldChar_begin.set(qn('w:fldCharType'), 'begin')
-            instrText = OxmlElement('w:instrText')
-            instrText.set(qn('xml:space'), 'preserve')
-            instrText.text = field_code
-            fldChar_separate = OxmlElement('w:fldChar')
-            fldChar_separate.set(qn('w:fldCharType'), 'separate')
-            fldChar_end = OxmlElement('w:fldChar')
-            fldChar_end.set(qn('w:fldCharType'), 'end')
-            run._r.append(fldChar_begin)
-            run._r.append(instrText)
-            run._r.append(fldChar_separate)
-            run._r.append(fldChar_end)
+                # 断开与上一节的 header/footer 链接（若有）
+                try:
+                    # header/footer 对象可能没有 is_linked_to_previous 属性，安全设置
+                    if hasattr(section.header, 'is_linked_to_previous'):
+                        section.header.is_linked_to_previous = False
+                    if hasattr(section.footer, 'is_linked_to_previous'):
+                        section.footer.is_linked_to_previous = False
+                except Exception:
+                    pass
 
-        paragraph.add_run("第 ")
-        add_field(paragraph, "PAGE")
-        paragraph.add_run(" 页，共 ")
-        add_field(paragraph, "NUMPAGES")
-        paragraph.add_run(" 页")
+                footer = section.footer
+                # 在 footer 末尾追加一段，不删除已有内容
+                para = footer.add_paragraph()
+                para.alignment = para_align
+                para.add_run("第 ")
+                add_field(para, "PAGE")
+                para.add_run(" 页，共 ")
+                add_field(para, "NUMPAGES")
+                para.add_run(" 页")
 
-        # 保存回字节流
-        output_stream = BytesIO()
-        doc.save(output_stream)
-        output_stream.seek(0)
-        return output_stream
+            # 保存回字节流
+            output_stream = BytesIO()
+            doc.save(output_stream)
+            output_stream.seek(0)
+            try:
+                print(f"DEBUG insert_header_page_number: success, size={len(output_stream.getvalue())}")
+            except Exception:
+                pass
+            return output_stream
+        except Exception as e:
+            print(f"ERROR insert_header_page_number: {e}")
+            try:
+                doc_stream.seek(0)
+            except Exception:
+                pass
+            return doc_stream
     
     def remove_header_page_number(self, doc_stream: BytesIO) -> BytesIO:
         """
-        移除页眉中的页码
-        
+        从所有节的 footer 中移除包含 PAGE/NUMPAGES 域的段落（对追加式插入的页码有效）。
+
         Args:
             doc_stream: Word文档流
-        
+
         Returns:
             BytesIO: 修改后的文档流
         """
         doc_stream.seek(0)
         doc = Document(doc_stream)
 
-        section = doc.sections[0]
-        header = section.header
-        
-        # 删除所有段落中的内容
-        for paragraph in header.paragraphs:
+        def paragraph_contains_page_fields(paragraph):
+            # 检查段落中的任何 run 是否包含 fld instrText 包含 PAGE 或 NUMPAGES
             for run in paragraph.runs:
-                r = run._element
-                r.getparent().remove(r)
+                for child in run._r:
+                    if child.tag.endswith('}instrText'):
+                        text = child.text or ''
+                        if 'PAGE' in text or 'NUMPAGES' in text:
+                            return True
+            # 也检查文本层面（兼容旧实现）
+            txt = paragraph.text or ''
+            if '第' in txt and '页' in txt and '共' in txt:
+                return True
+            return False
+
+        for section in doc.sections:
+            footer = section.footer
+            # 收集要删除的段落元素
+            paras_to_remove = []
+            for para in footer.paragraphs:
+                if paragraph_contains_page_fields(para):
+                    paras_to_remove.append(para)
+
+            for para in paras_to_remove:
+                try:
+                    p = para._element
+                    p.getparent().remove(p)
+                except Exception:
+                    pass
 
         # 保存回字节流
         output_stream = BytesIO()
@@ -688,6 +826,8 @@ class FillDataUtils():
     
     @staticmethod
     async def get_measure_type(task_id):
+        if not task_id:
+            return None
         sql = "select measure_type from t_measure_task where id = %s"
         sql_result = await execute_safe_sql(sql, [task_id], return_dict=True)
         if sql_result:
@@ -937,8 +1077,16 @@ class FillDataUtils():
                 return origin_header_real_header_mapping, tpl_context
 
     
-    def get_table_head_data_from_endpoint(self, task_id, sample_id):
-        template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
+    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None):
+        if all_display:
+            all_display=True
+        else:
+            all_display=False
+            
+        if digit is not None:
+            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='')
+        else:
+            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='')
         try:
             response = requests.get(template_common_url)
             res_json = response.json()
@@ -969,7 +1117,7 @@ class FillDataUtils():
         return data
         
                 
-    def get_unknown_sample_header(self, m) -> (str, str):
+    def get_unknown_sample_header(self, m):
         """
         未知样品:
             头: 
@@ -1123,80 +1271,80 @@ class FillDataUtils():
                 tcPr.append(tcW)
     
     # 光谱扫描 通用数据
-    async def get_spectral_scanning_common_context(self, tpl, image_base64, contexts):
-        spectral_scanning_mapping = common_data_mapping.get(self.measure_type)
-        for jinja_val, common_val_key in spectral_scanning_mapping.items():
-            if jinja_val == '光谱扫描图片':
-                contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
-            elif jinja_val == '扫描范围':
-                scan_range = self.common_val.get('startWaveLength', '')  + '至' + self.common_val.get('endWaveLength', '')
-                self.contexts[jinja_val] = scan_range
-            else:
-                self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+    # async def get_spectral_scanning_common_context(self, tpl, image_base64, contexts):
+    #     spectral_scanning_mapping = common_data_mapping.get(self.measure_type)
+    #     for jinja_val, common_val_key in spectral_scanning_mapping.items():
+    #         if jinja_val == '光谱扫描图片':
+    #             contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+    #         elif jinja_val == '扫描范围':
+    #             scan_range = self.common_val.get('startWaveLength', '')  + '至' + self.common_val.get('endWaveLength', '')
+    #             self.contexts[jinja_val] = scan_range
+    #         else:
+    #             self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
 
-    # 时间扫描 通用数据
-    async def get_time_scanning_common_context(self, tpl, image_base64, contexts):
-        time_scanning_mapping = common_data_mapping.get(self.measure_type)
-        for jinja_val, common_val_key in time_scanning_mapping.items():
-            if jinja_val != '时间扫描图片':
-                self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
-            else:
-                self.contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+    # # 时间扫描 通用数据
+    # async def get_time_scanning_common_context(self, tpl, image_base64, contexts):
+    #     time_scanning_mapping = common_data_mapping.get(self.measure_type)
+    #     for jinja_val, common_val_key in time_scanning_mapping.items():
+    #         if jinja_val != '时间扫描图片':
+    #             self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+    #         else:
+    #             self.contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
     
-    # 定量测定 通用数据
-    async def get_quantitative_determination_common_context(self, tpl, contexts):
-        quantitative_determination = common_data_mapping.get(self.measure_type)
-        if self.common_val:
-            for jinja_val, common_val_key in quantitative_determination.items():
-                    self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
-            # 处理图片
-            curve_info = self.end_point_header_and_data.get('curveInfo')
-            if curve_info:
-                image_data_list = curve_info.get('dataList') or []
-                image_stand_point_list = curve_info.get('standPoints') or []
-                image_unknown_point_list = curve_info.get('unknowPoints') or []
-                if image_data_list:
-                    quantitative_image = await self.generate_quantitative_chart(
-                        image_data_list, 
-                        image_stand_point_list, 
-                        image_unknown_point_list,
-                        tpl
-                    )
-                    self.contexts['定量分析图片'] = quantitative_image if quantitative_image else ''
-                else:
-                    self.contexts['定量分析图片'] = ''
-            else:
-                self.contexts['定量分析图片'] = ''
-            # k
-            k_str = self.common_val.get('curveParams')
-            if k_str:
-                k_parts = (k_str.split(',') + [None] * 5)[:5]
+    # # 定量测定 通用数据
+    # async def get_quantitative_determination_common_context(self, tpl, contexts):
+    #     quantitative_determination = common_data_mapping.get(self.measure_type)
+    #     if self.common_val:
+    #         for jinja_val, common_val_key in quantitative_determination.items():
+    #                 self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+    #         # 处理图片
+    #         curve_info = self.end_point_header_and_data.get('curveInfo')
+    #         if curve_info:
+    #             image_data_list = curve_info.get('dataList') or []
+    #             image_stand_point_list = curve_info.get('standPoints') or []
+    #             image_unknown_point_list = curve_info.get('unknowPoints') or []
+    #             if image_data_list:
+    #                 quantitative_image = await self.generate_quantitative_chart(
+    #                     image_data_list, 
+    #                     image_stand_point_list, 
+    #                     image_unknown_point_list,
+    #                     tpl
+    #                 )
+    #                 self.contexts['定量分析图片'] = quantitative_image if quantitative_image else ''
+    #             else:
+    #                 self.contexts['定量分析图片'] = ''
+    #         else:
+    #             self.contexts['定量分析图片'] = ''
+    #         # k
+    #         k_str = self.common_val.get('curveParams')
+    #         if k_str:
+    #             k_parts = (k_str.split(',') + [None] * 5)[:5]
                 
-                for i, value in enumerate(k_parts):
-                    if value:
-                        value = str(Decimal(value))
-                        self.contexts[f'k{i}'] = f'k{i}: '
-                        self.contexts[f'k{i}_v'] = value
-            k_values = []
-            if contexts.get('k0'):  # k0 非空
-                k_values.append({'label': contexts['k0'], 'value': contexts['k0_v']})
-            if contexts.get('k1'):
-                k_values.append({'label': contexts['k1'], 'value': contexts['k1_v']})
-            if contexts.get('k2'):
-                k_values.append({'label': contexts['k2'], 'value': contexts['k2_v']})
-            if contexts.get('k3'):
-                k_values.append({'label': contexts['k3'], 'value': contexts['k3_v']})
-            if contexts.get('k4'):
-                k_values.append({'label': contexts['k4'], 'value': contexts['k4_v']})
-            self.contexts['k_values'] = k_values
+    #             for i, value in enumerate(k_parts):
+    #                 if value:
+    #                     value = str(Decimal(value))
+    #                     self.contexts[f'k{i}'] = f'k{i}: '
+    #                     self.contexts[f'k{i}_v'] = value
+    #         k_values = []
+    #         if contexts.get('k0'):  # k0 非空
+    #             k_values.append({'label': contexts['k0'], 'value': contexts['k0_v']})
+    #         if contexts.get('k1'):
+    #             k_values.append({'label': contexts['k1'], 'value': contexts['k1_v']})
+    #         if contexts.get('k2'):
+    #             k_values.append({'label': contexts['k2'], 'value': contexts['k2_v']})
+    #         if contexts.get('k3'):
+    #             k_values.append({'label': contexts['k3'], 'value': contexts['k3_v']})
+    #         if contexts.get('k4'):
+    #             k_values.append({'label': contexts['k4'], 'value': contexts['k4_v']})
+    #         self.contexts['k_values'] = k_values
     
-    # 光度测量 通用数据
-    async def photometric_measurement_common_context(self, tpl, contexts):
-        # 光度测量
-        if self.common_val:
-            photometric_measurement = common_data_mapping.get(self.measure_type)
-            for jinja_val, common_val_key in photometric_measurement.items():
-                self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+    # # 光度测量 通用数据
+    # async def photometric_measurement_common_context(self, tpl, contexts):
+    #     # 光度测量
+    #     if self.common_val:
+    #         photometric_measurement = common_data_mapping.get(self.measure_type)
+    #         for jinja_val, common_val_key in photometric_measurement.items():
+    #             self.contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
     
     # 光谱扫描 表格数据
     async def get_spectral_scanning_table_context(self):
@@ -1319,7 +1467,14 @@ class FillDataUtils():
     # 时间扫描
     def handle_time_scanning_table(self, end_point_header_and_data):
         if self.fake:
-            pass
+            header = ['编号', '带宽', 'h2', 'h3', 'h4']
+            row_data = []
+            for i in range(len(header)):
+                row = [i+1, 200 + i*10]
+                for j in range(len(header)-len(row)):
+                    row.append('--' if (i+j) % 2 == 0 else '**')
+                row_data.append(row)
+            return {'header': header, 'row_data': row_data}
         else:
             head_list = end_point_header_and_data.get('headList')
             data_list = end_point_header_and_data.get('dataList')

@@ -6,7 +6,8 @@ import tempfile
 import importlib
 import subprocess
 from io import BytesIO
-from typing import Dict, List, Optional
+from docx import Document
+from typing import Dict, List, Optional, Union
 
 # 第三方库导入
 from fastapi import APIRouter
@@ -35,7 +36,7 @@ router = APIRouter()
 class BookmarkItem(BaseModel):
     desc_t: str = Field(None, description="time_mapping 的key")
     font: Optional[str] = Field(None, description="字体")
-    font_size: Optional[int] = Field(None, description="字号")
+    font_size: Optional[Union[int, float]] = Field(None, description="字号")
     value: Optional[str] = Field(None, description="书签内容")
 
 
@@ -105,7 +106,7 @@ async def update_bookmark(data: InputSchema):
         footer_info = data.footer
         if footer_info:
             set_header_footer(doc, footer_text=footer_info.value, footer_font_name=footer_info.font, footer_font_size=footer_info.font_size)
-        
+        print(f"Section 0 Header Paragraphs: {len(doc.sections[0].header.paragraphs)}") 
         output_stream = BytesIO()
         doc.save(output_stream)
         output_stream.seek(0)
@@ -118,32 +119,41 @@ async def update_bookmark(data: InputSchema):
         template_instance = await TemplateDoc.get_or_none(id=data.template_id)
         template_name = template_instance.name
         fill_data_utils = FillDataUtils(template_name, data.template_id, fake=True, new_title_mapping=new_title_mapping)
-        await fill_data_utils.get_table_context(doc_stream=show_output_stream)
-        if data.remark:
-            await fill_data_utils.fill_remark(data.remark)
-        # await fill_data_utils.fill_template_jinja_custom_info(doc_stream=show_output_stream, custom_info=custom_info, additional_context=blank_table_context)
-        await fill_data_utils.fill_common_data(doc_stream=show_output_stream)
-        doc_stream = fill_data_utils.fill_template_by_jinja(doc_stream=show_output_stream)
-        
+        # DEBUG: inspect show_output_stream before preview
+        try:
+            show_output_stream.seek(0)
+            size_before = len(show_output_stream.getvalue())
+        except Exception:
+            size_before = None
+        print(f"DEBUG: before preview_view, show_output_stream type={type(show_output_stream)}, size={size_before}")
+        doc_stream = await fill_data_utils.preview_view(doc_stream=show_output_stream, remark=data.remark.value if data.remark else None)
+        # DEBUG: inspect returned doc_stream
+        if doc_stream is None:
+            print("ERROR: preview_view returned None")
+            raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
+        try:
+            doc_stream.seek(0)
+            size_after = len(doc_stream.getvalue())
+        except Exception:
+            size_after = None
+        print(f"DEBUG: after preview_view, doc_stream type={type(doc_stream)}, size={size_after}")
         # 根据页码类型处理
         # 从字符串描述转换为对应的value值
         template_desc_value_map = TemplatePageNumType.generate_decs_value_map()
         page_num_value = template_desc_value_map.get(data.page_num_type)
         
-        if page_num_value == TemplatePageNumType.no_page.value:
-            doc_stream = fill_data_utils.remove_header_page_number(doc_stream)
-        else:
+        if page_num_value != TemplatePageNumType.no_page.value:
             doc_stream = fill_data_utils.insert_header_page_number(doc_stream, alignment=page_num_value)
-    
+
         # 获取 Word 字节内容
         doc_stream.seek(0)
         word_bytes = doc_stream.read()
 
         # ========== DEBUG 模式：保存中间文件到硬盘（需要时取消注释） ==========
-        # debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
-        # with open(debug_word_path, "wb") as f:
-        #     f.write(word_bytes)
-        # print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
+        debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
+        with open(debug_word_path, "wb") as f:
+            f.write(word_bytes)
+        print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
         # ====================================================================
 
         # 直接从内存转换为 PDF
@@ -151,10 +161,10 @@ async def update_bookmark(data: InputSchema):
             pdf_bytes = convert_docx_to_pdf(word_bytes)
             
             # ========== DEBUG 模式：保存 PDF 到硬盘（需要时取消注释） ==========
-            # debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
-            # with open(debug_pdf_path, "wb") as f:
-            #     f.write(pdf_bytes)
-            # print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
+            debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
+            with open(debug_pdf_path, "wb") as f:
+                f.write(pdf_bytes)
+            print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
             # ================================================================
         
             pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')

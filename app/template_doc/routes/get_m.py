@@ -14,7 +14,7 @@ router = APIRouter()
 @router.get('/get_m')
 @log_response
 async def get_m(template_id, task_id: str = None, sample_id: str = None, measurement_type_decs: str = ''):
-    task_id = '61aa663028192bcc8d73b54562af000d'
+    task_id='a69c61a36b4cc6583e9a216c0745155f'
     template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
     print(template_common_url)
     response = requests.get(template_common_url)

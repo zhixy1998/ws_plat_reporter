@@ -17,7 +17,7 @@ title_mapping = { # 全部加t
     'sample_preparation_t': {'name': '样品前处理', 'font': '宋体', 'font_size': 12},
 
     # 原始数据模版用 也可能在原始记录中用
-
+    # 光谱
     '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
     '仪器序号_t': {'name': '仪器序号', 'font': '宋体', 'font_size': 12},
     '光谱带宽_t': {'name': '光谱带宽', 'font': '宋体', 'font_size': 12},
@@ -95,6 +95,10 @@ data = {
     "仪器型号": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentModel']},
     "t": {"fill_type": 0, 'get_type': 0, 'position': ['ambientTemperature']}, # 温度
     "rh": {"fill_type": 0, 'get_type': 0, 'position': ['relativeHumidity']}, # 湿度
+    "a": {"fill_type": 0, 'get_type': 0, 'position': ['curveParams']},
+    "b": {"fill_type": 0, 'get_type': 0, 'position': ['curveParams']},
+    "r": {"fill_type": 0, 'get_type': 0, 'position': ['r']},
+    "regression_equation": {"fill_type": 0, 'get_type': 0, 'position': ['curveFormula']}, # 回归方程
     "质量等级": {"fill_type": 0, 'get_type': 0, 'position': ['qualityLevel']},
     "比色皿光程": {"fill_type": 0, 'get_type': 0, 'position': ['colorPlateWavelength']},
     "式中": {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']},
@@ -111,7 +115,30 @@ data = {
     "sample_preparation_2": {"fill_type": 0, 'get_type': 0, 'position': ['formulaParams']}, 
     'storage_condition': {"fill_type": 0, 'get_type': 0, 'position': ['storageConditions']}, # 存放条件 □室温   □冷藏   冷冻
     'standard_solution_number': {"fill_type": 0, 'get_type': 0, 'position': ['standardSolutionInfo']}, # 标准溶液及编号
-    'regression_equation': {"fill_type": 0, 'get_type': 0, 'position': ['regressionEquation']}, # 回归方程
+    'regression_equation': {"fill_type": 0, 'get_type': 0, 'position': ['curveFormula']}, # 回归方程
+
+
+    "增益": {"fill_type": 0, 'get_type': 0, 'position': ['gain']},
+    "备注": {"fill_type": 0, 'get_type': 0, 'position': ['remark']},
+    "扫描速度": {"fill_type": 0, 'get_type': 0, 'position': ['scanSpeed']},
+    "重复次数": {"fill_type": 0},
+    "能量灯": {"fill_type": 0, 'get_type': 0, 'position': ['energyLight']},
+    "table_data": {"fill_type": 0},
+    "扫描范围": {"fill_type": 0, 'get_type': 0, 'position': ['scanRange']},
+    "仪器型号": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentModel']},
+    "重复模式": {"fill_type": 0},
+    "光度模式": {"fill_type": 0, 'get_type': 0, 'position': ['luminosityMode']},
+    "波长间隔": {"fill_type": 0},
+    "扫描间隔": {"fill_type": 0, 'get_type': 0, 'position': ['timeInterval']},
+    "is_repeat": {"fill_type": 0},
+    "数据文件": {"fill_type": 0, 'get_type': 0, 'position': ['taskName']},
+    "光谱扫描图片": {"fill_type": 0, 'get_type': 0, 'position': ['spectrumScanImage']},
+    "仪器序号": {"fill_type": 0, 'get_type': 0, 'position': ['instrumentSerialNumber']},
+    "方法名称": {"fill_type": 0, 'get_type': 0, 'position': ['methodName']},
+    "光谱带宽": {"fill_type": 0, 'get_type': 0, 'position': ['spectrumBandwidth']},
+    "show_gain": {"fill_type": 0},
+    "分析时间": {"fill_type": 0, 'get_type': 0, 'position': ['detectionEndTime']},
+    "show_energy_light": {"fill_type": 0}
 
 }
 
