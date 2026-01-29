@@ -42,3 +42,4 @@ class ErrorCode(Enum):
     IMPORT_ERROR = Error(10020, zh='数据库操作失败')
     TEMPLATE_NAME_EMPTY = Error(10021, zh='模板名称不能为空')
     TEMPLATE_PRIVATE_CODE_INVALID = Error(10022, zh='模板私有代码无效')
+    ONLY_ZIP_FILES_SUPPORTED = Error(10023, zh='只支持.zip文件')
