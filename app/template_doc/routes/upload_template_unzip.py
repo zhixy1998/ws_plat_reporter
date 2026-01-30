@@ -231,6 +231,12 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
                     except Exception:
                         # 单个模板创建失败时继续处理下一个
                         continue
+        # 上传处理完成：删除刚才创建的临时解压目录，避免占用磁盘空间
+        try:
+            if extract_to.exists():
+                shutil.rmtree(extract_to)
+        except Exception:
+            pass
 
         return {
             "code": 200,
@@ -244,6 +250,12 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
             }
         }
     except Exception as e:
+        # 出错时也尝试删除临时目录
+        try:
+            if extract_to.exists():
+                shutil.rmtree(extract_to)
+        except Exception:
+            pass
         return {"code": 500, "message": f"Error: {str(e)}"}
 
 

@@ -25,7 +25,7 @@ from .update_m import router as update_m_router
 from .merge_docx import router as merge_docx_router
 from .get_report_filter_info import router as get_template_filter_info_router
 from .verification_calibration import router as verification_calibration_router
-from .upload_template_unzip import router as upload_template_unzip_router
+from .upload_template_unzip import router as upload_and_download_template_router
 
 router.include_router(create_template_router, prefix='', tags=['导入模板'])
 router.include_router(export_doc_router, prefix='', tags=['替换书签, 导出word'])
@@ -50,4 +50,4 @@ router.include_router(update_m_router, prefix='', tags=['更新m'])
 router.include_router(merge_docx_router, prefix='', tags=['合并word'])
 # router.include_router(test_url_router, prefix='', tags=['测试'])
 router.include_router(verification_calibration_router, prefix='', tags=['检定校准'])
-router.include_router(upload_template_unzip_router, prefix='', tags=['上传模板并解压'])
+router.include_router(upload_and_download_template_router, prefix='', tags=['上传模板并解压'])
