@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from fastapi import APIRouter, Query
 from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
@@ -37,7 +37,7 @@ async def get_report_template(
     name: Optional[str]= Query(None, description='模板名称'), 
     industry: Optional[str]= Query(None, description='行业类型'),
     origin_type: Optional[int]= Query(None, description='模板来源类型'),
-    experiment_type: Optional[int]= Query(None, description='实验类型'),
+    experiment_type: Optional[Union[int, str]]= Query(None, description='实验类型'),
     template_type: Optional[int]= Query(None, description='模板类型'),
     desc: Optional[int] = Query(0, description='0: 升序，1: 降序'),
     sort_field: Optional[int] = Query(None, description='排序字段 0: id, 1: 创建时间, 2: 更新时间'),
@@ -70,6 +70,11 @@ async def get_report_template(
     if origin_type is not None:
         query = query.filter(origin_type=origin_type)
     if experiment_type is not None:
+        if isinstance(experiment_type, str):
+            try:
+                experiment_type = int(experiment_type)
+            except:
+                experiment_type = ExperimentType.generate_decs_value_map().get(experiment_type)
         query = query.filter(experiment_type=experiment_type)
     if template_type is not None:
         query = query.filter(type=template_type)

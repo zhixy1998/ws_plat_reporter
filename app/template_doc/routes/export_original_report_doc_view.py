@@ -33,6 +33,7 @@ class InputSchema(BaseModel):
     sample_id: str = Field(None, description='样品id')
     analysis_id: str = Field(None, description='分析id')
     image_base64: str = Field(None, description='图片base64')
+    export_report: bool = Field(False, description='是否导出报告，默认False')
 
 class OutSchema(BaseModel):
     pass
@@ -88,8 +89,7 @@ async def export_docx(data: InputSchema):
         doc_stream = BytesIO()
         composer.save(doc_stream)
         doc_stream.seek(0)
-    
-        # # 返回文件
+
         return StreamingResponse(doc_stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
             "Content-Disposition": "attachment; filename=filled.docx"
         })

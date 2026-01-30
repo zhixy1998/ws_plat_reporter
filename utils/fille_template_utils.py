@@ -173,8 +173,15 @@ class FillDataUtils():
         self.measure_type = measure_type
 
     async def preview_view(self, doc_stream, task_id=None, remark=None, image_base64=None):
-        # 获取表格上下文与通用数据
-        await self.get_table_context(doc_stream=doc_stream)
+
+        template = await TemplateDoc.filter(id=self.template_id).first()
+        template_type = template.type
+        self.template_type = template_type
+        self.experiment_type = template.experiment_type
+        self.measure_type = ExperimentType.get_name_desc_by_value(self.experiment_type)
+        if template_type == TemplateType.report_template.value:
+            # 获取表格上下文与通用数据
+            await self.get_table_context(doc_stream=doc_stream)
         if remark:
             await self.fill_remark(remark)
         await self.fill_common_data(doc_stream=doc_stream, title=True, v=True)
@@ -223,10 +230,8 @@ class FillDataUtils():
             if self.template_type is None:
                 self.template_type = template.type
 
-        if self.measure_type in [MeasureType.spectral_scanning.decs, MeasureType.time_scanning.decs]:
-            pass
         # 定量和光度测量
-        elif self.measure_type in [MeasureType.quantitative_determination.decs, MeasureType.photometric_measurement.decs]:
+        if self.measure_type == MeasureType.quantitative_determination.decs:
             self.HEADER_M_MAPPING_LIST = self.table_data_processor.handler_instance.HEADER_M_MAPPING_LIST  # 每个私有文件都要声明的
             self.TABLE_HEADER_MAP  = self.table_data_processor.handler_instance.TABLE_HEADER_MAP
             photometric_measurement_context = await self.get_quantitative_determination_photometric_measurement_from_endpoint(doc_stream)

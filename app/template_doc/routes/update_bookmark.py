@@ -150,10 +150,10 @@ async def update_bookmark(data: InputSchema):
         word_bytes = doc_stream.read()
 
         # ========== DEBUG 模式：保存中间文件到硬盘（需要时取消注释） ==========
-        debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
-        with open(debug_word_path, "wb") as f:
-            f.write(word_bytes)
-        print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
+            # debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
+            # with open(debug_word_path, "wb") as f:
+            #     f.write(word_bytes)
+            # print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
         # ====================================================================
 
         # 直接从内存转换为 PDF
@@ -161,10 +161,10 @@ async def update_bookmark(data: InputSchema):
             pdf_bytes = convert_docx_to_pdf(word_bytes)
             
             # ========== DEBUG 模式：保存 PDF 到硬盘（需要时取消注释） ==========
-            debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
-            with open(debug_pdf_path, "wb") as f:
-                f.write(pdf_bytes)
-            print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
+            # debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
+            # with open(debug_pdf_path, "wb") as f:
+            #     f.write(pdf_bytes)
+            # print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
             # ================================================================
         
             pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
