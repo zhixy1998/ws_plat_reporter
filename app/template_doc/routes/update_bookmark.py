@@ -1,4 +1,5 @@
 # 标准库导入
+import io
 import os
 import time
 import base64
@@ -10,7 +11,8 @@ from docx import Document
 from typing import Dict, List, Optional, Union
 
 # 第三方库导入
-from fastapi import APIRouter
+from fastapi import APIRouter, File
+from urllib.parse import quote
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
 
@@ -59,13 +61,13 @@ class DataSchema(BaseModel):
 
 
 
-class OutSchema(BaseModel):
-    code: int = Field(200, description='状态码')
-    message: str = Field('获取成功', description='返回信息')
-    data: DataSchema = Field(..., description='返回数据')
+# class OutSchema(BaseModel):
+#     code: int = Field(200, description='状态码')
+#     message: str = Field('获取成功', description='返回信息')
+#     data: DataSchema = Field(..., description='返回数据')
 
 
-@router.post('/update_bookmark', response_model=OutSchema)
+@router.post('/update_bookmark')
 @log_response
 async def update_bookmark(data: InputSchema):
     template = await TemplateDoc.get_or_none(id=data.template_id)
@@ -158,17 +160,26 @@ async def update_bookmark(data: InputSchema):
 
         # 直接从内存转换为 PDF
         try:
-            pdf_bytes = convert_docx_to_pdf(word_bytes)
+
+            # 使用 BytesIO 包装字节流，确保 StreamingResponse 正确发送整个文件
+            filename = f"{template_name}_filled.docx"
+            safe_name = quote(filename)
+            headers = {
+                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+                "Content-Length": str(len(word_bytes))
+            }
+            return StreamingResponse(BytesIO(word_bytes), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=headers)
+            # pdf_bytes = convert_docx_to_pdf(word_bytes)
             
-            # ========== DEBUG 模式：保存 PDF 到硬盘（需要时取消注释） ==========
-            # debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
-            # with open(debug_pdf_path, "wb") as f:
-            #     f.write(pdf_bytes)
-            # print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
-            # ================================================================
+            # # ========== DEBUG 模式：保存 PDF 到硬盘（需要时取消注释） ==========
+            # # debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
+            # # with open(debug_pdf_path, "wb") as f:
+            # #     f.write(pdf_bytes)
+            # # print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
+            # # ================================================================
         
-            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-            show_base64_str = pdf_base64
+            # pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+            # show_base64_str = pdf_base64
         except Exception as e:
             print(f"PDF转换失败: {e}")
             import traceback
