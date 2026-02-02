@@ -4,34 +4,27 @@ import os
 import time
 import base64
 import tempfile
-import importlib
 import subprocess
 from io import BytesIO
-from docx import Document
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 # 第三方库导入
-from fastapi import APIRouter, File
+from fastapi import APIRouter
 from urllib.parse import quote
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
 
 # 本地应用导入
-from app.db import execute_safe_sql
 from exceptions.error import ErrorCode
 from utils.log_decorator import log_response
 from ..model.template_doc import TemplateDoc
-from utils.EditDocxXML import fill_word_bookmark
 from .create_template_view import create_template
-from ..model.template_extra_info import TemplateExtraInfo
 from utils.fille_template_utils import FillDataUtils
 from exceptions.command_exception import APIException
-from ..model.template_bookmark import TemplateBookmark
-from utils.LoadAndDelete import delete_bookmark_content
 from utils.handle_header_footer import set_header_footer
 from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
 from utils.doc_converter import get_libreoffice_command
-from constants.template_constant import TemplateBookMarkType, TemplatePageNumType
+from constants.template_constant import TemplatePageNumType
 
 router = APIRouter()
 
