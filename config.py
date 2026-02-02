@@ -52,11 +52,11 @@ class Config:
     
     @property
     def port(self):
-        return int(self.config.get('env', 'report_port'))
+        return int(self.config.get('env', 'reporter_port'))
     
     @property
     def log_level(self):
-        return self.config.get('env', 'report_log_level')
+        return self.config.get('env', 'reporter_log_level')
     
     @property
     def libre_office_path(self):
@@ -96,3 +96,4 @@ class Config:
 
 # 在 main.py 或其他入口文件中使用
 config = Config()
+print(config)
