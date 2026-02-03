@@ -48,7 +48,7 @@ class Config:
     
     @property
     def classic_template_table_head_data_url(self):
-        return self.config.get('java_url', 'DOMAIN') + self.config.get('java_url', 'classic_template_table_head_data_url')
+        return self.config.get('java_url', 'domain') + self.config.get('java_url', 'classic_template_table_head_data_url')
     
     @property
     def port(self):
@@ -77,19 +77,19 @@ class Config:
     
     @property
     def guide_template_table_url(self):
-        return self.config.get('java_url', 'DOMAIN') + self.config.get('guide', 'template_common_table_url')
+        return self.config.get('java_url', 'domain') + self.config.get('guide', 'template_common_table_url')
     
     @property
     def guide_template_common_var_url(self):
-        return self.config.get('java_url', 'DOMAIN') + self.config.get('guide', 'template_common_var_url')
+        return self.config.get('java_url', 'domain') + self.config.get('guide', 'template_common_var_url')
     
     @property
     def guide_template_table_head_data_url(self):
-        return self.config.get('java_url', 'DOMAIN') + self.config.get('guide', 'template_table_head_data_url')
+        return self.config.get('java_url', 'domain') + self.config.get('guide', 'template_table_head_data_url')
     
     @property
     def verification_calibration_url(self):
-        return self.config.get('java_url', 'DOMAIN') + self.config.get('java_url', 'verification_calibration_url')
+        return self.config.get('java_url', 'domain') + self.config.get('java_url', 'verification_calibration_url')
 
     # 添加更多 getter 方法...
 
