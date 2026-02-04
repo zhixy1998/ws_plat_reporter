@@ -384,7 +384,7 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
             # 保存docx文件
             try:
                 with open(docx_path, "wb") as f:
-                    f.write(doc_raw_byts)
+                    f.write(doc_raw_bytes)
                 print("调试：DOCX文件写入成功")
             except Exception as e:
                 print("调试：DOCX文件写入失败：" + str(e))
