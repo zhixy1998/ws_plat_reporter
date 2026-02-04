@@ -96,7 +96,7 @@ async def create_template_view(
 
 async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, 
     industry_type: str = '', experiment_type: int = 0, title_mapping: Optional[Dict[str, Dict]] = None, old_template_name: Optional[str] = None) -> int:
-    if template_type in [TemplateType.report_template.value, TemplateType.original_records.value]:
+    if template_type in [TemplateType.report_template.value, TemplateType.original_records.value, TemplateType.calibration_template.value]:
         async with in_transaction('default') as connection:
             create_info = {
                 'name': name,

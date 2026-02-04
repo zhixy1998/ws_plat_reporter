@@ -1,3 +1,4 @@
+from jinja2 import Template
 import requests
 import os
 import platform
@@ -11,12 +12,14 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from docx import Document
+from docxtpl import DocxTemplate
+import base64
 
 from config import config
 from utils.log_decorator import log_response
 from utils.verification_calibration_utils.verification_calibration_handle import InspectionAndCorrectionReport
-from utils.template_utils import convert_docx_to_pdf_base64, convert_docx_to_pdf_bytes
 from utils.doc_converter import get_libreoffice_command
+from app.template_doc.model.template_doc import TemplateDoc
 
 router = APIRouter()
 _docx2pdf_disabled = False  # 一旦检测到 RPC 失败则禁用 docx2pdf，改走 PowerShell/LibreOffice
@@ -340,6 +343,7 @@ class VerificationCalibrationInputSchema(BaseModel):
     """验证校准请求数据模型"""
     task_id: str = Field(..., description='任务id')
     sample_id: Dict[str, Any] = Field(None, description='样品id')
+    template_id: int = Field(..., description='模板id')
 
 
 @router.post('/verification_calibration')
@@ -357,6 +361,15 @@ async def verification_calibration(data: VerificationCalibrationInputSchema):
     try:
         task_id = data.task_id
         sample_id = data.sample_id
+        template_id = data.template_id
+        
+        template_instance = await TemplateDoc.get(id=template_id, is_del=0)
+        template_content = template_instance.template_content  # base64编码的内容
+        # 解码base64为字节流
+        doc_bytes = base64.b64decode(template_content)
+        doc_stream = BytesIO(doc_bytes)
+        # 使用DocxTemplate而不是Template
+        template = DocxTemplate(doc_stream)
 
         verification_calibration_url = config.verification_calibration_url
         request_url  = verification_calibration_url + f'?taskId={task_id}'
@@ -364,7 +377,7 @@ async def verification_calibration(data: VerificationCalibrationInputSchema):
         res_json = res.json()
 
         # 生成Word文档流
-        iar = InspectionAndCorrectionReport(vc_data_list=res_json.get('data').get('worksheets'))
+        iar = InspectionAndCorrectionReport(doc=template, vc_data_list=res_json.get('data').get('worksheets'))
         docx_out_stream = iar.run()
         
         # 保存文件到本地

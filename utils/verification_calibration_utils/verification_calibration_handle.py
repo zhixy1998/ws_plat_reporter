@@ -373,16 +373,79 @@ class InspectionAndCorrectionReport():
     contexts = {}
     table_data = {}
 
-    def __init__(self, vc_data_list):
+    def __init__(self, doc, vc_data_list):
         # 获取模板文件的完整路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.template_path = os.path.join(current_dir, 'verification_jinja.docx')
+        self.doc = DocxTemplate(self.template_path)
         self.logo_image = os.path.join(current_dir, 'img/logo_image.png')
 
         # 在渲染之前定义图片对象
-        self.doc = DocxTemplate(self.template_path)
+        # self.doc = doc
         self.vc_data_list = vc_data_list
         self.section_index = 1
+    
+    def _remove_empty_paragraphs(self):
+        """删除文档中的空段落和表格中的空行"""
+        # 获取文档对象（从DocxTemplate中提取python-docx的Document对象）
+        doc = self.doc.docx if hasattr(self.doc, 'docx') else self.doc
+        
+        # 1. 删除表格中的空行
+        empty_rows_count = 0
+        for table in doc.tables:
+            rows_to_remove = []
+            for row in table.rows:
+                # 检查这一行所有单元格是否都为空
+                is_empty_row = True
+                for cell in row.cells:
+                    cell_text = cell.text.strip()
+                    # 检查单元格是否有图片或其他内容
+                    has_content = False
+                    for paragraph in cell.paragraphs:
+                        if paragraph.text.strip():
+                            has_content = True
+                            break
+                        for run in paragraph.runs:
+                            if run._element.xpath('.//pic:pic') or run._element.xpath('.//w:drawing'):
+                                has_content = True
+                                break
+                        if has_content:
+                            break
+                    
+                    if cell_text or has_content:
+                        is_empty_row = False
+                        break
+                
+                if is_empty_row:
+                    rows_to_remove.append(row)
+            
+            # 删除空行
+            for row in rows_to_remove:
+                tr = row._tr
+                tr.getparent().remove(tr)
+                empty_rows_count += 1
+        
+        print(f"✓ Removed {empty_rows_count} empty table rows")
+        
+        # 2. 删除文档中的空段落
+        paragraphs_to_remove = []
+        for paragraph in doc.paragraphs:
+            text = paragraph.text.strip()
+            has_content = False
+            for run in paragraph.runs:
+                if run._element.xpath('.//pic:pic') or run._element.xpath('.//w:drawing'):
+                    has_content = True
+                    break
+            
+            if not text and not has_content:
+                paragraphs_to_remove.append(paragraph._element)
+        
+        for p_element in paragraphs_to_remove:
+            parent = p_element.getparent()
+            if parent is not None:
+                parent.remove(p_element)
+        
+        print(f"✓ Removed {len(paragraphs_to_remove)} empty paragraphs")
         
     def run(self):
         env = Environment(
@@ -436,7 +499,38 @@ class InspectionAndCorrectionReport():
         # contexts.update(self.contexts)
         logo_pic = InlineImage(self.doc, self.logo_image, width=Mm(40)) # 指定宽度
         self.contexts['logo_image'] = logo_pic
-        self.doc.render(self.contexts, jinja_env=env)
+        
+        print(f"\n=== Before Render - Final Contexts ===")
+        print(f"'wt' in self.contexts: {'wt' in self.contexts}")
+        if 'wt' in self.contexts:
+            print(f"type(self.contexts['wt']): {type(self.contexts['wt'])}")
+            print(f"self.contexts['wt'] keys: {self.contexts['wt'].keys()}")
+            print(f"'unique' in self.contexts['wt']: {'unique' in self.contexts['wt']}")
+            if 'unique' in self.contexts['wt']:
+                print(f"type(self.contexts['wt']['unique']): {type(self.contexts['wt']['unique'])}")
+                print(f"self.contexts['wt']['unique']: {self.contexts['wt']['unique']}")
+        
+        # 检查所有可能在模板中使用的键
+        print(f"\n=== All Context Keys ===")
+        for key in ['wt', 'tt', 'sl', 'bs', 'bdn', 'sb', 'n', 'd', 'wen', 'va', 'ds', 'cc', 'pg', 'ir', 'av', 'as']:
+            if key in self.contexts:
+                print(f"✓ {key}: {type(self.contexts[key])}")
+            else:
+                print(f"✗ {key}: NOT SET")
+        
+        print(f"\n=== Starting Render ===")
+        try:
+            self.doc.render(self.contexts, jinja_env=env)
+            print(f"✓ Render SUCCESS")
+        except Exception as e:
+            print(f"✗ Render FAILED: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+        
+        # 删除空段落
+        self._remove_empty_paragraphs()
+        
         out_stream = BytesIO()
         self.doc.save(out_stream)
         # 保存一份在本地
@@ -953,6 +1047,11 @@ class InspectionAndCorrectionReport():
             if i.get('name') == '波长示值误差与重复性校验':
                 wt = i
                 break
+        
+        print(f"\n=== get_wavelength_table DEBUG ===")
+        print(f"wt is None: {wt is None}")
+        if wt:
+            print(f"wt keys: {wt.keys()}")
         head = wt.get('head_data')
         name = wt.get('name')
         repeated = [] # [{'name': '', 'head': [], 'rows': [[]], 'qualified_standard': ''}]
@@ -1022,6 +1121,17 @@ class InspectionAndCorrectionReport():
                 )
             wt_contexts['index'] = self.section_index
             self.contexts['wt'] = wt_contexts
+            
+            print(f"\n=== wt_contexts Structure ===")
+            print(f"type(wt_contexts): {type(wt_contexts)}")
+            print(f"wt_contexts keys: {wt_contexts.keys()}")
+            if 'unique' in wt_contexts:
+                print(f"type(wt_contexts['unique']): {type(wt_contexts['unique'])}")
+                print(f"wt_contexts['unique'] keys: {wt_contexts['unique'].keys()}")
+            print(f"\nself.contexts['wt'] == wt_contexts: {self.contexts['wt'] is wt_contexts}")
+            print(f"type(self.contexts['wt']): {type(self.contexts['wt'])}")
+            print(f"self.contexts['wt'] keys: {self.contexts['wt'].keys()}")
+            
             self.section_index += 1
 
     def get_transmission_table(self):
@@ -1086,7 +1196,6 @@ class InspectionAndCorrectionReport():
                         'sub_doc': sub_doc
                     }
                 )
-            
 
         if tt_ultraviolet_ray:
             head = tt_ultraviolet_ray.get('head_data')
@@ -1116,6 +1225,13 @@ class InspectionAndCorrectionReport():
                         'project_name': unique.get('qualified_standard'),
                         'sub_doc': sub_doc,
                     }
+        else:
+            tt_contexts['unique'] = {
+                'name': '透射比示值误差与重复性校验紫外区',
+                'test_tool': '---',
+                'project_name': '---',
+                'sub_doc': None,
+            }
                 
         tt_contexts['index'] = self.section_index
         self.contexts['tt'] = tt_contexts
@@ -1131,42 +1247,45 @@ class InspectionAndCorrectionReport():
             if i.get('name') == '杂散光校验':
                 sl = i
                 break
-        head = sl.get('head_data')
-        name = sl.get('name')
-        repeat = []
-        rows = []
-        qualified_line_data = sl.get('qualifiedLine')
-        for test_tool, test_info_dict in qualified_line_data.items():
-            qualified_standard = test_info_dict.get('qualified_standard')
-            row = test_info_dict.get('related_rows')
-            rows.append(row[0])
+        if sl:
+            head = sl.get('head_data')
+            name = sl.get('name')
+            repeat = []
+            rows = []
+            qualified_line_data = sl.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                rows.append(row[0])
  
-        # data_dict_list = convert_table_to_dicts(head, rows)
-        # vertical_table = convert_dicts_to_vertical_table(data_dict_list)[::-1]
-        combined = [head] + rows
-        sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
-        sl_contexts['sub_doc'] = sub_doc
-        sl_contexts['name'] = name
-        sl_contexts['index'] = self.section_index
-        self.section_index += 1
+            # data_dict_list = convert_table_to_dicts(head, rows)
+            # vertical_table = convert_dicts_to_vertical_table(data_dict_list)[::-1]
+            combined = [head] + rows
+            sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+            sl_contexts['sub_doc'] = sub_doc
+            sl_contexts['name'] = name
+            sl_contexts['index'] = self.section_index
+            self.section_index += 1
 
-        self.contexts['sl'] = sl_contexts
+            self.contexts['sl'] = sl_contexts
 
-        # self.contexts['sl'] = {
-        #     'index': 4,
-        #     'title': '杂散光',
-        #     'test_tool_desc': '检验工具',
-        #     'test_tool': {'tool_1':{'label': '碘化钠标准溶液', 'value': {'v1': '220nm', 'v2': '<0.01%'}},
-        #                   'tool_2':{'label': '亚硝酸钠标准溶液', 'value': {'v1': '360nm', 'v2': '≤0.02%'}},
-        #                    },
-        #     'test_value_desc': '测量值（%)',
-        #     'test_values': {
-        #        'headers' : {'v1': 1, 'v2': 2, 'v3': 3},
-        #        'data': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000', 'v6': '0.000'}
-        #     },
-        #     'test_result_v': '结果',
-        #     'test_results': {'v1': '未检测', 'v2': '未检测'}
-        # }
+            # self.contexts['sl'] = {
+            #     'index': 4,
+            #     'title': '杂散光',
+            #     'test_tool_desc': '检验工具',
+            #     'test_tool': {'tool_1':{'label': '碘化钠标准溶液', 'value': {'v1': '220nm', 'v2': '<0.01%'}},
+            #                   'tool_2':{'label': '亚硝酸钠标准溶液', 'value': {'v1': '360nm', 'v2': '≤0.02%'}},
+            #                    },
+            #     'test_value_desc': '测量值（%)',
+            #     'test_values': {
+            #        'headers' : {'v1': 1, 'v2': 2, 'v3': 3},
+            #        'data': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000', 'v6': '0.000'}
+            #     },
+            #     'test_result_v': '结果',
+            #     'test_results': {'v1': '未检测', 'v2': '未检测'}
+            # }
+        else:
+            self.contexts['sl'] = None
     
     def get_baseline_straightness(self):
         """
@@ -1178,29 +1297,32 @@ class InspectionAndCorrectionReport():
             if i.get('name') == '基线平直度检验':
                 bs = i
                 break
-        head = bs.get('head_data')
-        name = bs.get('name')
-        repeat = []
-        rows = []
-        qualified_line_data = bs.get('qualifiedLine')
-        for test_tool, test_info_dict in qualified_line_data.items():
-            qualified_standard = test_info_dict.get('qualified_standard')
-            row = test_info_dict.get('related_rows')
-            rows.append(row[0])
+        if bs:
+            head = bs.get('head_data')
+            name = bs.get('name')
+            repeat = []
+            rows = []
+            qualified_line_data = bs.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                rows.append(row[0])
         
-        combined = [head] + rows
-        new_combined = []
-        for c in combined:
-            c.pop(0)
-            new_combined.append(c)
-        combined = new_combined
-        sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
-        bs_contexts['sub_doc'] = sub_doc
-        bs_contexts['name'] = name
-        bs_contexts['index'] = self.section_index
-        self.section_index += 1
+            combined = [head] + rows
+            new_combined = []
+            for c in combined:
+                c.pop(0)
+                new_combined.append(c)
+            combined = new_combined
+            sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+            bs_contexts['sub_doc'] = sub_doc
+            bs_contexts['name'] = name
+            bs_contexts['index'] = self.section_index
+            self.section_index += 1
 
-        self.contexts['bs'] = bs_contexts
+            self.contexts['bs'] = bs_contexts
+        else:
+            self.contexts['bs'] = None
 
 
     def get_baseline_dark_noise(self):
@@ -1213,34 +1335,37 @@ class InspectionAndCorrectionReport():
             if i.get('name') == '基线暗噪声检验':
                 bdn = i
                 break
-        head = bdn.get('head_data')
-        name = bdn.get('name')
-        repeat = []
-        rows = []
-        qualified_line_data = bdn.get('qualifiedLine')
-        for test_tool, test_info_dict in qualified_line_data.items():
-            qualified_standard = test_info_dict.get('qualified_standard')
-            row = test_info_dict.get('related_rows')
-            rows.append(row[0])
+        if bdn:
+            head = bdn.get('head_data')
+            name = bdn.get('name')
+            repeat = []
+            rows = []
+            qualified_line_data = bdn.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                rows.append(row[0])
         
-        # for index, r in enumerate(rows):
-        #     if r[0] == '项目名称':
-        #         break
-        #     r.pop(index)
+            # for index, r in enumerate(rows):
+            #     if r[0] == '项目名称':
+            #         break
+            #     r.pop(index)
         
-        combined = [head] + rows
-        new_combined = []
-        for c in combined:
-            c.pop(0)
-            new_combined.append(c)
-        combined = new_combined
-        sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
-        bdn_contexts['sub_doc'] = sub_doc
-        bdn_contexts['name'] = name
-        bdn_contexts['index'] = self.section_index
-        self.section_index += 1
+            combined = [head] + rows
+            new_combined = []
+            for c in combined:
+                c.pop(0)
+                new_combined.append(c)
+            combined = new_combined
+            sub_doc = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+            bdn_contexts['sub_doc'] = sub_doc
+            bdn_contexts['name'] = name
+            bdn_contexts['index'] = self.section_index
+            self.section_index += 1
 
-        self.contexts['bdn'] = bdn_contexts
+            self.contexts['bdn'] = bdn_contexts
+        else:
+            self.contexts['bdn'] = None
 
 
     def get_spectral_bandwidth(self):
@@ -1253,38 +1378,41 @@ class InspectionAndCorrectionReport():
             if i.get('name') == '光谱带宽与仪器最小光谱带宽':
                 sb = i
                 break
-        head = sb.get('head_data')
-        name = sb.get('name')
-        repeat = []
-        rows = []
-        qualified_line_data = sb.get('qualifiedLine')
-        for test_tool, test_info_dict in qualified_line_data.items():
-            qualified_standard = test_info_dict.get('qualified_standard')
-            row = test_info_dict.get('related_rows')
-            rows.append(row[0])
+        if sb:
+            head = sb.get('head_data')
+            name = sb.get('name')
+            repeat = []
+            rows = []
+            qualified_line_data = sb.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                rows.append(row[0])
         
 
-        data_dict_list = convert_table_to_dicts(head, rows)
-        vertical_table = convert_dicts_to_vertical_table(data_dict_list)[::-1]
-        sub_doc = self.create_subdoc_table(vertical_table, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
-        sb_contexts['sub_doc'] = sub_doc
-        sb_contexts['name'] = name
-        sb_contexts['index'] = self.section_index
-        sb_contexts['project_name'] = qualified_standard
-        self.section_index += 1
+            data_dict_list = convert_table_to_dicts(head, rows)
+            vertical_table = convert_dicts_to_vertical_table(data_dict_list)[::-1]
+            sub_doc = self.create_subdoc_table(vertical_table, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+            sb_contexts['sub_doc'] = sub_doc
+            sb_contexts['name'] = name
+            sb_contexts['index'] = self.section_index
+            sb_contexts['project_name'] = qualified_standard
+            self.section_index += 1
 
-        self.contexts['sb'] = sb_contexts
-        # self.contexts['sb'] = {
-        #     'index': 7,
-        #     'title': '光谱带宽',
-        #     'standard_v': '不超过标称光谱带宽的±20%',
-        #     'corner_cell': '光谱带宽（nm）',
-        #     'ch': {'h1': '测量值(nm)', 'h2': '偏差（%）'}, # ch Column header
-        #     'rh': {'h1': '氘灯5.0', 'h2': '氘灯2.0', 'h3': '氘灯1.0', 'h4':'氘灯0.5', 'h5': '氘灯0.2'}, # rh Row header
-        #     'rows': {'row_1': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000'},
-        #              'row_2': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000'}
-        #              }
-        # }
+            self.contexts['sb'] = sb_contexts
+            # self.contexts['sb'] = {
+            #     'index': 7,
+            #     'title': '光谱带宽',
+            #     'standard_v': '不超过标称光谱带宽的±20%',
+            #     'corner_cell': '光谱带宽（nm）',
+            #     'ch': {'h1': '测量值(nm)', 'h2': '偏差（%）'}, # ch Column header
+            #     'rh': {'h1': '氘灯5.0', 'h2': '氘灯2.0', 'h3': '氘灯1.0', 'h4':'氘灯0.5', 'h5': '氘灯0.2'}, # rh Row header
+            #     'rows': {'row_1': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000'},
+            #              'row_2': {'v1': '0.000', 'v2': '0.000', 'v3': '0.000', 'v4': '0.000', 'v5': '0.000'}
+            #              }
+            # }
+        else:
+            self.contexts['sb'] = None
 
     def get_noise(self):
         """
@@ -1297,28 +1425,31 @@ class InspectionAndCorrectionReport():
             if i.get('name') == '噪声检验':
                 n = i
                 break
-        head = n.get('head_data')
-        name = n.get('name')
-        repeat = []
-        rows = []
-        qualified_line_data = n.get('qualifiedLine')
-        for test_tool, test_info_dict in qualified_line_data.items():
-            qualified_standard = test_info_dict.get('qualified_standard')
-            row = test_info_dict.get('related_rows')
-            rows.append(row[0])
-        new_rows = []
-        for r in rows:
-            new_one_rows = []
-            for index, one_row_v in enumerate(r):
-                new_one_rows.append(head[index])
-                new_one_rows.append(one_row_v)
-            new_rows.append(new_one_rows)
-        sub_doc = self.create_subdoc_table(new_rows, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.6)
-        n_contexts['sub_doc'] = sub_doc
-        n_contexts['name'] = name
-        n_contexts['index'] = self.section_index
-        self.section_index += 1
-        self.contexts['n'] = n_contexts
+        if n:
+            head = n.get('head_data')
+            name = n.get('name')
+            repeat = []
+            rows = []
+            qualified_line_data = n.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                rows.append(row[0])
+            new_rows = []
+            for r in rows:
+                new_one_rows = []
+                for index, one_row_v in enumerate(r):
+                    new_one_rows.append(head[index])
+                    new_one_rows.append(one_row_v)
+                new_rows.append(new_one_rows)
+            sub_doc = self.create_subdoc_table(new_rows, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.6)
+            n_contexts['sub_doc'] = sub_doc
+            n_contexts['name'] = name
+            n_contexts['index'] = self.section_index
+            self.section_index += 1
+            self.contexts['n'] = n_contexts
+        else:
+            self.contexts['n'] = None
 
     def get_drift(self):
         """
@@ -1330,28 +1461,31 @@ class InspectionAndCorrectionReport():
             if i.get('name') == '漂移检验':
                 d = i
                 break
-        head = d.get('head_data')
-        name = d.get('name')
-        rows = []
-        qualified_line_data = d.get('qualifiedLine')
-        for test_tool, test_info_dict in qualified_line_data.items():
-            qualified_standard = test_info_dict.get('qualified_standard')
-            row = test_info_dict.get('related_rows')
-            rows = row
+        if d:
+            head = d.get('head_data')
+            name = d.get('name')
+            rows = []
+            qualified_line_data = d.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                rows = row
         
-        new_rows = []
-        for r in rows:
-            new_one_rows = []
-            for index, one_row_v in enumerate(r):
-                if index > 1:
-                    new_one_rows.append(head[index])
-                    new_one_rows.append(one_row_v)
-            new_rows.append(new_one_rows)
-        d_contexts['sub_doc'] = self.create_subdoc_table(new_rows, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.6)
-        d_contexts['name'] = name
-        d_contexts['index'] = self.section_index
-        self.section_index += 1
-        self.contexts['d'] = d_contexts
+            new_rows = []
+            for r in rows:
+                new_one_rows = []
+                for index, one_row_v in enumerate(r):
+                    if index > 1:
+                        new_one_rows.append(head[index])
+                        new_one_rows.append(one_row_v)
+                new_rows.append(new_one_rows)
+            d_contexts['sub_doc'] = self.create_subdoc_table(new_rows, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.6)
+            d_contexts['name'] = name
+            d_contexts['index'] = self.section_index
+            self.section_index += 1
+            self.contexts['d'] = d_contexts
+        else:
+            self.contexts['d'] = None
     
     def wavelength_edge_noise(self):
         """
@@ -1363,21 +1497,24 @@ class InspectionAndCorrectionReport():
             if i.get('name') == '波长边缘噪声':
                 wen = i
                 break
-        head = wen.get('head_data')
-        head.insert(0, '--')
-        name = wen.get('name')
-        rows = []
-        qualified_line_data = wen.get('qualifiedLine')
-        for test_tool, test_info_dict in qualified_line_data.items():
-            qualified_standard = test_info_dict.get('qualified_standard')
-            row = test_info_dict.get('related_rows')
-            rows.append([qualified_standard] + row[0])
-        combined = [head] + rows
-        wen_contexts['sub_doc'] = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
-        wen_contexts['name'] = name
-        wen_contexts['index'] = self.section_index
-        self.section_index += 1
-        self.contexts['wen'] = wen_contexts
+        if wen:
+            head = wen.get('head_data')
+            head.insert(0, '--')
+            name = wen.get('name')
+            rows = []
+            qualified_line_data = wen.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                rows.append([qualified_standard] + row[0])
+            combined = [head] + rows
+            wen_contexts['sub_doc'] = self.create_subdoc_table(combined, is_vertical=False, merge_key='', merge_enabled=True, parent_cell_height=1.2)
+            wen_contexts['name'] = name
+            wen_contexts['index'] = self.section_index
+            self.section_index += 1
+            self.contexts['wen'] = wen_contexts
+        else:
+            self.contexts['wen'] = None
 
 
     def get_voltage_adaptability(self):
