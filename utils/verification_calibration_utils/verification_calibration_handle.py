@@ -534,9 +534,9 @@ class InspectionAndCorrectionReport():
         out_stream = BytesIO()
         self.doc.save(out_stream)
         # 保存一份在本地
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        output_filename = os.path.join(current_dir, 'verification_and_calibration_result.docx')
-        self.doc.save(output_filename)
+        # current_dir = os.path.dirname(os.path.abspath(__file__))
+        # output_filename = os.path.join(current_dir, 'verification_and_calibration_result.docx')
+        # self.doc.save(output_filename)
 
         return out_stream
 
