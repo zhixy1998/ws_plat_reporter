@@ -19,10 +19,11 @@ from docxtpl import InlineImage, DocxTemplate
 
 from config import config
 from exceptions.error import ErrorCode
-from constants.template_constant import MeasureType
+from constants.template_constant import MeasureType, MeasureMode
 from exceptions.command_exception import APIException
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from utils.table_data_processor import TableDataProcessor
+from utils.template_utils import get_title_mapping, remove_marker_rows
 
 common_data_mapping = {
     # 光谱
@@ -120,7 +121,7 @@ class ClassicFillDataUtils():
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, is_repeat_mode=0, digit=None):
         common_val = self.get_common_data_by_endpoint(task_id, analysis_id)
-        print('通用接口返回数据==============：', common_val)
+        # print('通用接口返回数据==============：', common_val)
         if analysis_id and len(analysis_id.split(',')) == 1:
             self.single_sample = True
 
@@ -129,12 +130,30 @@ class ClassicFillDataUtils():
 
         tpl = DocxTemplate(doc_stream)
         flag, contexts = await self.get_context(tpl, image_base64)
+        title_mapping = get_title_mapping(self.name, measure_mode=MeasureMode.classic.value)
+        for t_key, t_desc in title_mapping.items():
+            contexts[t_key] = t_desc.get('name', '')
+
         if not flag:
             return None
+        # 删除空的行
+        undeclared_key = [i for i in tpl.get_undeclared_template_variables() if i.endswith('_t')]
+        declared_key = [i for i in contexts.keys() if i.endswith('_t')]
+
+        # 找出模板中有但 contexts 中没有数据的 _t 变量，打上删除标记
+        _DEL_MARKER = '__DEL_ROW__'
+        extra_keys = set(undeclared_key) - set(declared_key)
+        if extra_keys:
+            print(f"DEBUG fill_template_by_jinja: 多余的_t变量(将标记删除行): {extra_keys}")
+            for ek in extra_keys:
+                contexts[ek] = _DEL_MARKER
+        
         tpl.render(context=contexts)
         output_stream = BytesIO()
         tpl.save(output_stream)
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
+
+        output_stream = remove_marker_rows(output_stream, _DEL_MARKER)
 
         return output_stream
     

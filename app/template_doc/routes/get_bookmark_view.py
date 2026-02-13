@@ -4,18 +4,20 @@ from typing import List, Optional, Dict, Union
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
+from tortoise import connections
 
 from exceptions.error import ErrorCode
 from ..model.template_doc import TemplateDoc
 from utils.log_decorator import log_response
 from utils.template_utils import get_title_mapping
 from exceptions.command_exception import APIException
-from constants.template_constant import TemplateBookMarkType
+from constants.template_constant import TemplateBookMarkType, MeasureMode
 
 router = APIRouter()
 
 class BookmarkItem(BaseModel):
     template_doc_id: int = Field(..., description="所属模板文档ID")
+    
     name: str = Field(..., description="书签名称")
     desc_t: Optional[str] = Field(None, description="time_mapping 的key")
     sort_order: int = Field(None, description="显示顺序（越小越靠前）")
@@ -34,13 +36,17 @@ class OutSchema(BaseModel):
 
 @router.get('/get_bookmark', response_model=OutSchema)
 @log_response
-async def get_bookmark(template_id: int, type: Optional[int] = None):
-    template_instance = await TemplateDoc.get_or_none(id=template_id, is_del=0)
+async def get_bookmark(template_id: int, measure_mode: Optional[int] = None):
+    if measure_mode == MeasureMode.classic.value:
+        class_db_con = connections.get('classic_db')
+        template_instance = await TemplateDoc.get_or_none(id=template_id, is_del=0).using_db(class_db_con)
+    else:
+        template_instance = await TemplateDoc.get_or_none(id=template_id, is_del=0)
     if template_instance is None:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
     result = []
     # 加载标题映射
-    title_mapping = get_title_mapping(template_instance.name)
+    title_mapping = get_title_mapping(template_instance.name, measure_mode)
     for t, info_dict in title_mapping.items():
         result.append({
             'name': info_dict.get('name', ''),

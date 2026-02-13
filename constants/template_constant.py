@@ -108,3 +108,7 @@ class TemplatePageNumType(StorageInfo):
     left_page = MessageType(decs='左边展示', value=1, name="left_page")
     center_page = MessageType(decs='居中展示', value=2, name="center_page")
     right_page = MessageType(decs='右边展示', value=3, name="right_page")
+
+class MeasureMode(StorageInfo):
+    classic = MessageType(decs='经典模式', value=0, name="classic")
+    guide = MessageType(decs='向导模式', value=1, name="guide")

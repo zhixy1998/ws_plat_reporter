@@ -9,8 +9,10 @@ from io import BytesIO
 from typing import List, Optional, Union
 
 # 第三方库导入
+from docx import Document
 from fastapi import APIRouter
 from urllib.parse import quote
+from tortoise import connections
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
 
@@ -18,13 +20,14 @@ from fastapi.responses import StreamingResponse
 from exceptions.error import ErrorCode
 from utils.log_decorator import log_response
 from ..model.template_doc import TemplateDoc
+from app.classic_template_doc.routes.classic_create_template_view import create_template as classic_create_template
 from .create_template_view import create_template
 from utils.fille_template_utils import FillDataUtils
 from exceptions.command_exception import APIException
 from utils.handle_header_footer import set_header_footer
 from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
 from utils.doc_converter import get_libreoffice_command
-from constants.template_constant import TemplatePageNumType
+from constants.template_constant import TemplatePageNumType, MeasureMode
 
 router = APIRouter()
 
@@ -46,6 +49,7 @@ class InputSchema(BaseModel):
     remark: Optional[BookmarkItem]= Field(None, description='备注')
     project_name: Optional[BookmarkItem] = Field(None, description='动态项目名称')
     page_num_type: str = Field(TemplatePageNumType.no_page.value, description='页码类型')
+    measure_mode: int = Field(None, description='测量模式 1:默认 2:仅测量标签位置不修改标签字体大小')
 
 
 
@@ -63,11 +67,15 @@ class DataSchema(BaseModel):
 @router.post('/update_bookmark')
 @log_response
 async def update_bookmark(data: InputSchema):
-    template = await TemplateDoc.get_or_none(id=data.template_id)
+    if data.measure_mode == MeasureMode.classic.value:
+        class_db_con = connections.get('classic_db')
+        template = await TemplateDoc.get_or_none(id=data.template_id).using_db(class_db_con)
+    else:
+        template = await TemplateDoc.get_or_none(id=data.template_id)
     if not template:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
     template_name = template.name
-    origin_title_mapping = get_title_mapping(template_name)
+    origin_title_mapping = get_title_mapping(template_name, measure_mode=data.measure_mode)
     operation_type = data.operation_type
     input_title_mapping = data.bookmark_list
     new_title_mapping = {}
@@ -82,17 +90,25 @@ async def update_bookmark(data: InputSchema):
         if not new_name:
             raise APIException(ErrorCode.TEMPLATE_NAME_EMPTY)
         # 合并标题映射
-        merged_title_mapping = {**origin_title_mapping, **new_title_mapping}
+        merged_title_mapping = {k: new_title_mapping[k] for k in origin_title_mapping if k in new_title_mapping}
         content_base64 = template.template_content
         content = base64.b64decode(content_base64)  # 解码 base64 回原始 DOCX 字节
-        await create_template(data.name, content_base64, content=content, template_type=template.type, 
+
+        if data.measure_mode == MeasureMode.classic.value:
+            await classic_create_template(new_name, content_base64, content=content, template_type=template.type, experiment_type=template.experiment_type, title_mapping=merged_title_mapping, old_template_name=template_name)
+        else:
+            await create_template(data.name, content_base64, content=content, template_type=template.type, 
         industry_type=template.industry_type, experiment_type=template.experiment_type, 
         title_mapping=merged_title_mapping, old_template_name=template_name)
         return {'code': 200, 'message': '模板另存为成功', 'data': {'file_base64': ''}}
 
     else:  # 预览
 
-        doc = await get_doc_obj_by_template_id(template_id=data.template_id)
+        # doc = await get_doc_obj_by_template_id(template_id=data.template_id)
+
+        content_bytes = base64.b64decode(template.template_content)
+        doc_stream = BytesIO(content_bytes)
+        doc = Document(doc_stream)
 
         # 处理页眉页脚
         header_info = data.header
@@ -111,9 +127,10 @@ async def update_bookmark(data: InputSchema):
     
         # 为显示创建流（处理docxtpl标识）
         show_output_stream = BytesIO(doc_raw_bytes)
-        template_instance = await TemplateDoc.get_or_none(id=data.template_id)
-        template_name = template_instance.name
-        fill_data_utils = FillDataUtils(template_name, data.template_id, fake=True, new_title_mapping=new_title_mapping)
+        if data.measure_mode == MeasureMode.classic.value:
+            fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path='template_structure_classic')
+        else:
+            fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path='template_structure')
         # DEBUG: inspect show_output_stream before preview
         try:
             show_output_stream.seek(0)
@@ -145,40 +162,22 @@ async def update_bookmark(data: InputSchema):
         word_bytes = doc_stream.read()
 
         # ========== DEBUG 模式：保存中间文件到硬盘（需要时取消注释） ==========
-            # debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
-            # with open(debug_word_path, "wb") as f:
-            #     f.write(word_bytes)
-            # print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
+        # debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
+        # with open(debug_word_path, "wb") as f:
+        #     f.write(word_bytes)
+        # print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
         # ====================================================================
 
         # 直接从内存转换为 PDF
-        try:
 
-            # 使用 BytesIO 包装字节流，确保 StreamingResponse 正确发送整个文件
-            filename = f"{template_name}_filled.docx"
-            safe_name = quote(filename)
-            headers = {
-                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
-                "Content-Length": str(len(word_bytes))
-            }
-            return StreamingResponse(BytesIO(word_bytes), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=headers)
-            # pdf_bytes = convert_docx_to_pdf(word_bytes)
-            
-            # # ========== DEBUG 模式：保存 PDF 到硬盘（需要时取消注释） ==========
-            # # debug_pdf_path = os.path.join(os.getcwd(), "debug_template.pdf")
-            # # with open(debug_pdf_path, "wb") as f:
-            # #     f.write(pdf_bytes)
-            # # print(f"DEBUG: PDF已保存到 {debug_pdf_path}，文件大小：{len(pdf_bytes)} bytes")
-            # # ================================================================
-        
-            # pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-            # show_base64_str = pdf_base64
-        except Exception as e:
-            print(f"PDF转换失败: {e}")
-            import traceback
-            traceback.print_exc()
-            show_base64_str = ""
-        return {'code': 200, 'message': '预览成功', 'data': {'file_base64': show_base64_str}}
+        # 使用 BytesIO 包装字节流，确保 StreamingResponse 正确发送整个文件
+        filename = f"{template_name}_filled.docx"
+        safe_name = quote(filename)
+        headers = {
+            "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+            "Content-Length": str(len(word_bytes))
+        }
+        return StreamingResponse(BytesIO(word_bytes), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=headers)
 
 
 

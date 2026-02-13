@@ -3,6 +3,7 @@ from typing import List, Dict, Union, Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
+from tortoise import connections
 from exceptions.error import ErrorCode
 from ..model.template_doc import TemplateDoc
 from exceptions.command_exception import APIException
@@ -12,7 +13,7 @@ from utils.get_bookmark_text import get_bookmark_text
 from utils.handle_header_footer import get_header_footer_font_info
 from utils.log_decorator import log_response
 from app.template_doc.model.template_extra_info import TemplateExtraInfo
-from constants.template_constant import TemplatePageNumType
+from constants.template_constant import TemplatePageNumType, MeasureMode
 
 router = APIRouter()
 
@@ -36,12 +37,25 @@ class OutSchema(BaseModel):
 
 @router.get('/get_template_extra_info', response_model=OutSchema)
 @log_response
-async def get_template_extra_info(template_id: int):
-    template_instance = await TemplateDoc.get_or_none(id=template_id)
+async def get_template_extra_info(template_id: int, measure_mode: Optional[int] = None):
+
+    class_db_con = connections.get('classic_db')
+    if measure_mode == MeasureMode.classic.value:
+        template_instance = await TemplateDoc.get_or_none(id=template_id, is_del=0).using_db(class_db_con)
+    else:
+        template_instance = await TemplateDoc.get_or_none(id=template_id)
     if not template_instance:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
-    doc = await get_doc_obj_by_template_id(template_id)
-    title_bookmark_instances = await TemplateBookmark.filter(template_doc_id=template_id, name__contains='标题', is_del=0)
+    
+    if measure_mode == MeasureMode.classic.value:
+        doc = await get_doc_obj_by_template_id(template_id, classic_db=class_db_con)
+    else:
+        doc = await get_doc_obj_by_template_id(template_id)
+
+    if measure_mode == MeasureMode.classic.value:
+        title_bookmark_instances = await TemplateBookmark.filter(template_doc_id=template_id, name__contains='标题', is_del=0).using_db(class_db_con)
+    else:
+        title_bookmark_instances = await TemplateBookmark.filter(template_doc_id=template_id, name__contains='标题', is_del=0)
     title_bookmark_info_list = [{'bm_id': i.id, 'font': i.font, 'font_size': i.font_size, 'name': i.name} for i in title_bookmark_instances]
     title_content_value_list = []
     for title_bookmark_info in title_bookmark_info_list:
@@ -55,7 +69,11 @@ async def get_template_extra_info(template_id: int):
     template_name = template_instance.name
     # template_extra_info = await TemplateExtraInfo.get_or_none(template_doc_id=template_id)
 
-    module_name = "template_structure." + template_name
+    if measure_mode == MeasureMode.classic.value:
+        module_name = "template_structure_classic." + template_name
+    else:
+        module_name = "template_structure." + template_name
+
     try:
         private_mod = importlib.import_module(module_name)
     except Exception as e:

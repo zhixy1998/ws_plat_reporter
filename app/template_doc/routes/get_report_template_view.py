@@ -2,9 +2,10 @@ from typing import List, Optional, Union
 from fastapi import APIRouter, Query
 from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
+from tortoise import connections
 
 from exceptions.error import ErrorCode
-from constants.template_constant import ExperimentType, TemplateType, TemplateOriginType
+from constants.template_constant import ExperimentType, MeasureMode, TemplateType, TemplateOriginType
 from exceptions.command_exception import APIException
 from utils.log_decorator import log_response
 
@@ -35,6 +36,7 @@ class OutSchema(BaseModel):
 @log_response
 async def get_report_template(
     name: Optional[str]= Query(None, description='模板名称'), 
+    measure_mode: Optional[int]= Query(None, description='测量模式'),
     industry: Optional[str]= Query(None, description='行业类型'),
     origin_type: Optional[int]= Query(None, description='模板来源类型'),
     experiment_type: Optional[Union[int, str]]= Query(None, description='实验类型'),
@@ -61,7 +63,11 @@ async def get_report_template(
     #     raise APIException(ErrorCode.REPORT_TEMPLATE_TYPE_ERROR)
 
     # 构建基础查询（如果 name 存在就加筛选）
-    query = TemplateDoc.filter(is_del=0)
+    if measure_mode == MeasureMode.classic.value:
+        class_db_con = connections.get('classic_db')
+        query = TemplateDoc.filter(is_del=0).using_db(class_db_con)
+    else:
+        query = TemplateDoc.filter(is_del=0)
     sum_count = await query.count()
     if name:
         query = query.filter(name__contains=name)

@@ -12,7 +12,7 @@ from app.db import execute_safe_sql
 class TableDataProcessor:
     """表格数据处理器，负责动态加载模板配置并处理表格数据"""
     
-    def __init__(self, template_name: str):
+    def __init__(self, template_name: str, structure_path='template_structure'):
         """
         初始化表格数据处理器
         
@@ -22,11 +22,12 @@ class TableDataProcessor:
         self.template_name = template_name
         self.template_module = None
         self.handler_instance = None
+        self.structure_path = structure_path
         self._load_template_module()
     
     def _load_template_module(self):
         """动态加载模板配置模块"""
-        module_name = f"template_structure.{self.template_name}"
+        module_name = f"{self.structure_path}.{self.template_name}"
         try:
             self.template_module = importlib.import_module(module_name)
             # 检查是否有TableDataHandler类

@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from utils.log_decorator import log_response
 from app.template_doc.model.template_doc import TemplateDoc
-from constants.template_constant import TemplateType, ExperimentType, TemplateOriginType
+from constants.template_constant import TemplateType, ExperimentType, TemplateOriginType, MeasureMode
 
 router = APIRouter()
 
@@ -16,6 +16,7 @@ class InputSchema(BaseModel):
 async def get_m():
     all_template = await TemplateDoc.filter(is_del=0).all()
     industry_list = []
+    measure_mode_list = [{'value': i, 'label': desc} for i, desc in MeasureMode.generate_value_desc_map().items()]
     origin_type_list = [{'value': i, 'label': desc} for i, desc in TemplateOriginType.generate_value_desc_map().items()]
     experiment_type_list = [{'value': i, 'label': desc} for i, desc in ExperimentType.generate_value_desc_map().items()]
     template_type_list = [{'value': i, 'label': desc} for i, desc in TemplateType.generate_value_desc_map().items()]
@@ -26,4 +27,4 @@ async def get_m():
 
     return {'code':200, 'message':'success', 'data': {'industry': industry_list, 
         'origin_type': origin_type_list, 'experiment_type': 
-        experiment_type_list, 'template_type': template_type_list, }}
+        experiment_type_list, 'template_type': template_type_list, 'measure_mode': measure_mode_list }}

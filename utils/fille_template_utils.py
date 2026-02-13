@@ -28,15 +28,15 @@ from app.template_doc.model.template_bookmark import TemplateBookmark
 from constants.template_constant import GetTypeConstant, FillTypeConstant
 from utils.table_data_processor import TableDataProcessor, GetHeaderAndData
 from utils.classic_fille_template_utils_simple import ClassicFillDataUtils
+from utils.template_utils import remove_marker_rows
 
 load_dotenv(override=True)
 
 class FillDataUtils():
-    def __init__(self, name, template_id, fake=False, new_title_mapping=None):
+    def __init__(self, name,  fake=False, new_title_mapping=None, template=None, structure_path='template_structure'):
         self.name = name
         self.sample_id = None
         private_mod = None
-        self.template_id = template_id
         self.common_val = None   # 代表通用数据接口返回的数据
         self.common_key = None   # 代表通用数据的描述
         self.private_key = None  # 代表私有数据的描述
@@ -45,11 +45,13 @@ class FillDataUtils():
         self.contexts = {}
         self.end_point_header_and_data = None
         self.fake = fake
-        self.table_data_processor = TableDataProcessor(name)
-        self.init_data()
+        self.table_data_processor = TableDataProcessor(name, structure_path=structure_path)
+        self.init_data(structure_path)
         self.new_title_mapping = new_title_mapping
         self.single_sample = False
         self.template_type = None
+        self.template = template
+
 
     def convert_tel_val_data_to_rows(self, tel_val_data_list):
         """
@@ -74,13 +76,13 @@ class FillDataUtils():
         
         return rows
 
-    def init_data(self):
-        common_data_module_path = "template_structure." + 'common_data'  # 比如 name = "my_template"
+    def init_data(self, structure_path):
+        common_data_module_path = f"{structure_path}.common_data"  # 比如 name = "my_template"
         common_mod = importlib.import_module(common_data_module_path)
         self.common_title_mapping = common_mod.title_mapping
         common_key = common_mod.data
         self.common_key = common_key
-        module_name = "template_structure." + self.name  # 比如 name = "my_template"
+        module_name = f"{structure_path}.{self.name}"  # 比如 name = "my_template"
         try:
             private_mod = importlib.import_module(module_name)
         except Exception as e:
@@ -174,10 +176,9 @@ class FillDataUtils():
 
     async def preview_view(self, doc_stream, task_id=None, remark=None, image_base64=None):
 
-        template = await TemplateDoc.filter(id=self.template_id).first()
-        template_type = template.type
+        template_type = self.template.type
         self.template_type = template_type
-        self.experiment_type = template.experiment_type
+        self.experiment_type = self.template.experiment_type
         self.measure_type = ExperimentType.get_name_desc_by_value(self.experiment_type)
         if template_type == TemplateType.report_template.value:
             # 获取表格上下文与通用数据
@@ -224,11 +225,10 @@ class FillDataUtils():
         if task_id:
             await self.handle_measure_type(task_id)
         else:
-            template = await TemplateDoc.filter(id=self.template_id).first()
-            if template:
-                self.measure_type = ExperimentType.get_name_desc_by_value(template.experiment_type)
+            if self.template:
+                self.measure_type = ExperimentType.get_name_desc_by_value(self.template.experiment_type)
             if self.template_type is None:
-                self.template_type = template.type
+                self.template_type = self.template.type
 
         # 定量和光度测量
         if self.measure_type == MeasureType.quantitative_determination.decs:
@@ -463,12 +463,25 @@ class FillDataUtils():
                 except Exception:
                     pass
                 used_tpl = _DocxTemplate(doc_stream)
+            undeclared_key = [i for i in used_tpl.get_undeclared_template_variables() if i.endswith('_t')]
+            declared_key = [i for i in self.contexts.keys() if i.endswith('_t')]
+
+            # 找出模板中有但 contexts 中没有数据的 _t 变量，打上删除标记
+            _DEL_MARKER = '__DEL_ROW__'
+            extra_keys = set(undeclared_key) - set(declared_key)
+            if extra_keys:
+                print(f"DEBUG fill_template_by_jinja: 多余的_t变量(将标记删除行): {extra_keys}")
+                for ek in extra_keys:
+                    self.contexts[ek] = _DEL_MARKER
 
             # 合并context 并保存
             used_tpl.render(context=self.contexts)
             output_stream = BytesIO()
             used_tpl.save(output_stream)
             output_stream.seek(0)
+
+            # 删除含有删除标记的表格行（只删标记所在单元格的行，不影响左侧分页）
+            output_stream = remove_marker_rows(output_stream, _DEL_MARKER)
 
             # 移除表格中的空行
             output_stream = self.remove_empty_table_rows(output_stream)
@@ -500,6 +513,7 @@ class FillDataUtils():
                 pass
             return doc_stream
     
+
     def remove_empty_table_rows(self, doc_stream: BytesIO) -> BytesIO:
         """移除表格中的空行"""
         try:
@@ -1400,15 +1414,25 @@ class FillDataUtils():
                 self.contexts['unknown_table_data'] = {'headers': [], 'row_data': []}
     
     # 光度测量 表格数据
-    async def photometric_measurement_table_context(self):
-        if self.end_point_header_and_data:
-            header_list = self.end_point_header_and_data.get('headList')
-            data_list = self.end_point_header_and_data.get('dataList')
-            headers, row_data = self.photometric_measurement_table_data(header_list, data_list)
-            table_data = {'headers': headers, 'row_data': row_data}
-            self.contexts['table_data'] = table_data
+    async def get_photometric_measurement_table_context(self):
+        if self.fake:
+            header = ['编号', '带宽', 'h2', 'h3', 'h4']
+            row_data = []
+            for i in range(len(header)):
+                row = [i+1, 200 + i*10]
+                for j in range(len(header)-len(row)):
+                    row.append('--' if (i+j) % 2 == 0 else '**')
+                row_data.append(row)
+            self.contexts['table_data'] = {'headers': header, 'row_data': row_data}
         else:
-            self.contexts['table_data'] = {'headers': [], 'row_data': []}
+            if self.end_point_header_and_data:
+                header_list = self.end_point_header_and_data.get('headList')
+                data_list = self.end_point_header_and_data.get('dataList')
+                headers, row_data = self.photometric_measurement_table_data(header_list, data_list)
+                table_data = {'headers': headers, 'row_data': row_data}
+                self.contexts['table_data'] = table_data
+            else:
+                self.contexts['table_data'] = {'headers': [], 'row_data': []}
     
     # 光谱扫描
     def handle_spectral_scanning_table(self, end_point_header_and_data):
@@ -1639,3 +1663,5 @@ class FillDataUtils():
                                     row.append('')
                         row_data.append(row)
         return headers, row_data
+
+

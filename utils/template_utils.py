@@ -25,6 +25,7 @@ from config import config
 from app.db import execute_safe_sql
 from utils.doc_converter import get_libreoffice_command
 from app.template_doc.model.template_doc import TemplateDoc
+from constants.template_constant import MeasureMode
 
 
 async def get_doc_obj_by_template_id(template_id: int, classic_db=None):
@@ -529,7 +530,7 @@ def has_ms_word():
     except Exception:
         return False
 
-def get_title_mapping(template_name):
+def get_title_mapping(template_name, measure_mode=None):
     common_title_mapping = {}
     private_title_mapping = {}
     
@@ -544,14 +545,16 @@ def get_title_mapping(template_name):
     
     # 再尝试加载私有 title_mapping（优先级更高）
     try:
-        private_module_path = "template_structure." + template_name
+        if measure_mode == MeasureMode.classic.value:
+            private_module_path = "template_structure_classic." + template_name
+        else:
+            private_module_path = "template_structure." + template_name
         private_mod = importlib.import_module(private_module_path)
         if hasattr(private_mod, 'title_mapping'):
             private_title_mapping = private_mod.title_mapping
     except Exception as e:
         print(f"加载私有 title_mapping 失败: {e}")
 
-    result = []
     # 合并映射：私有的优先级更高
     # title_mapping = {**common_title_mapping, **private_title_mapping}
     return private_title_mapping
@@ -577,3 +580,58 @@ async def validate_python_file(content: str) -> tuple:
         return (False, f'验证失败: {str(e)}')
     except Exception as e:
         return {'valid': False, 'error': f'验证失败: {str(e)}'}
+
+
+
+def remove_marker_rows(doc_stream: BytesIO, marker: str) -> BytesIO:
+    """
+    删除 Word 文档中包含指定标记的段落（文字行）。
+        
+    适用于左右分栏/分页场景：标记可能出现在左侧或右侧，
+    只删除标记所在的那个段落，另一侧不受影响，下方内容自动上移。
+        
+    遍历文档中所有段落（包括表格单元格内的段落），
+    找到包含 marker 的段落后直接从 XML 树中移除该段落元素。
+
+    Args:
+        doc_stream: Word文档流
+        marker: 要查找的标记字符串
+
+    Returns:
+        BytesIO: 处理后的文档流
+    """
+    try:
+        from docx import Document
+        from lxml import etree
+        doc_stream.seek(0)
+        doc = Document(doc_stream)
+
+        # 在整个文档 XML 中查找所有包含 marker 的段落元素 (w:p)
+        # 这样无论段落在 body、表格单元格、页眉页脚中都能覆盖到
+        nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+        body = doc.element.body
+        # 查找所有 w:p 元素（递归）
+        all_paragraphs = body.findall('.//w:p', nsmap)
+            
+        removed_count = 0
+        for p_elem in all_paragraphs:
+            # 拼出该段落的纯文本
+            texts = p_elem.findall('.//w:t', nsmap)
+            full_text = ''.join(t.text or '' for t in texts)
+            if marker in full_text:
+                parent = p_elem.getparent()
+                if parent is not None:
+                    parent.remove(p_elem)
+                    removed_count += 1
+
+        print(f"DEBUG remove_marker_rows: 共删除 {removed_count} 个包含标记的段落")
+
+        output_stream = BytesIO()
+        doc.save(output_stream)
+        output_stream.seek(0)
+        return output_stream
+
+    except Exception as e:
+        print(f"ERROR remove_marker_rows: {e}")
+        doc_stream.seek(0)
+        return doc_stream
