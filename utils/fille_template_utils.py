@@ -86,6 +86,7 @@ class FillDataUtils():
         try:
             private_mod = importlib.import_module(module_name)
         except Exception as e:
+            print(f"导入私有模块 {module_name} 失败: {e}")
             raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)
         self.private_mod = private_mod
         # 不是表格数据
