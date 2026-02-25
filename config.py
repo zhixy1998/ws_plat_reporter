@@ -1,4 +1,5 @@
 import os
+import sys
 import configparser
 import tempfile
 from pathlib import Path
@@ -14,7 +15,31 @@ class Config:
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
         self.config.read(config_path, encoding='utf-8')
+
+
+
+
+
+
+
+
+
+        self._inject_template_paths()
     
+    def _inject_template_paths(self):
+        """将模板文件夹的父目录加入 sys.path，使模板包可被 importlib 直接导入"""
+        try:
+            for key in ('structure_path', 'classic_structure_path'):
+                try:
+                    p = Path(self.config.get('guide', key))
+                    parent = str(p.parent)
+                    if parent not in sys.path:
+                        sys.path.insert(0, parent)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     # 步骤1：生成和当前电脑相同的密钥
     def get_cipher(self):
         # uid = wmi.WMI().Win32_ComputerSystemProduct()[0].UUID
@@ -90,6 +115,24 @@ class Config:
     @property
     def verification_calibration_url(self):
         return self.config.get('java_url', 'domain') + self.config.get('java_url', 'verification_calibration_url')
+    
+    @property
+    def structure_path(self):
+        return Path(self.config.get('guide', 'structure_path'))
+
+    @property
+    def structure_module(self):
+        """模板包的 Python 模块名（文件夹名），用于 importlib.import_module"""
+        return self.structure_path.name
+
+    @property
+    def classic_structure_path(self):
+        return Path(self.config.get('guide', 'classic_structure_path'))
+
+    @property
+    def classic_structure_module(self):
+        """经典模板包的 Python 模块名（文件夹名），用于 importlib.import_module"""
+        return self.classic_structure_path.name
 
     # 添加更多 getter 方法...
 

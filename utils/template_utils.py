@@ -546,9 +546,9 @@ def get_title_mapping(template_name, measure_mode=None):
     # 再尝试加载私有 title_mapping（优先级更高）
     try:
         if measure_mode == MeasureMode.classic.value:
-            private_module_path = "template_structure_classic." + template_name
+            private_module_path = config.classic_structure_module + "." + template_name
         else:
-            private_module_path = "template_structure." + template_name
+            private_module_path = config.structure_module + "." + template_name
         private_mod = importlib.import_module(private_module_path)
         if hasattr(private_mod, 'title_mapping'):
             private_title_mapping = private_mod.title_mapping

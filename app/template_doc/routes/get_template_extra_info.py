@@ -1,3 +1,4 @@
+import sys
 import importlib
 from typing import List, Dict, Union, Optional
 from fastapi import APIRouter, Query
@@ -14,6 +15,7 @@ from utils.handle_header_footer import get_header_footer_font_info
 from utils.log_decorator import log_response
 from app.template_doc.model.template_extra_info import TemplateExtraInfo
 from constants.template_constant import TemplatePageNumType, MeasureMode
+from config import config
 
 router = APIRouter()
 
@@ -63,20 +65,26 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
         title_content_value_list.append({ **title_bookmark_info, 'value': title_content})
     header_and_footer_info = get_header_footer_font_info(doc) 
     header_and_footer_info['title_list'] = title_content_value_list
-
+    # 设置默认 page_num_type，防止模板未配置时序列化失败
+    header_and_footer_info.setdefault('page_num_type', TemplatePageNumType.get_name_desc_by_value(0))
 
     # 获取备注
     template_name = template_instance.name
     # template_extra_info = await TemplateExtraInfo.get_or_none(template_doc_id=template_id)
 
     if measure_mode == MeasureMode.classic.value:
-        module_name = "template_structure_classic." + template_name
+        module_name = config.classic_structure_module + "." + template_name
     else:
-        module_name = "template_structure." + template_name
+        module_name = config.structure_module + "." + template_name
 
     try:
+        # 清理可能的损坏缓存，确保重新从文件系统加载
+        # if module_name in sys.modules:
+        #     del sys.modules[module_name]
+        # importlib.invalidate_caches()
         private_mod = importlib.import_module(module_name)
     except Exception as e:
+        print(f"[get_template_extra_info] import {module_name} failed: {e}")
         private_mod = None
     if private_mod and hasattr(private_mod, 'extra_info'):
         extra_info_config = getattr(private_mod, 'extra_info')

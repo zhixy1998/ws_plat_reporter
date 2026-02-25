@@ -28,6 +28,7 @@ from utils.handle_header_footer import set_header_footer
 from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
 from utils.doc_converter import get_libreoffice_command
 from constants.template_constant import TemplatePageNumType, MeasureMode
+from config import config
 
 router = APIRouter()
 
@@ -128,9 +129,9 @@ async def update_bookmark(data: InputSchema):
         # 为显示创建流（处理docxtpl标识）
         show_output_stream = BytesIO(doc_raw_bytes)
         if data.measure_mode == MeasureMode.classic.value:
-            fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path='template_structure_classic')
+            fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path=config.classic_structure_module)
         else:
-            fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path='template_structure')
+            fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path=config.structure_module)
         # DEBUG: inspect show_output_stream before preview
         try:
             show_output_stream.seek(0)

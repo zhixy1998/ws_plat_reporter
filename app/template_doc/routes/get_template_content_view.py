@@ -14,6 +14,7 @@ from exceptions.command_exception import APIException
 from utils.fille_template_utils import FillDataUtils
 from utils.log_decorator import log_response
 from constants.template_constant import MeasureMode
+from config import config
 
 router = APIRouter()
 
@@ -54,9 +55,9 @@ async def get_template_content(template_id: int, measure_mode: int):
 
     # 获取私有文件
     if measure_mode == MeasureMode.classic.value:
-        module_name = "template_structure_classic." + template.name  # 比如 name = "my_template"
+        module_name = config.classic_structure_module + "." + template.name  # 比如 name = "my_template"
     else:
-        module_name = "template_structure." + template.name  # 比如 name = "my_template"
+        module_name = config.structure_module + "." + template.name  # 比如 name = "my_template"
     try:
         private_mod = importlib.import_module(module_name)
         source_code = inspect.getsource(private_mod)

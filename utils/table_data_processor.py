@@ -8,11 +8,12 @@ from typing import Dict, List, Any, Optional, Tuple
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from app.db import execute_safe_sql
+from config import config
 
 class TableDataProcessor:
     """表格数据处理器，负责动态加载模板配置并处理表格数据"""
     
-    def __init__(self, template_name: str, structure_path='template_structure'):
+    def __init__(self, template_name: str, structure_path=config.structure_module):
         """
         初始化表格数据处理器
         

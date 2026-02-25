@@ -13,6 +13,7 @@ from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from utils.log_decorator import log_response
 from constants.template_constant import MeasureMode
+from config import config
 
 
 router = APIRouter()
@@ -40,10 +41,10 @@ async def save_template_private_code(data: InputSchema):
         raise APIException(ErrorCode.TEMPLATE_PRIVATE_CODE_INVALID, f'私有代码验证失败: {error_msg}')
 
     if data.measure_mode == MeasureMode.classic.value:
-        module_dir = Path(__file__).parent.parent.parent.parent / 'template_structure_classic'
+        module_dir = config.classic_structure_path
     else:
-        module_dir = Path(__file__).parent.parent.parent.parent / 'template_structure'
-    module_dir.mkdir(exist_ok=True)
+        module_dir = config.structure_path
+    module_dir.mkdir(parents=True, exist_ok=True)
     module_path = module_dir / f'{template.name}.py'
 
     try:

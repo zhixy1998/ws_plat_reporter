@@ -22,6 +22,7 @@ from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType, TemplateType, ExperimentType
 from app.db import execute_safe_sql_classic
 from utils.log_decorator import log_response
+from config import config
 
 router = APIRouter()
 
@@ -178,7 +179,7 @@ async def classic_create_python_setting_file(template_id: int, name: str, templa
         title_mapping: 传入的 title_mapping 字典（可选）
         old_template_name: 原始模板名称（可选），如果提供则复制该文件并替换 title_mapping
     """
-    py_folders = 'template_structure_classic'
+    py_folders = config.classic_structure_path
     os.makedirs(py_folders, exist_ok=True)
 
     # 如果传入了 old_template_name 和 title_mapping，复制旧文件并替换 title_mapping
@@ -256,7 +257,7 @@ async def classic_create_python_setting_file(template_id: int, name: str, templa
     if not title_mapping:
         # 加载 common_data 的 title_mapping（用于查询已有的标题描述）
         try:
-            common_mod = importlib.import_module('template_structure_classic.common_data')
+            common_mod = importlib.import_module(config.classic_structure_module + '.' + 'common_data')
             common_title_mapping = common_mod.title_mapping if hasattr(common_mod, 'title_mapping') else {}
         except Exception as e:
             print(f"加载 common_data title_mapping 失败: {e}")

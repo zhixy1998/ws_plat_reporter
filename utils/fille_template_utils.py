@@ -33,7 +33,7 @@ from utils.template_utils import remove_marker_rows
 load_dotenv(override=True)
 
 class FillDataUtils():
-    def __init__(self, name,  fake=False, new_title_mapping=None, template=None, structure_path='template_structure'):
+    def __init__(self, name,  fake=False, new_title_mapping=None, template=None, structure_path=config.structure_module):
         self.name = name
         self.sample_id = None
         private_mod = None
