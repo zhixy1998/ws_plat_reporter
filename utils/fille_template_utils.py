@@ -141,10 +141,9 @@ class FillDataUtils():
         if get_data_from_database_bookmark:
             pass
     
-        template = await TemplateDoc.filter(id=self.template_id).first()
-        template_type = template.type
+        template_type = self.template.type
         self.template_type = template_type
-        self.experiment_type = template.experiment_type
+        self.experiment_type = self.template.experiment_type
         await self.handle_measure_type(task_id=task_id)
         if analysis_id and len(analysis_id.split(',')) == 1:
             self.single_sample = True
@@ -158,7 +157,7 @@ class FillDataUtils():
             await self.fill_common_data(doc_stream=doc_stream)
         # 测量数据走的逻辑
         if self.template_type == TemplateType.original_records.value:
-            classic_fill_data_utils = ClassicFillDataUtils(self.name, self.template_id, self.measure_type, single_sample=self.single_sample)
+            classic_fill_data_utils = ClassicFillDataUtils(self.name, self.template.id, self.measure_type, single_sample=self.single_sample)
             tpl = DocxTemplate(doc_stream)
             contexts = await classic_fill_data_utils.guide_get_context(self.common_val, self.end_point_header_and_data, tpl=tpl, image_base64=image_base64)
             self.contexts.update(contexts)

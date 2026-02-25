@@ -52,14 +52,16 @@ async def export_docx(data: InputSchema):
     sample_id = data.sample_id
     if raw_data_report_id: # 原始记录
         report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(raw_data_report_id)
-        fill_data_instance_report = FillDataUtils(report_template_name, template_id=raw_data_report_id)
+        template = await TemplateDoc.get_or_none(id=raw_data_report_id)
+        fill_data_instance_report = FillDataUtils(report_template_name, template=template)
         report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id,  raw_data_report_id, image_base64=image_base64, analysis_id=analysis_id)
         doc_report = Document(report_doc_steam_obj)
         # lock_table_width_on_document(doc_report)
 
     if test_data_report_id: # 测量数据
         original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(test_data_report_id)
-        fill_data_instance_original = FillDataUtils(original_template_name, template_id=test_data_report_id)
+        template = await TemplateDoc.get_or_none(id=test_data_report_id)
+        fill_data_instance_original = FillDataUtils(original_template_name, template=template)
         original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id, test_data_report_id, image_base64=image_base64, analysis_id=analysis_id)
         doc_original = Document(original_doc_stream_obj)
         # lock_table_width_on_document(doc_original)
