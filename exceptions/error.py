@@ -43,3 +43,4 @@ class ErrorCode(Enum):
     TEMPLATE_NAME_EMPTY = Error(10021, zh='模板名称不能为空')
     TEMPLATE_PRIVATE_CODE_INVALID = Error(10022, zh='模板私有代码无效')
     ONLY_ZIP_FILES_SUPPORTED = Error(10023, zh='只支持.zip文件')
+    CONVERT_PDF_FAILED = Error(10024, zh='Word文档转换PDF失败')

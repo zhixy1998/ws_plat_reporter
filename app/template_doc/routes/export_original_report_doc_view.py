@@ -7,6 +7,7 @@
 import base64
 from io import BytesIO
 from typing import List, Union
+from urllib.parse import quote
 
 from docx import Document
 from fastapi import APIRouter
@@ -17,12 +18,13 @@ from fastapi.responses import StreamingResponse
 from ..model.template_doc import TemplateDoc
 from utils.EditDocxXML import fill_word_bookmark
 from constants.template_constant import TemplateBookMarkType
-from utils.template_utils import get_doc_name_and_doc_stream_obj, add_section_page_break, clean_document_for_merge
+from utils.template_utils import get_doc_name_and_doc_stream_obj, add_section_page_break, clean_document_for_merge, convert_docx_to_pdf_bytes
 from utils.fille_template_utils import FillDataUtils
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 from utils.LoadAndDelete import lock_table_width_on_document
 from utils.log_decorator import log_response
+from constants.template_constant import TemplatePageNumType
 
 router = APIRouter()
 
@@ -55,6 +57,8 @@ async def export_docx(data: InputSchema):
         template = await TemplateDoc.get_or_none(id=raw_data_report_id)
         fill_data_instance_report = FillDataUtils(report_template_name, template=template)
         report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id,  raw_data_report_id, image_base64=image_base64, analysis_id=analysis_id)
+        # 合并前先移除页码，最后统一插入
+        report_doc_steam_obj = fill_data_instance_report.remove_header_page_number(report_doc_steam_obj)
         doc_report = Document(report_doc_steam_obj)
         # lock_table_width_on_document(doc_report)
 
@@ -63,6 +67,8 @@ async def export_docx(data: InputSchema):
         template = await TemplateDoc.get_or_none(id=test_data_report_id)
         fill_data_instance_original = FillDataUtils(original_template_name, template=template)
         original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id, test_data_report_id, image_base64=image_base64, analysis_id=analysis_id)
+        # 合并前先移除页码，最后统一插入
+        original_doc_stream_obj = fill_data_instance_original.remove_header_page_number(original_doc_stream_obj)
         doc_original = Document(original_doc_stream_obj)
         # lock_table_width_on_document(doc_original)
 
@@ -92,16 +98,63 @@ async def export_docx(data: InputSchema):
         composer.save(doc_stream)
         doc_stream.seek(0)
 
-        return StreamingResponse(doc_stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
-            "Content-Disposition": "attachment; filename=filled.docx"
-        })
+        # 合并完成后统一插入页码（页码连续），以原始记录的配置为准
+        page_num_type = fill_data_instance_report.get_page_num_alignment()
+        if page_num_type != TemplatePageNumType.no_page.value:
+            doc_stream = fill_data_instance_report.insert_header_page_number(doc_stream, alignment=page_num_type)
+
+        # 转换为 PDF
+        doc_stream.seek(0)
+        pdf_bytes = convert_docx_to_pdf_bytes(doc_stream)
+        if not pdf_bytes:
+            raise APIException(ErrorCode.CONVERT_PDF_FAILED)
+        filename = f"{report_template_name}_filled.pdf"
+        safe_name = quote(filename)
+        return StreamingResponse(
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+                "Content-Length": str(len(pdf_bytes)),
+            },
+        )
     elif raw_data_report_id and not test_data_report_id:
+        # 单文档根据私有配置插入页码
+        page_num_type = fill_data_instance_report.get_page_num_alignment()
+        if page_num_type != TemplatePageNumType.no_page.value:
+            report_doc_steam_obj = fill_data_instance_report.insert_header_page_number(report_doc_steam_obj, alignment=page_num_type)
         report_doc_steam_obj.seek(0)
-        return StreamingResponse(report_doc_steam_obj, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
-            "Content-Disposition": "attachment; filename=filled.docx"
-        })
+        # 转换为 PDF
+        pdf_bytes = convert_docx_to_pdf_bytes(report_doc_steam_obj)
+        if not pdf_bytes:
+            raise APIException(ErrorCode.CONVERT_PDF_FAILED)
+        filename = f"{report_template_name}_filled.pdf"
+        safe_name = quote(filename)
+        return StreamingResponse(
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+                "Content-Length": str(len(pdf_bytes)),
+            },
+        )
     elif test_data_report_id and not raw_data_report_id:
+        # 单文档根据私有配置插入页码
+        page_num_type = fill_data_instance_original.get_page_num_alignment()
+        if page_num_type != TemplatePageNumType.no_page.value:
+            original_doc_stream_obj = fill_data_instance_original.insert_header_page_number(original_doc_stream_obj, alignment=page_num_type)
         original_doc_stream_obj.seek(0)
-        return StreamingResponse(original_doc_stream_obj, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers={
-            "Content-Disposition": "attachment; filename=filled.docx"
-        })
+        # 转换为 PDF
+        pdf_bytes = convert_docx_to_pdf_bytes(original_doc_stream_obj)
+        if not pdf_bytes:
+            raise APIException(ErrorCode.CONVERT_PDF_FAILED)
+        filename = f"{original_template_name}_filled.pdf"
+        safe_name = quote(filename)
+        return StreamingResponse(
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+                "Content-Length": str(len(pdf_bytes)),
+            },
+        )

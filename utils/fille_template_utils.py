@@ -14,8 +14,8 @@ from dotenv import load_dotenv
 import requests
 from docx import Document
 from docx.shared import Cm
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
+from docx.oxml.ns import qn, nsdecls
+from docx.oxml import OxmlElement, parse_xml
 from docxtpl import InlineImage, DocxTemplate
 from app.template_doc.model.template_doc import TemplateDoc
 from config import config
@@ -91,6 +91,21 @@ class FillDataUtils():
         self.private_mod = private_mod
         # 不是表格数据
         self.private_key = private_mod.python_template_var
+
+    def get_page_num_alignment(self) -> int:
+        """
+        从私有文件的 extra_info.page_num_type 读取页码对齐方式。
+        返回 insert_header_page_number 所需的 alignment 值：
+          0 = 不展示页码
+          1 = 左对齐
+          2 = 居中
+          3 = 右对齐
+        """
+        if self.private_mod and hasattr(self.private_mod, 'extra_info'):
+            extra_info = self.private_mod.extra_info
+            if isinstance(extra_info, dict) and extra_info.get('page_num_type') is not None:
+                return extra_info['page_num_type']
+        return 0  # 默认不展示
         
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, template_id=None, analysis_id=None, image_base64=None):
@@ -163,7 +178,9 @@ class FillDataUtils():
             contexts = await classic_fill_data_utils.guide_get_context(self.common_val, self.end_point_header_and_data, tpl=tpl, image_base64=image_base64)
             self.contexts.update(contexts)
         doc_stream = self.fill_template_by_jinja(doc_stream, tpl=tpl)
-        doc_stream = self.insert_header_page_number(doc_stream)
+        page_num_type = self.get_page_num_alignment()
+        if page_num_type != 0:
+            doc_stream = self.insert_header_page_number(doc_stream, alignment=page_num_type)
         return doc_stream
 
     
@@ -485,6 +502,10 @@ class FillDataUtils():
 
             # 移除表格中的空行
             output_stream = self.remove_empty_table_rows(output_stream)
+
+            # 均分表格列宽（修复 docxtpl {%tc} 循环生成列后宽度不均的问题）
+            output_stream = self._equalize_table_column_widths(output_stream)
+
             try:
                 print(f"DEBUG fill_template_by_jinja: success, size={len(output_stream.getvalue())}")
             except Exception:
@@ -550,26 +571,86 @@ class FillDataUtils():
             print(f"Error removing empty table rows: {e}")
             doc_stream.seek(0)
             return doc_stream
-    
-    # def get_common_table_data(self, table_name: str, task_id: str) -> dict:
-    #     template_common_url = os.getenv('TEMPLATE_COMMON_TABLE_URL') + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&reportName=' + table_name + "&sampleId=" + urllib.parse.quote(str(self.sample_id), safe='')
-    #     print(f"DEBUG: 请求URL: {template_common_url}")
-    #     print(f"DEBUG: 原始task_id: {repr(task_id)}")
-    #     try:
-    #         res = requests.get(template_common_url, timeout=5)
-    #         if res.status_code == 200:
-    #             common_table_val = res.json().get('data')
-    #         else:
-    #             print("请求通用表格数据失败, url:", template_common_url)
-    #             common_table_val = {}
-    #     except requests.exceptions.Timeout:
-    #         print(f"请求超时，跳过: {template_common_url}")
-    #         common_table_val = {}
-    #     except Exception as e:
-    #         print(f"请求异常，跳过: {e}")
-    #         common_table_val = {}
-    #     return common_table_val
-    
+
+    @staticmethod
+    def _equalize_table_column_widths(doc_stream: BytesIO) -> BytesIO:
+        """
+        渲染后修复表格列宽：让 Word 根据内容自适应分配列宽。
+        docxtpl 的 {%tc} 循环生成列时会复制模板列的固定宽度，导致列宽不合理。
+        此方法：
+        1. 设置 tblLayout=autofit，让 Word 按内容自动分配列宽
+        2. 设置表格宽度 100%
+        3. 移除单元格固定宽度，改为 auto
+        4. 确保行高自动撑开（不限制固定高度）
+        5. 允许单元格内文字换行
+        """
+        try:
+            from docx import Document
+            from docx.oxml.ns import qn
+
+            doc_stream.seek(0)
+            doc = Document(doc_stream)
+
+            for table in doc.tables:
+                if not table.rows:
+                    continue
+
+                tbl = table._tbl
+                tblPr = tbl.tblPr
+                if tblPr is None:
+                    tblPr = OxmlElement('w:tblPr')
+                    tbl.insert(0, tblPr)
+
+                # 1) tblLayout = autofit（Word 根据内容自动计算列宽）
+                for existing in tblPr.findall(qn('w:tblLayout')):
+                    tblPr.remove(existing)
+                tblLayout = OxmlElement('w:tblLayout')
+                tblLayout.set(qn('w:type'), 'autofit')
+                tblPr.append(tblLayout)
+
+                # 2) 表格整体宽度 100%
+                for existing in tblPr.findall(qn('w:tblW')):
+                    tblPr.remove(existing)
+                tblW = OxmlElement('w:tblW')
+                tblW.set(qn('w:w'), '5000')   # 5000 = 100% (pct)
+                tblW.set(qn('w:type'), 'pct')
+                tblPr.append(tblW)
+
+                for row in table.rows:
+                    # 3) 行高设为 atLeast（自动撑开，不会裁切内容）
+                    tr = row._tr
+                    trPr = tr.find(qn('w:trPr'))
+                    if trPr is not None:
+                        for existing in trPr.findall(qn('w:trHeight')):
+                            trPr.remove(existing)
+                    # 不设置 trHeight = Word 默认 auto，行高随内容自动增长
+
+                    for cell in row.cells:
+                        tc = cell._tc
+                        tcPr = tc.get_or_add_tcPr()
+
+                        # 4) 移除固定列宽，改为 auto 让 Word 自适应
+                        for existing in tcPr.findall(qn('w:tcW')):
+                            tcPr.remove(existing)
+                        tcW = OxmlElement('w:tcW')
+                        tcW.set(qn('w:w'), '0')
+                        tcW.set(qn('w:type'), 'auto')
+                        tcPr.append(tcW)
+
+                        # 5) 禁止 noWrap，确保文字可以换行显示
+                        for existing in tcPr.findall(qn('w:noWrap')):
+                            tcPr.remove(existing)
+
+            output_stream = BytesIO()
+            doc.save(output_stream)
+            output_stream.seek(0)
+            return output_stream
+
+        except Exception as e:
+            print(f"Error auto-fitting table column widths: {e}")
+            doc_stream.seek(0)
+            return doc_stream
+
     def handle_endpoint_data_to_table_row(self, table_fields: list, common_table_val) -> list:
         pass
 
@@ -627,6 +708,7 @@ class FillDataUtils():
     def insert_header_page_number(self, doc_stream: BytesIO, alignment: int = 3) -> BytesIO:
         """
         在每个 section 的页脚追加页码（不覆盖已有 header/footer 内容），并确保每节都能显示。
+        使用 parse_xml 直接构造完整的段落 XML，确保域代码结构正确。
 
         Args:
             doc_stream: Word文档流
@@ -640,27 +722,36 @@ class FillDataUtils():
             doc_stream.seek(0)
             doc = Document(doc_stream)
 
-            # 转换对齐方式：1:左, 2:中, 3:右 -> 0:左, 1:中, 2:右
-            alignment_map = {1: 0, 2: 1, 3: 2}
-            para_align = alignment_map.get(alignment, 2)
+            # 转换对齐方式：1:左, 2:中, 3:右 -> Word jc值
+            alignment_map = {1: 'left', 2: 'center', 3: 'right'}
+            jc_val = alignment_map.get(alignment, 'right')
 
-            def add_field(p, field_code):
-                run = p.add_run()
-                fldChar_begin = OxmlElement('w:fldChar')
-                fldChar_begin.set(qn('w:fldCharType'), 'begin')
-                instrText = OxmlElement('w:instrText')
-                instrText.set(qn('xml:space'), 'preserve')
-                instrText.text = field_code
-                fldChar_separate = OxmlElement('w:fldChar')
-                fldChar_separate.set(qn('w:fldCharType'), 'separate')
-                fldChar_end = OxmlElement('w:fldChar')
-                fldChar_end.set(qn('w:fldCharType'), 'end')
-                run._r.append(fldChar_begin)
-                run._r.append(instrText)
-                run._r.append(fldChar_separate)
-                run._r.append(fldChar_end)
+            # 构造完整的页码段落 XML
+            # 每个域代码 (PAGE / NUMPAGES) 的 begin/instrText/separate/end 各在独立 <w:r> 中
+            page_num_xml = (
+                f'<w:p {nsdecls("w")}>'
+                f'  <w:pPr><w:jc w:val="{jc_val}"/></w:pPr>'
+                # "第 "
+                f'  <w:r><w:t xml:space="preserve">第 </w:t></w:r>'
+                # PAGE 域
+                f'  <w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+                f'  <w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>'
+                f'  <w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+                f'  <w:r><w:t>1</w:t></w:r>'
+                f'  <w:r><w:fldChar w:fldCharType="end"/></w:r>'
+                # " 页，共 "
+                f'  <w:r><w:t xml:space="preserve"> 页，共 </w:t></w:r>'
+                # NUMPAGES 域
+                f'  <w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+                f'  <w:r><w:instrText xml:space="preserve"> NUMPAGES </w:instrText></w:r>'
+                f'  <w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+                f'  <w:r><w:t>1</w:t></w:r>'
+                f'  <w:r><w:fldChar w:fldCharType="end"/></w:r>'
+                # " 页"
+                f'  <w:r><w:t xml:space="preserve"> 页</w:t></w:r>'
+                f'</w:p>'
+            )
 
-            # 在每个 section 的 footer 中追加页码段落，且确保节设置不阻止显示
             for section in doc.sections:
                 # 关闭不同首页/奇偶页导致的显示差异
                 try:
@@ -670,7 +761,6 @@ class FillDataUtils():
 
                 # 断开与上一节的 header/footer 链接（若有）
                 try:
-                    # header/footer 对象可能没有 is_linked_to_previous 属性，安全设置
                     if hasattr(section.header, 'is_linked_to_previous'):
                         section.header.is_linked_to_previous = False
                     if hasattr(section.footer, 'is_linked_to_previous'):
@@ -679,14 +769,21 @@ class FillDataUtils():
                     pass
 
                 footer = section.footer
-                # 在 footer 末尾追加一段，不删除已有内容
-                para = footer.add_paragraph()
-                para.alignment = para_align
-                para.add_run("第 ")
-                add_field(para, "PAGE")
-                para.add_run(" 页，共 ")
-                add_field(para, "NUMPAGES")
-                para.add_run(" 页")
+                # 用 parse_xml 解析完整段落，追加到 footer
+                new_para = parse_xml(page_num_xml)
+                footer._element.append(new_para)
+
+            # 设置文档属性：打开时自动更新域
+            try:
+                from lxml import etree
+                settings = doc.settings.element
+                update_fields = settings.find(qn('w:updateFields'))
+                if update_fields is None:
+                    update_fields = OxmlElement('w:updateFields')
+                    settings.append(update_fields)
+                update_fields.set(qn('w:val'), 'true')
+            except Exception as e:
+                print(f"WARN: could not set updateFields: {e}")
 
             # 保存回字节流
             output_stream = BytesIO()
@@ -699,6 +796,8 @@ class FillDataUtils():
             return output_stream
         except Exception as e:
             print(f"ERROR insert_header_page_number: {e}")
+            import traceback
+            traceback.print_exc()
             try:
                 doc_stream.seek(0)
             except Exception:

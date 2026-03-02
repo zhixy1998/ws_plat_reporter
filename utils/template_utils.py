@@ -534,15 +534,6 @@ def get_title_mapping(template_name, measure_mode=None):
     common_title_mapping = {}
     private_title_mapping = {}
     
-    # # 先加载通用 title_mapping
-    # try:
-    #     common_data_module_path = "template_structure.common_data"
-    #     common_mod = importlib.import_module(common_data_module_path)
-    #     if hasattr(common_mod, 'title_mapping'):
-    #         common_title_mapping = common_mod.title_mapping
-    # except Exception as e:
-    #     print(f"加载通用 title_mapping 失败: {e}")
-    
     # 再尝试加载私有 title_mapping（优先级更高）
     try:
         if measure_mode == MeasureMode.classic.value:

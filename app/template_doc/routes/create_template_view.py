@@ -1,25 +1,26 @@
-import base64, os, json, shutil
+import importlib
 from io import BytesIO
 from zipfile import BadZipFile
+import base64, os, json, shutil
 from typing import Dict, Optional
 
 import jinja2
-from docxtpl import DocxTemplate
 from docx import Document
-from fastapi import APIRouter, UploadFile, File, Form
+from docxtpl import DocxTemplate
 from tortoise.transactions import in_transaction
+from fastapi import APIRouter, UploadFile, File, Form
+
+from config import config
+from app.db import execute_safe_sql
+from exceptions.error import ErrorCode
+from utils.log_decorator import log_response
+from utils.LoadAndDelete import AnalysisBookMark
+from exceptions.command_exception import APIException
 from app.template_doc.model.template_doc import TemplateDoc
 from app.template_doc.model.template_doc_base import TemplateDocBase
 from app.template_doc.model.template_bookmark import TemplateBookmark
-from app.template_doc.model.template_extra_info import TemplateExtraInfo
-from utils.LoadAndDelete import AnalysisBookMark
 from utils.doc_converter import convert_doc_to_docx, detect_file_format
-from exceptions.error import ErrorCode
-from exceptions.command_exception import APIException
 from constants.template_constant import TemplateBookMarkType, TemplateOriginType, TemplateType, ExperimentType
-from app.db import execute_safe_sql
-from utils.log_decorator import log_response
-import importlib
 
 router = APIRouter()
 
@@ -175,7 +176,7 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
         title_mapping: 传入的 title_mapping 字典（可选）
         old_template_name: 原始模板名称（可选），如果提供则复制该文件并替换 title_mapping
     """
-    py_folders = 'template_structure'
+    py_folders = config.structure_path
     os.makedirs(py_folders, exist_ok=True)
 
     # 如果传入了 old_template_name 和 title_mapping，复制旧文件并替换 title_mapping
