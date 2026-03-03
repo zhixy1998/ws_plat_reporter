@@ -5,7 +5,7 @@ import importlib
 import urllib.parse
 from decimal import Decimal
 from io import BytesIO
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from dotenv import load_dotenv
 
 import requests
@@ -898,6 +898,35 @@ class ClassicFillDataUtils():
         keys = list(data.keys())
         columns = [data[k] for k in keys]
         return [dict(zip(keys, row)) for row in zip(*columns)]
+
+    def _build_name_identity_and_headers(self, header_list: List[Dict]) -> Tuple[Dict[str, str], List[str]]:
+        """
+        根据 header_list 构建 name_identity_mapping 和 headers，逻辑与原处完全一致。
+
+        返回:
+            (name_identity_mapping, headers)
+        """
+        name_identity_mapping = {}
+        for header in header_list:
+            if header.get('unit'):
+                name_identity_mapping[header.get('name') + '-' + header.get('unit')] = header.get('identity')
+            else:
+                name_identity_mapping[header.get('name')] = header.get('identity')
+
+        headers = []
+        for h in header_list:
+            if h.get('unit'):
+                if h.get('printTitle'):
+                    headers.append(h.get('printTitle') + '-' + h.get('unit'))
+                else:
+                    headers.append(h.get('name') + '-' + h.get('unit'))
+            else:
+                if h.get('printTitle'):
+                    headers.append(h.get('printTitle'))
+                else:
+                    headers.append(h.get('name'))
+
+        return name_identity_mapping, headers
     
     def get_cm(self):
         name_cm_mapping = {
@@ -1012,24 +1041,7 @@ class ClassicFillDataUtils():
         
 
     def get_quantitative_determination_standard_table(self, standard_header_list, standard_data_list):
-        name_identity_mapping = {}
-        for header in standard_header_list:
-            if header.get('unit'):
-                name_identity_mapping[header.get('name') + '-' + header.get('unit')] = header.get('identity')
-            else:
-                name_identity_mapping[header.get('name')] = header.get('identity')
-        headers = []
-        for h in standard_header_list:
-            if h.get('unit'):
-                if h.get('printTitle'):
-                    headers.append(h.get('printTitle') + '-' + h.get('unit'))
-                else:
-                    headers.append(h.get('name') + '-' + h.get('unit'))
-            else:
-                if h.get('printTitle'):
-                    headers.append(h.get('printTitle'))
-                else:
-                    headers.append(h.get('name'))
+        name_identity_mapping, headers = self._build_name_identity_and_headers(standard_header_list)
         row_data = []
         for data in standard_data_list:
             row = []
@@ -1088,24 +1100,7 @@ class ClassicFillDataUtils():
         # return header_name, knows_data_list
     
     def get_quantitative_determination_unknown_table(self, unknown_header_list, unknown_data_list):
-        name_identity_mapping = {}
-        for header in unknown_header_list:
-            if header.get('unit'):
-                name_identity_mapping[header.get('name') + '-' + header.get('unit')] = header.get('identity')
-            else:
-                name_identity_mapping[header.get('name')] = header.get('identity')
-        headers = []
-        for h in unknown_header_list:
-            if h.get('unit'):
-                if h.get('printTitle'):
-                    headers.append(h.get('printTitle') + '-' + h.get('unit'))
-                else:
-                    headers.append(h.get('name') + '-' + h.get('unit'))
-            else:
-                if h.get('printTitle'):
-                    headers.append(h.get('printTitle'))
-                else:
-                    headers.append(h.get('name'))
+        name_identity_mapping, headers = self._build_name_identity_and_headers(unknown_header_list)
         row_data = []
         for data in unknown_data_list:
             row = []
@@ -1171,13 +1166,7 @@ class ClassicFillDataUtils():
         # return header_name, return_unknown_data_list
     
     def photometric_measurement_table_data(self, header_list, data_list):
-        name_identity_mapping = {header.get('name'): header.get('identity') for header in header_list}
-        headers = []
-        for h in header_list:
-            if h.get('printTitle'):
-                headers.append(h.get('printTitle'))
-            else:
-                headers.append(h.get('name'))
+        name_identity_mapping, headers = self._build_name_identity_and_headers(header_list)
         row_data = []
         for data in data_list:
             row = []
