@@ -73,26 +73,43 @@ async def export_docx(data: InputSchema):
         # lock_table_width_on_document(doc_original)
 
     if raw_data_report_id and test_data_report_id:
-        # 在第一个文档末尾添加分节符，确保第二个文档从新页开始
-        # 并且保持第一个文档的页面方向不受影响
+        # 合并前：记住第二个文档每一节的页面方向和尺寸
+        orig_section_props = []
+        for sec in doc_original.sections:
+            orig_section_props.append({
+                'orientation': sec.orientation,
+                'width': sec.page_width,
+                'height': sec.page_height,
+            })
+        report_sec_count = len(doc_report.sections)
+
+        # 在第一个文档末尾加分节符（下一页），确保第二个文档从新页开始
         from docx.enum.section import WD_SECTION
-        
-        # 获取第一个文档最后一个section的页面方向设置
-        last_section = doc_report.sections[-1]
-        original_orientation = last_section.orientation
-        original_page_width = last_section.page_width
-        original_page_height = last_section.page_height
-        
-        # 添加新的section（分节符 - 下一页）
         new_section = doc_report.add_section(WD_SECTION.NEW_PAGE)
-        
-        # 保持原来section的页面方向和尺寸
-        new_section.orientation = original_orientation
-        new_section.page_width = original_page_width
-        new_section.page_height = original_page_height
-        
+        # 让这个新节采用第二个文档第一节的页面方向和尺寸
+        if orig_section_props:
+            new_section.orientation = orig_section_props[0]['orientation']
+            new_section.page_width = orig_section_props[0]['width']
+            new_section.page_height = orig_section_props[0]['height']
+
+        # docxcompose 合并
         composer = Composer(doc_report)
         composer.append(doc_original)
+
+        # 合并后修复：确保分页 + 恢复第二个文档各节的页面方向
+        from docx.enum.section import WD_SECTION_START
+        merged_sections = list(doc_report.sections)
+        for i, props in enumerate(orig_section_props):
+            idx = report_sec_count + i
+            if idx < len(merged_sections):
+                sec = merged_sections[idx]
+                # 第二个文档的第一节必须从新页开始，不能紧挨第一个文档
+                if i == 0:
+                    sec.start_type = WD_SECTION_START.NEW_PAGE
+                # 恢复该节的页面方向和尺寸
+                sec.orientation = props['orientation']
+                sec.page_width = props['width']
+                sec.page_height = props['height']
 
         doc_stream = BytesIO()
         composer.save(doc_stream)
@@ -103,8 +120,8 @@ async def export_docx(data: InputSchema):
         if page_num_type != TemplatePageNumType.no_page.value:
             doc_stream = fill_data_instance_report.insert_header_page_number(doc_stream, alignment=page_num_type)
 
-        # 转换为 PDF
-        doc_stream.seek(0)
+        # 删除空白页后转换为 PDF
+        doc_stream = FillDataUtils.remove_blank_pages(doc_stream)
         pdf_bytes = convert_docx_to_pdf_bytes(doc_stream)
         if not pdf_bytes:
             raise APIException(ErrorCode.CONVERT_PDF_FAILED)
@@ -123,8 +140,8 @@ async def export_docx(data: InputSchema):
         page_num_type = fill_data_instance_report.get_page_num_alignment()
         if page_num_type != TemplatePageNumType.no_page.value:
             report_doc_steam_obj = fill_data_instance_report.insert_header_page_number(report_doc_steam_obj, alignment=page_num_type)
-        report_doc_steam_obj.seek(0)
-        # 转换为 PDF
+        # 删除空白页后转换为 PDF
+        report_doc_steam_obj = FillDataUtils.remove_blank_pages(report_doc_steam_obj)
         pdf_bytes = convert_docx_to_pdf_bytes(report_doc_steam_obj)
         if not pdf_bytes:
             raise APIException(ErrorCode.CONVERT_PDF_FAILED)
@@ -143,8 +160,8 @@ async def export_docx(data: InputSchema):
         page_num_type = fill_data_instance_original.get_page_num_alignment()
         if page_num_type != TemplatePageNumType.no_page.value:
             original_doc_stream_obj = fill_data_instance_original.insert_header_page_number(original_doc_stream_obj, alignment=page_num_type)
-        original_doc_stream_obj.seek(0)
-        # 转换为 PDF
+        # 删除空白页后转换为 PDF
+        original_doc_stream_obj = FillDataUtils.remove_blank_pages(original_doc_stream_obj)
         pdf_bytes = convert_docx_to_pdf_bytes(original_doc_stream_obj)
         if not pdf_bytes:
             raise APIException(ErrorCode.CONVERT_PDF_FAILED)

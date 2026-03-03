@@ -33,7 +33,7 @@ async def update_m(data: InputSchema):
         return {'code': 400, 'message': '模板不存在'}
     
     # 获取当前的 HEADER_M_MAPPING_LIST 和 STAND
-    fill_data_utils = FillDataUtils(template.name, template_id, fake=True)
+    fill_data_utils = FillDataUtils(template.name, template=template, fake=True)
     current_header_mapping = fill_data_utils.table_data_processor.handler_instance.HEADER_M_MAPPING_LIST
     current_stand = fill_data_utils.table_data_processor.handler_instance.STAND
     

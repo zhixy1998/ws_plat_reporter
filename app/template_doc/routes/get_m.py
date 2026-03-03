@@ -14,7 +14,6 @@ router = APIRouter()
 @router.get('/get_m')
 @log_response
 async def get_m(template_id, task_id: str = None, sample_id: str = None, measurement_type_decs: str = ''):
-    task_id='a69c61a36b4cc6583e9a216c0745155f'
     template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&sampleId=' + urllib.parse.quote(str(sample_id), safe='')
     print(template_common_url)
     response = requests.get(template_common_url)
@@ -36,7 +35,7 @@ async def get_m(template_id, task_id: str = None, sample_id: str = None, measure
         stand_head_list = res_json.get('data').get('standHeadList')
         unknow_head_list = res_json.get('data').get('unknowHeadList')
 
-        fill_data_utils = FillDataUtils(template.name, template_id, fake=True)
+        fill_data_utils = FillDataUtils(template.name, template=template, fake=True)
         HEADER_M_MAPPING_LIST = fill_data_utils.table_data_processor.handler_instance.HEADER_M_MAPPING_LIST  # 每个私有文件都要声明的
         TABLE_HEADER_MAP  = fill_data_utils.table_data_processor.handler_instance.TABLE_HEADER_MAP
         STAND = fill_data_utils.table_data_processor.handler_instance.STAND

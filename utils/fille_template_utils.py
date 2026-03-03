@@ -804,6 +804,96 @@ class FillDataUtils():
                 pass
             return doc_stream
     
+    @staticmethod
+    def make_fonts_explicit(doc):
+        """
+        将文档中所有 run 的字体格式从样式继承改为 run 级别显式设置。
+        用于 docxcompose 合并前：确保被合并文档的字体在合并后不会因样式覆盖而改变。
+
+        遍历文档中所有 <w:r>（包括表格内的），如果 run 没有显式 rFonts，
+        则从 run style → paragraph style → document defaults 继承并写入。
+        """
+        from copy import deepcopy
+
+        styles_elem = doc.styles.element
+
+        # 收集 style_id -> (rFonts, sz, szCs) 映射
+        style_fonts = {}
+        for style in styles_elem.findall(qn('w:style')):
+            sid = style.get(qn('w:styleId'))
+            rPr = style.find(qn('w:rPr'))
+            if sid and rPr is not None:
+                style_fonts[sid] = (
+                    rPr.find(qn('w:rFonts')),
+                    rPr.find(qn('w:sz')),
+                    rPr.find(qn('w:szCs')),
+                )
+
+        # 文档默认字体 (docDefaults -> rPrDefault -> rPr)
+        default_fonts = (None, None, None)
+        doc_defaults = styles_elem.find(qn('w:docDefaults'))
+        if doc_defaults is not None:
+            rPrDefault = doc_defaults.find(qn('w:rPrDefault'))
+            if rPrDefault is not None:
+                rPr = rPrDefault.find(qn('w:rPr'))
+                if rPr is not None:
+                    default_fonts = (
+                        rPr.find(qn('w:rFonts')),
+                        rPr.find(qn('w:sz')),
+                        rPr.find(qn('w:szCs')),
+                    )
+
+        body = doc.element.body
+        for r in body.iter(qn('w:r')):
+            rPr = r.find(qn('w:rPr'))
+            # 如果已经有显式字体设置，跳过
+            if rPr is not None and rPr.find(qn('w:rFonts')) is not None:
+                continue
+
+            # 确定字体来源：run style > paragraph style > document defaults
+            # 1) run style
+            run_style_id = None
+            if rPr is not None:
+                rStyle = rPr.find(qn('w:rStyle'))
+                if rStyle is not None:
+                    run_style_id = rStyle.get(qn('w:val'))
+
+            # 2) paragraph style
+            p = r.getparent()
+            p_style_id = None
+            if p is not None and p.tag.endswith('}p'):
+                pPr = p.find(qn('w:pPr'))
+                if pPr is not None:
+                    pStyle = pPr.find(qn('w:pStyle'))
+                    if pStyle is not None:
+                        p_style_id = pStyle.get(qn('w:val'))
+
+            # 按优先级选择
+            source = None
+            if run_style_id and run_style_id in style_fonts:
+                source = style_fonts[run_style_id]
+            elif p_style_id and p_style_id in style_fonts:
+                source = style_fonts[p_style_id]
+            else:
+                source = default_fonts
+
+            if source is None:
+                continue
+
+            src_rFonts, src_sz, src_szCs = source
+
+            # 确保 rPr 存在
+            if rPr is None:
+                rPr = OxmlElement('w:rPr')
+                r.insert(0, rPr)
+
+            if src_rFonts is not None:
+                rPr.insert(0, deepcopy(src_rFonts))
+            if src_sz is not None and rPr.find(qn('w:sz')) is None:
+                rPr.append(deepcopy(src_sz))
+            if src_szCs is not None and rPr.find(qn('w:szCs')) is None:
+                rPr.append(deepcopy(src_szCs))
+
     def remove_header_page_number(self, doc_stream: BytesIO) -> BytesIO:
         """
         从所有节的 footer 中移除包含 PAGE/NUMPAGES 域的段落（对追加式插入的页码有效）。
@@ -852,6 +942,137 @@ class FillDataUtils():
         output_stream.seek(0)
         return output_stream
     
+    @staticmethod
+    def remove_blank_pages(doc_stream: BytesIO) -> BytesIO:
+        """
+        删除 Word 文档中的空白页。
+        空白页通常由以下原因产生：
+          1. 仅包含分页符(page break)的空段落
+          2. 文档末尾（或 sectPr 之前）的连续空段落
+          3. 节末尾的空段落撑出多余空白页
+
+        Args:
+            doc_stream: Word文档流
+
+        Returns:
+            BytesIO: 去除空白页后的文档流
+        """
+        doc_stream.seek(0)
+        doc = Document(doc_stream)
+        body = doc.element.body
+        nsmap = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+
+        elements_to_remove = []
+
+        for p in body.findall(f'{nsmap}p'):
+            # 1) 检查段落是否有实际文本
+            all_text = ''.join(t.text or '' for t in p.iter(f'{nsmap}t'))
+            if all_text.strip():
+                continue
+
+            # 2) 检查是否包含图片/对象等非文本内容
+            has_non_text = False
+            for tag_suffix in ('drawing', 'pict', 'object'):
+                if p.find(f'.//{nsmap}{tag_suffix}') is not None:
+                    has_non_text = True
+                    break
+            # 也检查 drawingML 命名空间的图片
+            if not has_non_text:
+                wp_ns = '{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}'
+                if p.find(f'.//{wp_ns}anchor') is not None or p.find(f'.//{wp_ns}inline') is not None:
+                    has_non_text = True
+            if has_non_text:
+                continue
+
+            # 3) 检查是否仅包含分页符(page break)
+            runs = p.findall(f'{nsmap}r')
+            has_page_break = False
+            has_meaningful_run_content = False
+            for r in runs:
+                for child in r:
+                    local_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                    if local_tag == 'br':
+                        br_type = child.get(f'{nsmap}type') or child.get(qn('w:type'))
+                        if br_type == 'page':
+                            has_page_break = True
+                    elif local_tag == 't':
+                        if (child.text or '').strip():
+                            has_meaningful_run_content = True
+                    elif local_tag in ('drawing', 'pict', 'object'):
+                        has_meaningful_run_content = True
+
+            if has_page_break and not has_meaningful_run_content:
+                elements_to_remove.append(p)
+
+        # 删除仅含分页符的空段落
+        for elem in elements_to_remove:
+            parent = elem.getparent()
+            if parent is not None:
+                parent.remove(elem)
+
+        # 4) 从文档末尾向前，删除 sectPr 之前的连续空段落（这些会撑出空白页）
+        while True:
+            children = list(body)
+            if not children:
+                break
+            last = children[-1]
+            # sectPr 是节属性，看它前面
+            check_idx = -1
+            if last.tag.endswith('}sectPr') and len(children) >= 2:
+                check_idx = -2
+            target = children[check_idx]
+            if not target.tag.endswith('}p'):
+                break
+            # 段落是否为空
+            all_text = ''.join(t.text or '' for t in target.iter(f'{nsmap}t'))
+            if all_text.strip():
+                break
+            has_non_text = False
+            for tag_suffix in ('drawing', 'pict', 'object'):
+                if target.find(f'.//{nsmap}{tag_suffix}') is not None:
+                    has_non_text = True
+                    break
+            if has_non_text:
+                break
+            body.remove(target)
+
+        # 5) 对每个 section，删除其内部尾部的连续空段落（跨节空白页）
+        #    section 的段落范围由 sectPr 分隔
+        #    这里简单处理：如果 sectPr 之前紧挨着空段落，删掉
+        for sect_pr in body.findall(f'{nsmap}sectPr'):
+            while True:
+                prev = sect_pr.getprevious()
+                if prev is None or not prev.tag.endswith('}p'):
+                    break
+                all_text = ''.join(t.text or '' for t in prev.iter(f'{nsmap}t'))
+                if all_text.strip():
+                    break
+                has_non_text = False
+                for tag_suffix in ('drawing', 'pict', 'object'):
+                    if prev.find(f'.//{nsmap}{tag_suffix}') is not None:
+                        has_non_text = True
+                        break
+                if has_non_text:
+                    break
+                # 检查是否有分页符以外的有意义内容
+                runs = prev.findall(f'{nsmap}r')
+                has_content = False
+                for r in runs:
+                    for child in r:
+                        local_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                        if local_tag == 't' and (child.text or '').strip():
+                            has_content = True
+                        elif local_tag in ('drawing', 'pict', 'object'):
+                            has_content = True
+                if has_content:
+                    break
+                body.remove(prev)
+
+        output_stream = BytesIO()
+        doc.save(output_stream)
+        output_stream.seek(0)
+        return output_stream
+
     
     async def get_all_child_bookmarks(self, parent_id):
         """
