@@ -1012,13 +1012,24 @@ class ClassicFillDataUtils():
         
 
     def get_quantitative_determination_standard_table(self, standard_header_list, standard_data_list):
-        name_identity_mapping = {header.get('name'): header.get('identity') for header in standard_header_list}
+        name_identity_mapping = {}
+        for header in standard_header_list:
+            if header.get('unit'):
+                name_identity_mapping[header.get('name') + '-' + header.get('unit')] = header.get('identity')
+            else:
+                name_identity_mapping[header.get('name')] = header.get('identity')
         headers = []
         for h in standard_header_list:
-            if h.get('printTitle'):
-                headers.append(h.get('printTitle'))
+            if h.get('unit'):
+                if h.get('printTitle'):
+                    headers.append(h.get('printTitle') + '-' + h.get('unit'))
+                else:
+                    headers.append(h.get('name') + '-' + h.get('unit'))
             else:
-                headers.append(h.get('name'))
+                if h.get('printTitle'):
+                    headers.append(h.get('printTitle'))
+                else:
+                    headers.append(h.get('name'))
         row_data = []
         for data in standard_data_list:
             row = []
