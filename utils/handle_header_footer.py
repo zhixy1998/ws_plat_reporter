@@ -54,6 +54,8 @@ def set_header_footer(doc, header_text=None, footer_text=None, header_font_name=
         # 设置页眉
         header = section.header
         if header_text is not None:
+            # 必须先断开链接，否则该节没有自己的 header XML part，修改不会生效
+            header.is_linked_to_previous = False
             for para in header.paragraphs[:]:
                 p = para._element
                 p.getparent().remove(p)
@@ -70,6 +72,8 @@ def set_header_footer(doc, header_text=None, footer_text=None, header_font_name=
         # 设置页脚
         footer = section.footer
         if footer_text is not None:
+            # 必须先断开链接，否则该节没有自己的 footer XML part，修改不会生效
+            footer.is_linked_to_previous = False
             for para in footer.paragraphs[:]:
                 p = para._element
                 p.getparent().remove(p)

@@ -88,6 +88,19 @@ async def update_bookmark(data: InputSchema):
         content_base64 = template.template_content
         content = base64.b64decode(content_base64)  # 解码 base64 回原始 DOCX 字节
 
+        # 如果传递了页眉或页脚，先插入到文档中，再更新 content 和 content_base64
+        if data.header or data.footer:
+            doc_stream = BytesIO(content)
+            doc = Document(doc_stream)
+            if data.header:
+                set_header_footer(doc, header_text=data.header.value, header_font_name=data.header.font, header_font_size=data.header.font_size)
+            if data.footer:
+                set_header_footer(doc, footer_text=data.footer.value, footer_font_name=data.footer.font, footer_font_size=data.footer.font_size)
+            content_stream = BytesIO()
+            doc.save(content_stream)
+            content = content_stream.getvalue()
+            content_base64 = base64.b64encode(content).decode('utf-8')
+
         if data.measure_mode == MeasureMode.classic.value:
             await classic_create_template(new_name, content_base64, content=content, template_type=template.type, experiment_type=template.experiment_type, title_mapping=merged_title_mapping, old_template_name=template_name)
         else:
