@@ -40,7 +40,8 @@ async def create_template_view(
                      {ExperimentType.spectral_scanning.decs}: {ExperimentType.spectral_scanning.value} \n
                      {ExperimentType.time_scanning.decs}:{ExperimentType.time_scanning.value} \n
                      {ExperimentType.quantitative_determination.decs}:{ExperimentType.quantitative_determination.value} \n
-                     {ExperimentType.photometric_measurement.decs}:{ExperimentType.photometric_measurement.value}"""),
+                     {ExperimentType.photometric_measurement.decs}:{ExperimentType.photometric_measurement.value} \n
+                     {ExperimentType.calibration_template.decs}:{ExperimentType.calibration_template.value}"""),
     industry_type: str = Form(None, description='行业类型'),
     file: UploadFile = File(..., description='模板文件')
     ):
@@ -119,7 +120,8 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
             # 创建json文件
             for book_mark in book_markets:
                 await recursion_create_bookmark(book_mark, template.id)     
-            await create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), 
+            if template_type != TemplateType.calibration_template.value:
+                await create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), 
             connection=connection, title_mapping=title_mapping, old_template_name=old_template_name)
             return template.id
     else:
@@ -353,13 +355,13 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
 
     py_lines.append("}\n")
 
-    # 获取表格结构
-    table_list = []
-    tables = await get_table_structure_by_template_name(template_id=template_id, template_name=name, connection=connection)
-    if tables:
-        for table in tables:
-            table_structure = json.loads(table.get('table_structure'))
-            table_list.append(table_structure)
+    # # 获取表格结构
+    # table_list = []
+    # tables = await get_table_structure_by_template_name(template_id=template_id, template_name=name, connection=connection)
+    # if tables:
+    #     for table in tables:
+    #         table_structure = json.loads(table.get('table_structure'))
+    #         table_list.append(table_structure)
 
     # 自定义书签
     extra_info = {

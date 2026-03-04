@@ -141,7 +141,6 @@ async def export_docx(data: InputSchema):
         if page_num_type != TemplatePageNumType.no_page.value:
             report_doc_steam_obj = fill_data_instance_report.insert_header_page_number(report_doc_steam_obj, alignment=page_num_type)
         # 删除空白页后转换为 PDF
-        report_doc_steam_obj = FillDataUtils.remove_blank_pages(report_doc_steam_obj)
         pdf_bytes = convert_docx_to_pdf_bytes(report_doc_steam_obj)
         if not pdf_bytes:
             raise APIException(ErrorCode.CONVERT_PDF_FAILED)
@@ -161,7 +160,6 @@ async def export_docx(data: InputSchema):
         if page_num_type != TemplatePageNumType.no_page.value:
             original_doc_stream_obj = fill_data_instance_original.insert_header_page_number(original_doc_stream_obj, alignment=page_num_type)
         # 删除空白页后转换为 PDF
-        original_doc_stream_obj = FillDataUtils.remove_blank_pages(original_doc_stream_obj)
         pdf_bytes = convert_docx_to_pdf_bytes(original_doc_stream_obj)
         if not pdf_bytes:
             raise APIException(ErrorCode.CONVERT_PDF_FAILED)
