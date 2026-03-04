@@ -385,10 +385,10 @@ async def create_python_setting_file(template_id: int, name: str, template_file_
             py_lines.append(f"    '{key}': '{values}'\n")
     py_lines.append("}\n\n")
 
-    py_lines.append("table_fields = ")
-    table_fields_str = json.dumps(table_list, indent=4, ensure_ascii=False, separators=(',', ': '))
-    table_fields_str = table_fields_str.replace("null", "None")
-    py_lines.append(f"{table_fields_str}\n")
+    # py_lines.append("table_fields = ")
+    # table_fields_str = json.dumps(indent=4, ensure_ascii=False, separators=(',', ': '))
+    # table_fields_str = table_fields_str.replace("null", "None")
+    # py_lines.append(f"{table_fields_str}\n")
 
     # 创建文件
     py_path = os.path.join(py_folders, f"{name}.py")
