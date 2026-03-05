@@ -1,5 +1,6 @@
 from math import sin
 import os
+import sys
 
 
 import re
@@ -78,13 +79,19 @@ class FillDataUtils():
 
     def init_data(self, structure_path):
         common_data_module_path = f"{structure_path}.common_data"  # 比如 name = "my_template"
-        common_mod = importlib.import_module(common_data_module_path)
+        if common_data_module_path in sys.modules:
+            common_mod = importlib.reload(sys.modules[common_data_module_path])
+        else:
+            common_mod = importlib.import_module(common_data_module_path)
         self.common_title_mapping = common_mod.title_mapping
         common_key = common_mod.data
         self.common_key = common_key
         module_name = f"{structure_path}.{self.name}"  # 比如 name = "my_template"
         try:
-            private_mod = importlib.import_module(module_name)
+            if module_name in sys.modules:
+                private_mod = importlib.reload(sys.modules[module_name])
+            else:
+                private_mod = importlib.import_module(module_name)
         except Exception as e:
             print(f"导入私有模块 {module_name} 失败: {e}")
             raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)
@@ -1110,7 +1117,10 @@ class FillDataUtils():
         """
         module_name = "template_structure." + self.name
         try:
-            private_mod = importlib.import_module(module_name)
+            if module_name in sys.modules:
+                private_mod = importlib.reload(sys.modules[module_name])
+            else:
+                private_mod = importlib.import_module(module_name)
         except Exception as e:
             private_mod = None
         # if private_mod and hasattr(private_mod, 'custom_bookmark'):

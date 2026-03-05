@@ -2,6 +2,7 @@
 表格数据处理工具类
 用于动态导入模板配置文件并处理表格数据映射关系
 """
+import sys
 import importlib
 import json
 from typing import Dict, List, Any, Optional, Tuple
@@ -27,10 +28,13 @@ class TableDataProcessor:
         self._load_template_module()
     
     def _load_template_module(self):
-        """动态加载模板配置模块"""
+        """动态加载模板配置模块（若已缓存则强制重新加载，确保读取到磁盘最新内容）"""
         module_name = f"{self.structure_path}.{self.template_name}"
         try:
-            self.template_module = importlib.import_module(module_name)
+            if module_name in sys.modules:
+                self.template_module = importlib.reload(sys.modules[module_name])
+            else:
+                self.template_module = importlib.import_module(module_name)
             # 检查是否有TableDataHandler类
             if hasattr(self.template_module, 'TableDataHandler'):
                 self.handler_instance = self.template_module.TableDataHandler()
