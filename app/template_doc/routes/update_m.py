@@ -50,11 +50,7 @@ async def update_m(data: InputSchema):
             }
     
     # 构建模板文件路径
-    template_file_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-        'template_structure',
-        f'{template.name}.py'
-    )
+    template_file_path = config.structure_path / f'{template.name}.py'
     
     if not os.path.exists(template_file_path):
         return {'code': 400, 'message': f'模板文件不存在: {template_file_path}'}
