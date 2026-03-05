@@ -1,7 +1,9 @@
 import os
+import re
 from io import BytesIO
 from datetime import datetime
 
+from docx import Document as _Document
 from docx.shared import Mm
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
@@ -377,13 +379,71 @@ class InspectionAndCorrectionReport():
         # 获取模板文件的完整路径
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.template_path = os.path.join(current_dir, 'verification_jinja.docx')
-        self.doc = DocxTemplate(self.template_path)
+        # 预处理模板：合并被 Word 拆散到多个 XML run 中的 Jinja2 标签
+        cleaned_stream = self._clean_template_jinja_tags(self.template_path)
+        self.doc = DocxTemplate(cleaned_stream)
         self.logo_image = os.path.join(current_dir, 'img/logo_image.png')
 
         # 在渲染之前定义图片对象
         # self.doc = doc
         self.vc_data_list = vc_data_list
         self.section_index = 1
+
+    @staticmethod
+    def _clean_template_jinja_tags(template_path):
+        """
+        预处理 docx 模板，将被 Word 拆分到多个 <w:r> 中的 Jinja2 标签
+        合并回单个 run，确保 docxtpl 能正确识别 {%...%} / {{...}} 标签。
+
+        Word 在编辑/保存时经常因为拼写检查、光标位置、格式变化等原因，
+        把一段连续文本拆成多个 <w:r> 元素，例如：
+            <w:r><w:t>{%-</w:t></w:r>
+            <w:r><w:t> if </w:t></w:r>
+            <w:r><w:t>show_wt %}</w:t></w:r>
+        docxtpl 虽然有内置合并逻辑，但在表格单元格中经常失败。
+        这个方法直接在 XML 层面修复，确保万无一失。
+        """
+        doc = _Document(template_path)
+        body = doc.element.body
+
+        for p in body.iter(qn('w:p')):
+            runs = p.findall(qn('w:r'))
+            if len(runs) <= 1:
+                continue
+
+            # 收集所有 run 的文本
+            full_text = ''
+            for r in runs:
+                for t in r.findall(qn('w:t')):
+                    full_text += (t.text or '')
+
+            # 只处理包含 Jinja2 标签的段落
+            if not re.search(r'\{[%{#]', full_text):
+                continue
+
+            # 将合并文本写入第一个 run，删除其余 run
+            first_run = runs[0]
+            t_elements = first_run.findall(qn('w:t'))
+            if t_elements:
+                t_elements[0].text = full_text
+                t_elements[0].set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+                # 删除第一个 run 中多余的 <w:t>
+                for t in t_elements[1:]:
+                    first_run.remove(t)
+            else:
+                from lxml import etree
+                t_elem = etree.SubElement(first_run, qn('w:t'))
+                t_elem.text = full_text
+                t_elem.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+
+            # 移除后续所有 run
+            for r in runs[1:]:
+                p.remove(r)
+
+        stream = BytesIO()
+        doc.save(stream)
+        stream.seek(0)
+        return stream
     
     def _remove_empty_paragraphs(self):
         """删除文档中的空段落和表格中的空行"""
@@ -502,7 +562,7 @@ class InspectionAndCorrectionReport():
         
         print(f"\n=== Before Render - Final Contexts ===")
         print(f"'wt' in self.contexts: {'wt' in self.contexts}")
-        if 'wt' in self.contexts:
+        if self.contexts.get('wt'):
             print(f"type(self.contexts['wt']): {type(self.contexts['wt'])}")
             print(f"self.contexts['wt'] keys: {self.contexts['wt'].keys()}")
             print(f"'unique' in self.contexts['wt']: {'unique' in self.contexts['wt']}")
@@ -520,6 +580,7 @@ class InspectionAndCorrectionReport():
         
         print(f"\n=== Starting Render ===")
         try:
+            print('self.contexts before render:', self.contexts)
             self.doc.render(self.contexts, jinja_env=env)
             print(f"✓ Render SUCCESS")
         except Exception as e:
@@ -1052,26 +1113,26 @@ class InspectionAndCorrectionReport():
         print(f"wt is None: {wt is None}")
         if wt:
             print(f"wt keys: {wt.keys()}")
-        head = wt.get('head_data')
-        name = wt.get('name')
-        repeated = [] # [{'name': '', 'head': [], 'rows': [[]], 'qualified_standard': ''}]
-        unique = {'name': name, 'head': head, 'rows': [], 'qualified_standard': ''}
-        qualified_line_data = wt.get('qualifiedLine')
-        for test_tool, test_info_dict in qualified_line_data.items():
-            qualified_standard = test_info_dict.get('qualified_standard')
-            row = test_info_dict.get('related_rows')
-            if len(row) > 1:
-                repeat_dict = {}
-                repeat_dict['name'] = name
-                repeat_dict['head'] = head
-                repeat_dict['qualified_standard'] = qualified_standard
-                repeat_dict['rows'] = row
-                repeated.append(repeat_dict)
-            else:
-                now_qualified_standard = unique.get('qualified_standard','')
-                if qualified_standard not in now_qualified_standard:
-                    unique['qualified_standard'] += qualified_standard
-                unique['rows'].append(row[0])
+            head = wt.get('head_data')
+            name = wt.get('name')
+            repeated = [] # [{'name': '', 'head': [], 'rows': [[]], 'qualified_standard': ''}]
+            unique = {'name': name, 'head': head, 'rows': [], 'qualified_standard': ''}
+            qualified_line_data = wt.get('qualifiedLine')
+            for test_tool, test_info_dict in qualified_line_data.items():
+                qualified_standard = test_info_dict.get('qualified_standard')
+                row = test_info_dict.get('related_rows')
+                if len(row) > 1:
+                    repeat_dict = {}
+                    repeat_dict['name'] = name
+                    repeat_dict['head'] = head
+                    repeat_dict['qualified_standard'] = qualified_standard
+                    repeat_dict['rows'] = row
+                    repeated.append(repeat_dict)
+                else:
+                    now_qualified_standard = unique.get('qualified_standard','')
+                    if qualified_standard not in now_qualified_standard:
+                        unique['qualified_standard'] += qualified_standard
+                    unique['rows'].append(row[0])
         # print('wt:', wt)
         if wt:
 
@@ -1121,17 +1182,21 @@ class InspectionAndCorrectionReport():
                 )
             wt_contexts['index'] = self.section_index
             self.contexts['wt'] = wt_contexts
-            
-            print(f"\n=== wt_contexts Structure ===")
-            print(f"type(wt_contexts): {type(wt_contexts)}")
-            print(f"wt_contexts keys: {wt_contexts.keys()}")
-            if 'unique' in wt_contexts:
-                print(f"type(wt_contexts['unique']): {type(wt_contexts['unique'])}")
-                print(f"wt_contexts['unique'] keys: {wt_contexts['unique'].keys()}")
-            print(f"\nself.contexts['wt'] == wt_contexts: {self.contexts['wt'] is wt_contexts}")
-            print(f"type(self.contexts['wt']): {type(self.contexts['wt'])}")
-            print(f"self.contexts['wt'] keys: {self.contexts['wt'].keys()}")
-            
+            self.contexts['show_wt'] = True
+            self.section_index += 1
+        else:
+            placeholder_subdoc = self.doc.new_subdoc()
+            placeholder_subdoc.add_paragraph('---')
+            self.contexts['wt'] = {
+                'index': self.section_index,
+                'unique': {
+                    'name': '波长示值误差与重复性校验',
+                    'project_name': '---',
+                    'sub_doc': placeholder_subdoc,
+                },
+                'repeated': [],
+            }
+            self.contexts['show_wt'] = True
             self.section_index += 1
 
     def get_transmission_table(self):
@@ -1225,17 +1290,26 @@ class InspectionAndCorrectionReport():
                         'project_name': unique.get('qualified_standard'),
                         'sub_doc': sub_doc,
                     }
+        if tt or tt_ultraviolet_ray: 
+            tt_contexts['index'] = self.section_index
+            self.contexts['tt'] = tt_contexts
+            self.contexts['show_tt'] = True
+            self.section_index += 1
         else:
-            tt_contexts['unique'] = {
-                'name': '透射比示值误差与重复性校验紫外区',
-                'test_tool': '---',
-                'project_name': '---',
-                'sub_doc': None,
+            placeholder_subdoc = self.doc.new_subdoc()
+            placeholder_subdoc.add_paragraph('---')
+            self.contexts['tt'] = {
+                'index': self.section_index,
+                'unique': {
+                    'name': '透射比示值误差与重复性校验',
+                    'test_tool': '---',
+                    'project_name': '---',
+                    'sub_doc': placeholder_subdoc,
+                },
+                'repeated': [],
             }
-                
-        tt_contexts['index'] = self.section_index
-        self.contexts['tt'] = tt_contexts
-        self.section_index += 1
+            self.contexts['show_tt'] = True
+            self.section_index += 1
             
     def get_stray_light(self):
         """

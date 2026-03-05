@@ -235,15 +235,16 @@ class BaseTableDataHandler():
         real_header = None
         if self.end_point_header_and_data:
             map_relation = self.end_point_header_and_data.get('mapRelation')
-            for one_map_relation in map_relation:
-                if one_map_relation.get('paramIdentity') == m:
-                    identity = one_map_relation.get('headIdentity')
-                    real_header = one_map_relation.get('paramName')
-                    if not real_header:
-                        unknown_header_list = self.end_point_header_and_data.get('unknowHeadList')
-                        for one_unknown_header in unknown_header_list:
-                            if one_unknown_header.get('identity') == identity:
-                                real_header = one_unknown_header.get('printTitle')
+            if map_relation:
+                for one_map_relation in map_relation:
+                    if one_map_relation.get('paramIdentity') == m:
+                        identity = one_map_relation.get('headIdentity')
+                        real_header = one_map_relation.get('paramName')
+                        if not real_header:
+                            unknown_header_list = self.end_point_header_and_data.get('unknowHeadList')
+                            for one_unknown_header in unknown_header_list:
+                                if one_unknown_header.get('identity') == identity:
+                                    real_header = one_unknown_header.get('printTitle')
         if identity is None and real_header is None:
             unknown_header_list = self.end_point_header_and_data.get('unknowHeadList')
             for one_unknown_header in unknown_header_list:
