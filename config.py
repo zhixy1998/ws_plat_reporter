@@ -133,6 +133,10 @@ class Config:
     def classic_structure_module(self):
         """经典模板包的 Python 模块名（文件夹名），用于 importlib.import_module"""
         return self.classic_structure_path.name
+    
+    @property
+    def image_path(self):
+        return Path(self.config.get('guide', 'image_path'))
 
     # 添加更多 getter 方法...
 

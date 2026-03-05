@@ -11,6 +11,7 @@ from docxtpl import InlineImage
 from docxtpl import DocxTemplate
 from docx.oxml import OxmlElement
 from jinja2 import Environment, FileSystemLoader
+from config import config
 
 """
 wt: wavelength_table
@@ -377,74 +378,18 @@ class InspectionAndCorrectionReport():
 
     def __init__(self, doc, vc_data_list):
         # 获取模板文件的完整路径
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        self.template_path = os.path.join(current_dir, 'verification_jinja.docx')
+        # current_dir = os.path.dirname(os.path.abspath(__file__))
+        # self.template_path = os.path.join(current_dir, 'verification_jinja.docx')
         # 预处理模板：合并被 Word 拆散到多个 XML run 中的 Jinja2 标签
-        cleaned_stream = self._clean_template_jinja_tags(self.template_path)
-        self.doc = DocxTemplate(cleaned_stream)
-        self.logo_image = os.path.join(current_dir, 'img/logo_image.png')
+        img_path = config.image_path
+        self.logo_image = os.path.join(img_path, 'persee_logo_image.png')
+        self.doc = doc
 
         # 在渲染之前定义图片对象
         # self.doc = doc
         self.vc_data_list = vc_data_list
         self.section_index = 1
 
-    @staticmethod
-    def _clean_template_jinja_tags(template_path):
-        """
-        预处理 docx 模板，将被 Word 拆分到多个 <w:r> 中的 Jinja2 标签
-        合并回单个 run，确保 docxtpl 能正确识别 {%...%} / {{...}} 标签。
-
-        Word 在编辑/保存时经常因为拼写检查、光标位置、格式变化等原因，
-        把一段连续文本拆成多个 <w:r> 元素，例如：
-            <w:r><w:t>{%-</w:t></w:r>
-            <w:r><w:t> if </w:t></w:r>
-            <w:r><w:t>show_wt %}</w:t></w:r>
-        docxtpl 虽然有内置合并逻辑，但在表格单元格中经常失败。
-        这个方法直接在 XML 层面修复，确保万无一失。
-        """
-        doc = _Document(template_path)
-        body = doc.element.body
-
-        for p in body.iter(qn('w:p')):
-            runs = p.findall(qn('w:r'))
-            if len(runs) <= 1:
-                continue
-
-            # 收集所有 run 的文本
-            full_text = ''
-            for r in runs:
-                for t in r.findall(qn('w:t')):
-                    full_text += (t.text or '')
-
-            # 只处理包含 Jinja2 标签的段落
-            if not re.search(r'\{[%{#]', full_text):
-                continue
-
-            # 将合并文本写入第一个 run，删除其余 run
-            first_run = runs[0]
-            t_elements = first_run.findall(qn('w:t'))
-            if t_elements:
-                t_elements[0].text = full_text
-                t_elements[0].set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
-                # 删除第一个 run 中多余的 <w:t>
-                for t in t_elements[1:]:
-                    first_run.remove(t)
-            else:
-                from lxml import etree
-                t_elem = etree.SubElement(first_run, qn('w:t'))
-                t_elem.text = full_text
-                t_elem.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
-
-            # 移除后续所有 run
-            for r in runs[1:]:
-                p.remove(r)
-
-        stream = BytesIO()
-        doc.save(stream)
-        stream.seek(0)
-        return stream
-    
     def _remove_empty_paragraphs(self):
         """删除文档中的空段落和表格中的空行"""
         # 获取文档对象（从DocxTemplate中提取python-docx的Document对象）
