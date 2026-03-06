@@ -430,7 +430,7 @@ class InspectionAndCorrectionReport():
                 tr.getparent().remove(tr)
                 empty_rows_count += 1
         
-        print(f"✓ Removed {empty_rows_count} empty table rows")
+        print(f"[OK] Removed {empty_rows_count} empty table rows")
         
         # 2. 删除文档中的空段落
         paragraphs_to_remove = []
@@ -450,7 +450,7 @@ class InspectionAndCorrectionReport():
             if parent is not None:
                 parent.remove(p_element)
         
-        print(f"✓ Removed {len(paragraphs_to_remove)} empty paragraphs")
+        print(f"[OK] Removed {len(paragraphs_to_remove)} empty paragraphs")
         
     def run(self):
         env = Environment(
@@ -496,7 +496,6 @@ class InspectionAndCorrectionReport():
         self.get_result()
         # 备注
         self.get_remark()
-        i = 0
         # for table_name, data in self.table_data.items():
         #     i += 1
         #     data['index'] = i
@@ -505,7 +504,7 @@ class InspectionAndCorrectionReport():
         logo_pic = InlineImage(self.doc, self.logo_image, width=Mm(40)) # 指定宽度
         self.contexts['logo_image'] = logo_pic
         
-        print(f"\n=== Before Render - Final Contexts ===")
+        print("\n=== Before Render - Final Contexts ===")
         print(f"'wt' in self.contexts: {'wt' in self.contexts}")
         if self.contexts.get('wt'):
             print(f"type(self.contexts['wt']): {type(self.contexts['wt'])}")
@@ -516,20 +515,20 @@ class InspectionAndCorrectionReport():
                 print(f"self.contexts['wt']['unique']: {self.contexts['wt']['unique']}")
         
         # 检查所有可能在模板中使用的键
-        print(f"\n=== All Context Keys ===")
+        print("\n=== All Context Keys ===")
         for key in ['wt', 'tt', 'sl', 'bs', 'bdn', 'sb', 'n', 'd', 'wen', 'va', 'ds', 'cc', 'pg', 'ir', 'av', 'as']:
             if key in self.contexts:
-                print(f"✓ {key}: {type(self.contexts[key])}")
+                print(f"[OK] {key}: {type(self.contexts[key])}")
             else:
-                print(f"✗ {key}: NOT SET")
+                print(f"[X] {key}: NOT SET")
         
-        print(f"\n=== Starting Render ===")
+        print("\n=== Starting Render ===")
         try:
             print('self.contexts before render:', self.contexts)
             self.doc.render(self.contexts, jinja_env=env)
-            print(f"✓ Render SUCCESS")
+            print("[OK] Render SUCCESS")
         except Exception as e:
-            print(f"✗ Render FAILED: {type(e).__name__}: {e}")
+            print(f"[X] Render FAILED: {type(e).__name__}: {e}")
             import traceback
             traceback.print_exc()
             raise
