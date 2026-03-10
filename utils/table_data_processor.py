@@ -30,20 +30,24 @@ class TableDataProcessor:
     def _load_template_module(self):
         """动态加载模板配置模块（绕过 sys.modules 缓存以确保读取最新内容，同时支持相对导入）"""
         import importlib.util
+        import os
 
         try:
-            base_dir = self.structure_path.replace('.', '/')
-            file_path = f"{base_dir}/{self.template_name}.py"
             full_module_name = f"{self.structure_path}.{self.template_name}"
+
+            # 确保父包已在 sys.modules 中（相对导入解析时需要从此处查找兄弟模块）
+            # 同时通过父包的 __path__ 拿到磁盘上的绝对路径，避免依赖当前工作目录
+            if self.structure_path not in sys.modules:
+                importlib.import_module(self.structure_path)
+            parent_pkg = sys.modules[self.structure_path]
+            base_dir = parent_pkg.__path__[0]
+            file_path = os.path.join(base_dir, f"{self.template_name}.py")
 
             spec = importlib.util.spec_from_file_location(full_module_name, file_path)
             if spec and spec.loader:
                 self.template_module = importlib.util.module_from_spec(spec)
                 # 设置 __package__，使模板文件内的相对导入（如 from .common_data import ...）能正常解析
                 self.template_module.__package__ = self.structure_path
-                # 确保父包已在 sys.modules 中（相对导入解析时需要从此处查找兄弟模块）
-                if self.structure_path not in sys.modules:
-                    importlib.import_module(self.structure_path)
                 # 临时注册，exec_module 期间相对导入需要通过 sys.modules 查找父包
                 sys.modules[full_module_name] = self.template_module
                 try:
