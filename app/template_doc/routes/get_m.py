@@ -29,7 +29,7 @@ async def get_m(template_id, task_id: str = None, sample_id: str = None, measure
     try:
         private_mod = importlib.import_module(module_name)
     except Exception as e:
-        private_mod = None
+        pass
     
     if measurement_type_decs == ExperimentType.quantitative_determination.decs:
         stand_head_list = res_json.get('data').get('standHeadList')
@@ -37,7 +37,6 @@ async def get_m(template_id, task_id: str = None, sample_id: str = None, measure
 
         fill_data_utils = FillDataUtils(template.name, template=template, fake=True)
         HEADER_M_MAPPING_LIST = fill_data_utils.table_data_processor.handler_instance.HEADER_M_MAPPING_LIST  # 每个私有文件都要声明的
-        TABLE_HEADER_MAP  = fill_data_utils.table_data_processor.handler_instance.TABLE_HEADER_MAP
         STAND = fill_data_utils.table_data_processor.handler_instance.STAND
         exist_stand = {i.get("identity"): i.get('printTitle') for i in stand_head_list }
         exist_unknown = {i.get("identity"): i.get('printTitle') for i in unknow_head_list }

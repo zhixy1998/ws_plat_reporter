@@ -28,18 +28,37 @@ class TableDataProcessor:
         self._load_template_module()
     
     def _load_template_module(self):
-        """动态加载模板配置模块（若已缓存则强制重新加载，确保读取到磁盘最新内容）"""
-        module_name = f"{self.structure_path}.{self.template_name}"
+        """动态加载模板配置模块（绕过 sys.modules 缓存以确保读取最新内容，同时支持相对导入）"""
+        import importlib.util
+
         try:
-            if module_name in sys.modules:
-                self.template_module = importlib.reload(sys.modules[module_name])
+            base_dir = self.structure_path.replace('.', '/')
+            file_path = f"{base_dir}/{self.template_name}.py"
+            full_module_name = f"{self.structure_path}.{self.template_name}"
+
+            spec = importlib.util.spec_from_file_location(full_module_name, file_path)
+            if spec and spec.loader:
+                self.template_module = importlib.util.module_from_spec(spec)
+                # 设置 __package__，使模板文件内的相对导入（如 from .common_data import ...）能正常解析
+                self.template_module.__package__ = self.structure_path
+                # 确保父包已在 sys.modules 中（相对导入解析时需要从此处查找兄弟模块）
+                if self.structure_path not in sys.modules:
+                    importlib.import_module(self.structure_path)
+                # 临时注册，exec_module 期间相对导入需要通过 sys.modules 查找父包
+                sys.modules[full_module_name] = self.template_module
+                try:
+                    spec.loader.exec_module(self.template_module)
+                finally:
+                    # 加载完成后移出缓存，确保下次调用时仍重新从磁盘读取最新内容
+                    sys.modules.pop(full_module_name, None)
             else:
-                self.template_module = importlib.import_module(module_name)
+                self.template_module = importlib.import_module(full_module_name)
+
             # 检查是否有TableDataHandler类
             if hasattr(self.template_module, 'TableDataHandler'):
                 self.handler_instance = self.template_module.TableDataHandler()
         except Exception as e:
-            print(e)
+            print(f"动态加载模板失败 [{self.template_name}]: {e}")
             raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)
     
     def get_known_sample_jinja_v(self):

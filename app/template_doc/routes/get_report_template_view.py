@@ -44,7 +44,7 @@ async def get_report_template(
     desc: Optional[int] = Query(0, description='0: 升序，1: 降序'),
     sort_field: Optional[int] = Query(None, description='排序字段 0: id, 1: 创建时间, 2: 更新时间'),
     page: int = Query(1, ge=1, description='页码，从1开始'),
-    page_size: int = Query(10, ge=1, le=100, description='每页条数，默认10，最大100'),
+    page_size: int = Query(100, ge=1, le=100, description='每页条数，默认10，最大100'),
     ):
 
     # 排序字段映射
@@ -88,9 +88,10 @@ async def get_report_template(
     total = await query.count()
     # 排序 + 分页
     query = query.order_by(sort_key).offset((page - 1) * page_size).limit(page_size)
-
+    print('count:', await query.count())
     # 执行查询
     template_list = await query.values('id', 'name', 'type', 'create_datetime', 'update_datetime', 'industry_type', 'experiment_type', 'origin_type')
+    print('template_list:', template_list)
     template_list = [
     
     {
