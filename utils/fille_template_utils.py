@@ -719,7 +719,7 @@ class FillDataUtils():
 
         Args:
             doc_stream: Word文档流
-            alignment: 对齐方式 (1:左对齐, 2:居中, 3:右对齐)
+            alignment: 对齐方式 (0:右对齐, 1:居中, 2:左对齐)
 
         Returns:
             BytesIO: 修改后的文档流
@@ -729,15 +729,8 @@ class FillDataUtils():
             doc_stream.seek(0)
             doc = Document(doc_stream)
 
-            # 转换对齐方式：1:左, 2:中, 3:右 -> Word jc值
-            alignment_map = {1: 'left', 2: 'center', 3: 'right'}
-            jc_val = alignment_map.get(alignment, 'right')
-
-            # 构造完整的页码段落 XML
-            # 每个域代码 (PAGE / NUMPAGES) 的 begin/instrText/separate/end 各在独立 <w:r> 中
-            page_num_xml = (
-                f'<w:p {nsdecls("w")}>'
-                f'  <w:pPr><w:jc w:val="{jc_val}"/></w:pPr>'
+            # 页码内容（与对齐方式无关的域代码部分，复用）
+            page_fields_xml = (
                 # "第 "
                 f'  <w:r><w:t xml:space="preserve">第 </w:t></w:r>'
                 # PAGE 域
@@ -756,7 +749,6 @@ class FillDataUtils():
                 f'  <w:r><w:fldChar w:fldCharType="end"/></w:r>'
                 # " 页"
                 f'  <w:r><w:t xml:space="preserve"> 页</w:t></w:r>'
-                f'</w:p>'
             )
 
             for section in doc.sections:
@@ -774,6 +766,55 @@ class FillDataUtils():
                         section.footer.is_linked_to_previous = False
                 except Exception:
                     pass
+
+                # 按该节实际文字区域宽度（页宽 - 左边距 - 右边距）计算 tab stop 位置
+                # python-docx 单位为 EMU，Word XML tab pos 单位为 twips（1 twip = 635 EMU）
+                try:
+                    text_width_twips = int(
+                        (section.page_width - section.left_margin - section.right_margin) / 635
+                    )
+                except Exception:
+                    text_width_twips = 9360  # 备用值：约 A4 标准文字宽度
+
+                # 根据对齐方式构造 <w:pPr>：
+                #   右对齐：使用右对齐 tab stop + <w:tab/> run，完全由页边距决定，与正文表格无关
+                #   居中/左对齐：使用对应 tab stop
+                if alignment == 0:  # 右对齐
+                    ppr_xml = (
+                        f'  <w:pPr>'
+                        f'    <w:ind w:left="0" w:right="0" w:firstLine="0"/>'
+                        f'    <w:tabs>'
+                        f'      <w:tab w:val="right" w:pos="{text_width_twips}"/>'
+                        f'    </w:tabs>'
+                        f'  </w:pPr>'
+                    )
+                    tab_run = f'  <w:r><w:tab/></w:r>'
+                elif alignment == 1:  # 居中
+                    center_twips = text_width_twips // 2
+                    ppr_xml = (
+                        f'  <w:pPr>'
+                        f'    <w:ind w:left="0" w:right="0" w:firstLine="0"/>'
+                        f'    <w:tabs>'
+                        f'      <w:tab w:val="center" w:pos="{center_twips}"/>'
+                        f'    </w:tabs>'
+                        f'  </w:pPr>'
+                    )
+                    tab_run = f'  <w:r><w:tab/></w:r>'
+                else:  # 左对齐
+                    ppr_xml = (
+                        f'  <w:pPr>'
+                        f'    <w:ind w:left="0" w:right="0" w:firstLine="0"/>'
+                        f'  </w:pPr>'
+                    )
+                    tab_run = ''
+
+                page_num_xml = (
+                    f'<w:p {nsdecls("w")}>'
+                    f'{ppr_xml}'
+                    f'{tab_run}'
+                    f'{page_fields_xml}'
+                    f'</w:p>'
+                )
 
                 footer = section.footer
                 # 用 parse_xml 解析完整段落，追加到 footer
