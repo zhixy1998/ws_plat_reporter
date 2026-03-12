@@ -19,4 +19,4 @@ async def del_template(data: InputSchema):
     if template_instance:
         await TemplateDocBase.filter(id=template_instance.base_template_id, is_del=0).update(is_del=1)
     await TemplateDoc.filter(id=data.id).update(is_del=1)
-    return {'code': 200, 'message': '模删除成功'}
+    return {'code': 200, 'message': '模板删除成功'}

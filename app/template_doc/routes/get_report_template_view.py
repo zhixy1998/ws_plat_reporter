@@ -67,7 +67,7 @@ async def get_report_template(
         class_db_con = connections.get('classic_db')
         query = TemplateDoc.filter(is_del=0).using_db(class_db_con)
     else:
-        query = TemplateDoc.filter(is_del=0)
+        query = TemplateDoc.filter(is_del=0, type__in=[TemplateType.original_records.value, TemplateType.report_template.value])
     sum_count = await query.count()
     if name:
         query = query.filter(name__contains=name)

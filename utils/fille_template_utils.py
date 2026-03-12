@@ -711,7 +711,7 @@ class FillDataUtils():
             return False
 
     async def fill_remark(self, remark_item):
-        self.contexts['remark'] = remark_item.value
+        self.contexts['remark'] = remark_item
     
     async def decode_base64_image(self, bookmark_name, tpl, val):
         try:

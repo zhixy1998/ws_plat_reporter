@@ -54,17 +54,17 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
     else:
         doc = await get_doc_obj_by_template_id(template_id)
 
-    if measure_mode == MeasureMode.classic.value:
-        title_bookmark_instances = await TemplateBookmark.filter(template_doc_id=template_id, name__contains='标题', is_del=0).using_db(class_db_con)
-    else:
-        title_bookmark_instances = await TemplateBookmark.filter(template_doc_id=template_id, name__contains='标题', is_del=0)
-    title_bookmark_info_list = [{'bm_id': i.id, 'font': i.font, 'font_size': i.font_size, 'name': i.name} for i in title_bookmark_instances]
-    title_content_value_list = []
-    for title_bookmark_info in title_bookmark_info_list:
-        title_content = get_bookmark_text(doc, title_bookmark_info.get('name'))
-        title_content_value_list.append({ **title_bookmark_info, 'value': title_content})
     header_and_footer_info = get_header_footer_font_info(doc) 
-    header_and_footer_info['title_list'] = title_content_value_list
+    if measure_mode == MeasureMode.classic.value:
+        pass
+    else:
+        title_content_value_list = []
+        title_bookmark_instances = await TemplateBookmark.filter(template_doc_id=template_id, name__contains='标题', is_del=0)
+        title_bookmark_info_list = [{'bm_id': i.id, 'font': i.font, 'font_size': i.font_size, 'name': i.name} for i in title_bookmark_instances]
+        for title_bookmark_info in title_bookmark_info_list:
+            title_content = get_bookmark_text(doc, title_bookmark_info.get('name'))
+            title_content_value_list.append({ **title_bookmark_info, 'value': title_content})
+        header_and_footer_info['title_list'] = title_content_value_list
     # 设置默认 page_num_type，防止模板未配置时序列化失败
     header_and_footer_info.setdefault('page_num_type', TemplatePageNumType.get_name_desc_by_value(0))
 

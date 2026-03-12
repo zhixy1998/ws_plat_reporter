@@ -14,10 +14,12 @@ import uuid
 from app.template_doc.routes.create_template_view import create_template, create_python_setting_file
 from app.template_doc.model.template_doc import TemplateDoc
 from constants.template_constant import TemplateType, ExperimentType, TemplateOriginType
+from config import config
 
 router = APIRouter()
-UPLOAD_DIR = Path("output/templates")
-EXTRACT_DIR = Path("output/extracted_templates")
+_BASE_DIR = Path(config.deploy_python_path) if config.deploy_python_path else Path(".")
+UPLOAD_DIR = _BASE_DIR / "output/templates"
+EXTRACT_DIR = _BASE_DIR / "output/extracted_templates"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -240,7 +242,7 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
 
         return {
             "code": 200,
-            "message": "Template unzipped successfully",
+            "message": "模版上传成功",
             "data": {
                 "extracted_dir": str(extract_to),
                 "docx": docx_files,

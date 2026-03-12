@@ -19,10 +19,10 @@ async def get_m():
     measure_mode_list = [{'value': i, 'label': desc} for i, desc in MeasureMode.generate_value_desc_map().items()]
     origin_type_list = [{'value': i, 'label': desc} for i, desc in TemplateOriginType.generate_value_desc_map().items()]
     experiment_type_list = [{'value': i, 'label': desc} for i, desc in ExperimentType.generate_value_desc_map().items()]
-    template_type_list = [{'value': i, 'label': desc} for i, desc in TemplateType.generate_value_desc_map().items()]
+    template_type_list = [{'value': i.value, 'label': i.decs} for i in [TemplateType.original_records, TemplateType.report_template]]
 
     for template in all_template:
-        if template.industry_type not in industry_list:
+        if template.industry_type not in industry_list and template.industry_type != '':
             industry_list.append(template.industry_type) 
 
     return {'code':200, 'message':'success', 'data': {'industry': industry_list, 
