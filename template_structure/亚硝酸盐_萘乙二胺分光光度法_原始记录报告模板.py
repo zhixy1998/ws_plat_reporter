@@ -36,7 +36,7 @@ python_template_var = {
 
 # 标题映射（包含字体和字号信息）
 title_mapping = {
-    'regression_equation_t': {'name': '回归方程111', 'font': '宋体', 'font_size': 12},
+    'regression_equation_t': {'name': '回归方程', 'font': '宋体', 'font_size': 12},
     'instrument_num_t': {'name': '仪器编号', 'font': '宋体', 'font_size': 12},
     'standard_solution_number_t': {'name': '标准溶液及编号', 'font': '宋体', 'font_size': 12},
     'remark_t': {'name': '备注', 'font': '宋体', 'font_size': 12},

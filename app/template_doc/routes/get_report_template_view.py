@@ -67,8 +67,10 @@ async def get_report_template(
         class_db_con = connections.get('classic_db')
         query = TemplateDoc.filter(is_del=0).using_db(class_db_con)
     else:
-        query = TemplateDoc.filter(is_del=0, type__in=[TemplateType.original_records.value, TemplateType.report_template.value])
-    sum_count = await query.count()
+        if template_type is not None:
+            query = TemplateDoc.filter(is_del=0, type=template_type)
+        else:
+            query = TemplateDoc.filter(is_del=0, type__in=[TemplateType.original_records.value, TemplateType.report_template.value])
     if name:
         query = query.filter(name__contains=name)
     if industry:
@@ -85,7 +87,7 @@ async def get_report_template(
     if template_type is not None:
         query = query.filter(type=template_type)
 
-    total = await query.count()
+    count = await query.count()
     # 排序 + 分页
     query = query.order_by(sort_key).offset((page - 1) * page_size).limit(page_size)
     print('count:', await query.count())
@@ -108,7 +110,7 @@ async def get_report_template(
     return {'code': 200, 
             'message': '获取成功', 
             'data': {
-                'sum_count': sum_count, 
+                'sum_count': count, 
                 'page': page,
                 'page_size': page_size,
                 'template_list': template_list
