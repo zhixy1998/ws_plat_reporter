@@ -127,15 +127,15 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
             config_path = extract_to / json_info
             try:
                 with open(config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
+                    json_cfg = json.load(f)
             except Exception:
                 try:
                     with open(config_path, 'r', encoding='gbk', errors='ignore') as f:
-                        config = json.load(f)
+                        json_cfg = json.load(f)
                 except Exception:
-                    config = None
+                    json_cfg = None
 
-            if isinstance(config, dict):
+            if isinstance(json_cfg, dict):
                 # helper to resolve enum values from config (支持 decs 文本或 name 或直接数字)
                 def _resolve_enum(enum_cls, val):
                     if val is None:
@@ -161,7 +161,7 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
 
                 for rel in docx_files:
                     stem = Path(rel).stem
-                    cfg = config.get(stem)
+                    cfg = json_cfg.get(stem)
                     if not cfg:
                         continue
                     template_type_cfg = cfg.get('template_type')
@@ -211,7 +211,7 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
                         # 如果 ZIP 中包含与 docx 同名的 .py 文件，则覆盖生成的 template_structure/<name>.py 并更新数据库
                         candidate_py = extract_to / f"{stem}.py"
                         if candidate_py.exists():
-                            dest_py_folder = Path('template_structure')
+                            dest_py_folder = Path(config.structure_path)
                             dest_py_folder.mkdir(parents=True, exist_ok=True)
                             dest_py = dest_py_folder / f"{stem}.py"
                             shutil.copy2(candidate_py, dest_py)
@@ -298,7 +298,7 @@ async def download_template_zip(payload: dict = Body(...)):
             raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
 
         files_to_add = []  # list of tuples (arcname, bytes)
-        config = {}
+        json_cfg = {}
         missing = []
         for tid in template_ids:
             tpl = await TemplateDoc.get_or_none(id=tid, is_del=0)
@@ -318,7 +318,7 @@ async def download_template_zip(payload: dict = Body(...)):
             files_to_add.append((docx_name, doc_bytes))
 
             # 尝试获取 .py: 优先使用磁盘上的 template_structure/<name>.py，其次使用 tpl.python_config
-            py_path = Path('template_structure') / f"{name}.py"
+            py_path = Path(config.structure_path) / f"{name}.py"
             py_bytes = None
             if py_path.exists():
                 try:
@@ -344,14 +344,14 @@ async def download_template_zip(payload: dict = Body(...)):
                 e_desc = ExperimentType.get_name_desc_by_value(int(tpl.experiment_type)) if tpl.experiment_type is not None else ''
             except Exception:
                 e_desc = ''
-            config[name] = {
+            json_cfg[name] = {
                 'template_type': t_desc,
                 'experiment_type': e_desc,
                 'industry_type': tpl.industry_type or ''
             }
 
         # 生成 config.json
-        config_bytes = json.dumps(config, ensure_ascii=False, indent=4).encode('utf-8')
+        config_bytes = json.dumps(json_cfg, ensure_ascii=False, indent=4).encode('utf-8')
         files_to_add.append(('config.json', config_bytes))
 
         # 创建 zip 到内存
