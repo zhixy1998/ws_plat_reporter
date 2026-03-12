@@ -27,7 +27,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                     found = True
                     if value:
                         remove_following_runs(paragraph, element)
-                        insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
+                        insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths, font=font, font_size=font_size)
                     else:
                         set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
     # 遍历表格中的段落
@@ -43,7 +43,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                                 found = True
                                 if value:
                                     remove_following_runs(paragraph, element)
-                                    insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
+                                    insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths, font=font, font_size=font_size)
                                 else:
                                     set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
     # 遍历页眉中的段落
@@ -56,7 +56,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                         found = True
                         if value:
                             remove_following_runs(paragraph, element)
-                            insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
+                            insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths, font=font, font_size=font_size)
                         else:
                             set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
     # 遍历页脚中的段落
@@ -69,7 +69,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
                         found = True
                         if value:
                             remove_following_runs(paragraph, element)
-                            insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths)
+                            insert_value(paragraph, element, value, value_type, doc=doc, specific_column_widths=specific_column_widths, font=font, font_size=font_size)
                         else:
                             set_bookmark_run_style(doc, paragraph, bookmark_name, font=font, font_size=font_size)
 
@@ -82,7 +82,7 @@ def fill_word_bookmark(doc, bookmark_name, value, value_type=TemplateBookMarkTyp
     output.seek(0)
     return output
 
-def insert_value(paragraph, bookmark_element, value, value_type, doc=None, specific_column_widths: Optional[List[int]] = None):
+def insert_value(paragraph, bookmark_element, value, value_type, doc=None, specific_column_widths: Optional[List[int]] = None, font=None, font_size=None):
     insert_index = paragraph._element.index(bookmark_element) + 1
 
     if value_type == TemplateBookMarkType.text.value:
@@ -90,6 +90,27 @@ def insert_value(paragraph, bookmark_element, value, value_type, doc=None, speci
             # 修复：直接在当前段落中创建新的run，而不是创建新段落
             from docx.oxml import OxmlElement
             new_run_elem = OxmlElement('w:r')
+
+            # 如果传入了 font 或 font_size，写入 rPr
+            if font or font_size:
+                rPr = OxmlElement('w:rPr')
+                if font:
+                    rFonts = OxmlElement('w:rFonts')
+                    rFonts.set(qn('w:ascii'), font)
+                    rFonts.set(qn('w:hAnsi'), font)
+                    rFonts.set(qn('w:eastAsia'), font)
+                    rPr.append(rFonts)
+                if font_size:
+                    # font_size 单位为磅，Word XML 单位为半磅（*2）
+                    sz_val = str(int(float(font_size) * 2))
+                    sz = OxmlElement('w:sz')
+                    sz.set(qn('w:val'), sz_val)
+                    szCs = OxmlElement('w:szCs')
+                    szCs.set(qn('w:val'), sz_val)
+                    rPr.append(sz)
+                    rPr.append(szCs)
+                new_run_elem.append(rPr)
+
             new_t_elem = OxmlElement('w:t')
             new_t_elem.text = str(value)
             new_t_elem.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')

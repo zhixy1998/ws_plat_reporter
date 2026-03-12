@@ -16,13 +16,10 @@ from docxcompose.composer import Composer
 from fastapi.responses import StreamingResponse
 
 from ..model.template_doc import TemplateDoc
-from utils.EditDocxXML import fill_word_bookmark
-from constants.template_constant import TemplateBookMarkType
-from utils.template_utils import get_doc_name_and_doc_stream_obj, add_section_page_break, clean_document_for_merge, convert_docx_to_pdf_bytes
+from utils.template_utils import get_doc_name_and_doc_stream_obj, convert_docx_to_pdf_bytes
 from utils.fille_template_utils import FillDataUtils
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
-from utils.LoadAndDelete import lock_table_width_on_document
 from utils.log_decorator import log_response
 from constants.template_constant import TemplatePageNumType
 

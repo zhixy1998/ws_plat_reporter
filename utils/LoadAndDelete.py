@@ -108,7 +108,8 @@ class AnalysisBookMark:
             if not name or name.startswith('_'):
                 continue
             
-            font, font_size = get_font_and_size(elem)
+            font, default_font_size = get_font_and_size(elem)
+            font_size = default_font_size
         
             # 确定书签类型
             if TemplateBookMarkType.sheet.decs in name:
@@ -559,7 +560,7 @@ def delete_bookmark_content(doc, bookmark_name, output_path=None):
 def get_font_and_size(elem):
     # 默认字体 & 字号
     default_font = "宋体"
-    default_size = 12
+    default_size = 18
 
     run = elem.getparent()
     while run is not None and run.tag != '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}r':

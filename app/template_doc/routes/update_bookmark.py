@@ -20,6 +20,7 @@ from fastapi.responses import StreamingResponse
 from exceptions.error import ErrorCode
 from utils.log_decorator import log_response
 from ..model.template_doc import TemplateDoc
+from ..model.template_bookmark import TemplateBookmark
 from app.classic_template_doc.routes.classic_create_template_view import create_template as classic_create_template
 from .create_template_view import create_template
 from utils.fille_template_utils import FillDataUtils
@@ -29,10 +30,12 @@ from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
 from utils.doc_converter import get_libreoffice_command
 from constants.template_constant import TemplatePageNumType, MeasureMode
 from config import config
+from utils.EditDocxXML import fill_word_bookmark
 
 router = APIRouter()
 
 class BookmarkItem(BaseModel):
+    bm_id: Optional[int] = Field(None, description="书签id，更新时传入")
     desc_t: str = Field(None, description="time_mapping 的key")
     font: Optional[str] = Field(None, description="字体")
     font_size: Optional[Union[int, float]] = Field(None, description="字号")
@@ -72,6 +75,7 @@ async def update_bookmark(data: InputSchema):
     origin_title_mapping = get_title_mapping(template_name, measure_mode=data.measure_mode)
     operation_type = data.operation_type
     input_title_mapping = data.bookmark_list
+    title_list = data.title_list
     new_title_mapping = {}
     for item in input_title_mapping:
         new_title_mapping[item.desc_t] = {
@@ -96,6 +100,11 @@ async def update_bookmark(data: InputSchema):
                 set_header_footer(doc, header_text=data.header.value, header_font_name=data.header.font, header_font_size=data.header.font_size)
             if data.footer:
                 set_header_footer(doc, footer_text=data.footer.value, footer_font_name=data.footer.font, footer_font_size=data.footer.font_size)
+
+            if title_list:
+                doc_stream = await insert_title(title_list, doc, data.template_id, data.measure_mode)
+
+            doc = Document(doc_stream)
             content_stream = BytesIO()
             doc.save(content_stream)
             content = content_stream.getvalue()
@@ -124,6 +133,10 @@ async def update_bookmark(data: InputSchema):
         footer_info = data.footer
         if footer_info:
             set_header_footer(doc, footer_text=footer_info.value, footer_font_name=footer_info.font, footer_font_size=footer_info.font_size)
+        if title_list:
+            doc_stream = await insert_title(title_list, doc, data.template_id, data.measure_mode)
+            doc = Document(doc_stream)
+        
         print(f"Section 0 Header Paragraphs: {len(doc.sections[0].header.paragraphs)}") 
         output_stream = BytesIO()
         doc.save(output_stream)
@@ -194,6 +207,72 @@ async def update_bookmark(data: InputSchema):
                 "Content-Length": str(len(pdf_bytes)),
             },
         )
+
+async def insert_title(title_list, doc, template_id, measure_mode):
+    title_list = title_list
+    title_list_id = [item.bm_id for item in title_list]
+    title_list_id_info_mapping = {item.bm_id: item for item in title_list}
+    title_bookmark_instance = await TemplateBookmark.filter(template_doc_id=template_id, id__in=title_list_id, is_del = 0)
+    for bookmark in title_bookmark_instance:
+        name = bookmark.name
+        value = title_list_id_info_mapping[bookmark.id].value
+        bookmark_type = bookmark.type
+        doc_stream = fill_word_bookmark(doc, name, value, bookmark_type, font_size=title_list_id_info_mapping[bookmark.id].font_size)
+    return doc_stream
+
+def apply_font_and_size(doc, font=None, font_size=None):
+    """
+    统一修改文档字体和字号。
+    - font:      对所有 run 生效（中英文字体均修改）
+    - font_size: 跳过标题段落（样式名含 'heading' 或 '标题'）
+    """
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
+    HEADING_KEYWORDS = ('heading', '标题')
+
+    def is_heading(paragraph):
+        try:
+            return any(kw in paragraph.style.name.lower() for kw in HEADING_KEYWORDS)
+        except Exception:
+            return False
+
+    def process_run(r_elem, skip_size):
+        rPr = r_elem.find(qn('w:rPr'))
+        if rPr is None:
+            rPr = OxmlElement('w:rPr')
+            r_elem.insert(0, rPr)
+
+        if font:
+            rFonts = rPr.find(qn('w:rFonts'))
+            if rFonts is None:
+                rFonts = OxmlElement('w:rFonts')
+                rPr.insert(0, rFonts)
+            rFonts.set(qn('w:ascii'), font)
+            rFonts.set(qn('w:hAnsi'), font)
+            rFonts.set(qn('w:eastAsia'), font)
+            rFonts.set(qn('w:cs'), font)
+
+        if font_size and not skip_size:
+            sz_val = str(int(float(font_size) * 2))  # Word XML 单位为半磅
+            for tag_name in ('w:sz', 'w:szCs'):
+                el = rPr.find(qn(tag_name))
+                if el is None:
+                    el = OxmlElement(tag_name)
+                    rPr.append(el)
+                el.set(qn('w:val'), sz_val)
+
+    # 收集正文段落 + 表格内段落
+    all_paragraphs = list(doc.paragraphs)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                all_paragraphs.extend(cell.paragraphs)
+
+    for para in all_paragraphs:
+        skip_size = is_heading(para)
+        for run in para.runs:
+            process_run(run._r, skip_size)
 
 
 def file_stream_to_base64(file_stream):

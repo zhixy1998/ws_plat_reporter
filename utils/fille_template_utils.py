@@ -52,6 +52,7 @@ class FillDataUtils():
         self.single_sample = False
         self.template_type = None
         self.template = template
+        self.title_mapping = None
 
 
     def convert_tel_val_data_to_rows(self, tel_val_data_list):
@@ -277,6 +278,7 @@ class FillDataUtils():
         if hasattr(self.table_data_processor.template_module, 'title_mapping'):
             has_private_title_mapping = True
             private_title_mapping = self.table_data_processor.template_module.title_mapping
+            self.title_mapping = private_title_mapping
         doc_stream.seek(0)
         doc = DocxTemplate(doc_stream)
         context_vars = doc.get_undeclared_template_variables()
@@ -500,6 +502,37 @@ class FillDataUtils():
 
             # 合并context 并保存
             used_tpl.render(context=self.contexts)
+
+            # 渲染后对 title_mapping 中指定了字体/字号的变量，找到对应 run 直接设置格式
+            # new_title_mapping 优先（预览/另存为时前端传入），否则回落到私有模块的 title_mapping（真实渲染）
+            _effective_mapping = self.new_title_mapping or self.title_mapping
+            if _effective_mapping:
+                from docx.shared import Pt as _Pt
+
+                def _apply_runs(paragraphs):
+                    for para in paragraphs:
+                        for run in para.runs:
+                            if not run.text:
+                                continue
+                            for var_info in _effective_mapping.values():
+                                text_val = var_info.get('name', '')
+                                v_font = var_info.get('font')
+                                v_size = var_info.get('font_size')
+                                if text_val and text_val in run.text and (v_font or v_size):
+                                    if v_font:
+                                        run.font.name = v_font
+                                        run._element.rPr.get_or_add_rFonts().set(
+                                            qn('w:eastAsia'), v_font
+                                        )
+                                    if v_size:
+                                        run.font.size = _Pt(v_size)
+
+                _apply_runs(used_tpl.docx.paragraphs)
+                for _tbl in used_tpl.docx.tables:
+                    for _row in _tbl.rows:
+                        for _cell in _row.cells:
+                            _apply_runs(_cell.paragraphs)
+
             output_stream = BytesIO()
             used_tpl.save(output_stream)
             output_stream.seek(0)
