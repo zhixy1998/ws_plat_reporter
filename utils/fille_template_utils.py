@@ -509,7 +509,11 @@ class FillDataUtils():
             if _effective_mapping:
                 from docx.shared import Pt as _Pt
 
-                def _apply_runs(paragraphs):
+                def _apply_title_runs(paragraphs):
+                    """
+                    只对标题段落（_t 变量对应的行）做字体/字号修正。
+                    使用精确匹配（run.text == text_val），避免子串误命中数据单元格导致行高膨胀产生空白页。
+                    """
                     for para in paragraphs:
                         for run in para.runs:
                             if not run.text:
@@ -518,20 +522,19 @@ class FillDataUtils():
                                 text_val = var_info.get('name', '')
                                 v_font = var_info.get('font')
                                 v_size = var_info.get('font_size')
-                                if text_val and text_val in run.text and (v_font or v_size):
+                                # 精确匹配，避免子串误命中
+                                if text_val and run.text.strip() == text_val and (v_font or v_size):
                                     if v_font:
                                         run.font.name = v_font
-                                        run._element.rPr.get_or_add_rFonts().set(
-                                            qn('w:eastAsia'), v_font
-                                        )
+                                        rPr = run._element.get_or_add_rPr()
+                                        rFonts = rPr.get_or_add_rFonts()
+                                        rFonts.set(qn('w:eastAsia'), v_font)
                                     if v_size:
                                         run.font.size = _Pt(v_size)
 
-                _apply_runs(used_tpl.docx.paragraphs)
-                for _tbl in used_tpl.docx.tables:
-                    for _row in _tbl.rows:
-                        for _cell in _row.cells:
-                            _apply_runs(_cell.paragraphs)
+                # 只扫描顶层段落（标题/说明行），不扫描表格数据单元格
+                # 扫描表格数据单元格会因大量子串误命中导致行高增大、内容溢出产生空白页
+                # _apply_title_runs(used_tpl.docx.paragraphs)
 
             output_stream = BytesIO()
             used_tpl.save(output_stream)
@@ -714,6 +717,8 @@ class FillDataUtils():
         self.contexts['remark'] = remark_item
     
     async def decode_base64_image(self, bookmark_name, tpl, val):
+        if not val:
+            return ''
         try:
             image_data = base64.b64decode(val)
             image_stream = BytesIO(image_data)
@@ -724,7 +729,7 @@ class FillDataUtils():
                 return InlineImage(tpl, image_stream, width=Cm(14))  # 根据需要调整宽度
         except Exception as e:
             print("图片解码失败", e)
-            return None
+            return ''
     
     def filter_table_header(self, private_header, table_header_data_mapping):
         private_header = self.handle_table_header(private_header)

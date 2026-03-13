@@ -188,7 +188,7 @@ class ClassicFillDataUtils():
         spectral_scanning_mapping = common_data_mapping.get(self.measure_type)
         for jinja_val, common_val_key in spectral_scanning_mapping.items():
             if jinja_val == '光谱扫描图片':
-                contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+                contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64) or ''
             elif jinja_val == '扫描范围':
                 scan_range = self.common_val.get('startWaveLength', '')  + '至' + self.common_val.get('endWaveLength', '')
                 contexts[jinja_val] = scan_range
@@ -268,7 +268,7 @@ class ClassicFillDataUtils():
         time_scanning_mapping = common_data_mapping.get(self.measure_type)
         for jinja_val, common_val_key in time_scanning_mapping.items():
             if jinja_val == '时间扫描图片':
-                contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64)
+                contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64) or ''
             elif jinja_val == '增益':
                 gain_value = self.common_val.get(common_val_key)
                 if gain_value not in [None, '']:
@@ -615,6 +615,8 @@ class ClassicFillDataUtils():
             return False
     
     async def decode_base64_image(self, tpl, val):
+        if not val:
+            return ''
         try:
             # 移除可能的data URI前缀
             if val.startswith('data:image'):
@@ -641,7 +643,7 @@ class ClassicFillDataUtils():
         except Exception as e:
             print(f"图片解码失败: {e}")
             print(f"base64字符串长度: {len(val) if val else 0}")
-            return None
+            return ''
 
     def filter_table_header(self, private_header, table_header_data_mapping):
         private_header = self.handle_table_header(private_header)

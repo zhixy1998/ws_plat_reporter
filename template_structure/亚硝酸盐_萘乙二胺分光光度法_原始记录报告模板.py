@@ -67,13 +67,13 @@ class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
 
     # 标准样的字段，按顺序横向展示
-    STAND = ['normalConcentration', 'Abs', 'sumAbs']
+    STAND = []
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING_LIST = [{
         "t1": "sampleName",
         "t2": "sampleType",
-        "t3": "660-1",
+        "t3": "Abs",
         "t4": "680-1",
         "t5": "fitConcentration",
         "t6": "samplingTime"

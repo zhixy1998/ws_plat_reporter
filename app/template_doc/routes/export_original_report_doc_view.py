@@ -11,6 +11,7 @@ from urllib.parse import quote
 
 from docx import Document
 from fastapi import APIRouter
+from numpy import test
 from pydantic import BaseModel, Field
 from docxcompose.composer import Composer
 from fastapi.responses import StreamingResponse
@@ -55,7 +56,8 @@ async def export_docx(data: InputSchema):
         fill_data_instance_report = FillDataUtils(report_template_name, template=template)
         report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id,  raw_data_report_id, image_base64=image_base64, analysis_id=analysis_id)
         # 合并前先移除页码，最后统一插入
-        report_doc_steam_obj = fill_data_instance_report.remove_header_page_number(report_doc_steam_obj)
+        if raw_data_report_id and test_data_report_id:
+            report_doc_steam_obj = fill_data_instance_report.remove_header_page_number(report_doc_steam_obj)
         doc_report = Document(report_doc_steam_obj)
         # lock_table_width_on_document(doc_report)
 
@@ -64,8 +66,8 @@ async def export_docx(data: InputSchema):
         template = await TemplateDoc.get_or_none(id=test_data_report_id)
         fill_data_instance_original = FillDataUtils(original_template_name, template=template)
         original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id, test_data_report_id, image_base64=image_base64, analysis_id=analysis_id)
-        # 合并前先移除页码，最后统一插入
-        original_doc_stream_obj = fill_data_instance_original.remove_header_page_number(original_doc_stream_obj)
+        if raw_data_report_id and test_data_report_id:
+            original_doc_stream_obj = fill_data_instance_original.remove_header_page_number(original_doc_stream_obj)
         doc_original = Document(original_doc_stream_obj)
         # lock_table_width_on_document(doc_original)
 
@@ -138,6 +140,7 @@ async def export_docx(data: InputSchema):
         if page_num_type != TemplatePageNumType.no_page.value:
             report_doc_steam_obj = fill_data_instance_report.insert_header_page_number(report_doc_steam_obj, alignment=page_num_type)
         # 删除空白页后转换为 PDF
+        report_doc_steam_obj = FillDataUtils.remove_blank_pages(report_doc_steam_obj)
         pdf_bytes = convert_docx_to_pdf_bytes(report_doc_steam_obj)
         if not pdf_bytes:
             raise APIException(ErrorCode.CONVERT_PDF_FAILED)

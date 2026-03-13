@@ -28,8 +28,8 @@ python_template_var = {
 
 # 标题映射（包含字体和字号信息）
 title_mapping = {
-    '审核员_t': {'name': '审核员', 'font': '宋体', 'font_size': 6667},
-    '分析员_t': {'name': '分析员', 'font': '宋体', 'font_size': 6667},
+    '审核员_t': {'name': '审核员', 'font': '宋体', 'font_size': 12},
+    '分析员_t': {'name': '分析员', 'font': '宋体', 'font_size': 12},
     '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
     '采样数_t': {'name': '采样数', 'font': '宋体', 'font_size': 12},
     '分析时间_t': {'name': '分析时间', 'font': '宋体', 'font_size': 12},
