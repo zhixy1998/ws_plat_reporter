@@ -26,8 +26,13 @@ def detect_file_format(file_content: bytes) -> str:
     else:
         return 'unknown'
 
-def _build_user_installation_uri(temp_dir: str) -> str:
-    profile_dir = Path(temp_dir).resolve() / 'libreoffice-profile'
+def _get_libreoffice_profile_dir() -> Path:
+    base_dir = config.deploy_python_path or tempfile.gettempdir()
+    return Path(base_dir).resolve() / 'libreoffice-profile'
+
+
+def _build_user_installation_uri() -> str:
+    profile_dir = _get_libreoffice_profile_dir()
     profile_dir.mkdir(parents=True, exist_ok=True)
     return profile_dir.as_uri()
 
@@ -63,6 +68,13 @@ def explain_libreoffice_returncode(returncode: int) -> str:
     return ''
 
 
+def get_libreoffice_timeout_seconds() -> int:
+    """Windows 便携版冷启动更慢，给更宽松的转换超时。"""
+    if platform.system() == 'Windows':
+        return 90
+    return 30
+
+
 # 判断当前操作系统
 def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
     """
@@ -88,7 +100,7 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
         ]
     elif system in ['Windows']:
         libreoffice_path = os.path.abspath(config.libre_office_path)
-        user_installation = _build_user_installation_uri(temp_dir)
+        user_installation = _build_user_installation_uri()
         print(f"LibreOffice路径: {libreoffice_path}")
         print(f"LibreOffice用户目录: {user_installation}")
         command = [
@@ -149,7 +161,7 @@ def convert_doc_to_docx_libreoffice(doc_content: bytes) -> BytesIO:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30,  # 30秒超时
+                timeout=get_libreoffice_timeout_seconds(),
                 **get_libreoffice_subprocess_kwargs(cmd)
             )
             
