@@ -18,7 +18,7 @@ import base64
 from config import config
 from utils.log_decorator import log_response
 from utils.verification_calibration_utils.verification_calibration_handle import InspectionAndCorrectionReport
-from utils.doc_converter import get_libreoffice_command
+from utils.doc_converter import get_libreoffice_command, get_libreoffice_subprocess_kwargs, explain_libreoffice_returncode
 from app.template_doc.model.template_doc import TemplateDoc
 
 router = APIRouter()
@@ -82,13 +82,16 @@ def convert_docx_to_pdf_bytes_simple(docx_stream: BytesIO, output_dir: str, base
     print(f"输出目录: {output_dir}")
     print(f"临时DOCX: {tmp_docx_path}")
 
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, **get_libreoffice_subprocess_kwargs(cmd))
     if result.stdout:
         print(result.stdout)
     if result.stderr:
         print(result.stderr)
 
     if result.returncode != 0:
+        detail = explain_libreoffice_returncode(result.returncode)
+        if detail:
+            print(f"LibreOffice 诊断: {detail}")
         raise RuntimeError(f"LibreOffice 转换失败，返回码 {result.returncode}")
 
     if not os.path.exists(pdf_path) or os.path.getsize(pdf_path) == 0:

@@ -5,6 +5,7 @@ import platform
 import threading
 import importlib
 import subprocess
+import shutil
 import base64, json
 import typing
 from io import BytesIO
@@ -23,7 +24,7 @@ except Exception:  # pragma: no cover
 
 from config import config
 from app.db import execute_safe_sql
-from utils.doc_converter import get_libreoffice_command
+from utils.doc_converter import get_libreoffice_command, get_libreoffice_subprocess_kwargs, explain_libreoffice_returncode
 from app.template_doc.model.template_doc import TemplateDoc
 from constants.template_constant import MeasureMode
 
@@ -256,22 +257,19 @@ def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
     
     print("调试：DOCX文件大小：" + str(os.path.getsize(docx_path)) + "字节")
     
-    # 检查LibreOffice命令
-    try:
-        which_result = subprocess.run(['which', 'libreoffice'], capture_output=True, text=True, timeout=5)
-        if which_result.returncode != 0:
-            print("调试：libreoffice命令未找到")
-            # 尝试soffice
-            which_soffice = subprocess.run(['which', 'soffice'], capture_output=True, text=True, timeout=5)
-            if which_soffice.returncode != 0:
-                print("调试：soffice命令也未找到")
-                return b""
-            else:
-                print("调试：找到soffice命令：" + which_soffice.stdout.strip())
-        else:
-            print("调试：找到libreoffice命令：" + which_result.stdout.strip())
-    except Exception as e:
-        print("调试：检查LibreOffice命令失败：" + str(e))
+    system = platform.system()
+    if system == 'Windows':
+        libreoffice_path = os.path.abspath(config.libre_office_path)
+        if not os.path.exists(libreoffice_path):
+            print("调试：LibreOffice可执行文件不存在：" + libreoffice_path)
+            return b""
+        print("调试：使用Windows LibreOffice：" + libreoffice_path)
+    else:
+        libreoffice_cmd = shutil.which('libreoffice') or shutil.which('soffice')
+        if not libreoffice_cmd:
+            print("调试：未找到 libreoffice/soffice 命令")
+            return b""
+        print("调试：找到LibreOffice命令：" + libreoffice_cmd)
     
     for attempt in range(2):
         try:
@@ -284,7 +282,8 @@ def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
                 check=True, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE, 
-                timeout=30
+                timeout=30,
+                **get_libreoffice_subprocess_kwargs(cmd)
             )
 
             stdout_text = result.stdout.decode('utf-8', errors='ignore').strip()
@@ -330,6 +329,9 @@ def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
 
         except subprocess.CalledProcessError as e:
             print("调试：LibreOffice执行失败，返回码：" + str(e.returncode))
+            detail = explain_libreoffice_returncode(e.returncode)
+            if detail:
+                print("调试：" + detail)
             if e.stderr:
                 print("调试：错误信息：" + e.stderr.decode('utf-8', errors='ignore'))
             if attempt == 0:

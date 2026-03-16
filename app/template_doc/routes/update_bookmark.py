@@ -27,7 +27,7 @@ from utils.fille_template_utils import FillDataUtils
 from exceptions.command_exception import APIException
 from utils.handle_header_footer import set_header_footer
 from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
-from utils.doc_converter import get_libreoffice_command
+from utils.doc_converter import get_libreoffice_command, get_libreoffice_subprocess_kwargs, explain_libreoffice_returncode
 from constants.template_constant import TemplatePageNumType, MeasureMode
 from config import config
 from utils.EditDocxXML import fill_word_bookmark
@@ -298,7 +298,7 @@ def convert_docx_to_images_base64(file_stream) -> List[str]:
         try:
             # 使用LibreOffice转换为图片（PNG格式保持高质量）
             cmd=get_libreoffice_command(tmpdir,docx_path,'png')
-            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30, **get_libreoffice_subprocess_kwargs(cmd))
             
             # 收集所有生成的图片并转换为base64
             image_base64_list = []
@@ -313,6 +313,9 @@ def convert_docx_to_images_base64(file_stream) -> List[str]:
             return image_base64_list
             
         except subprocess.CalledProcessError as e:
+            detail = explain_libreoffice_returncode(e.returncode)
+            if detail:
+                print(f"LibreOffice诊断: {detail}")
             print(f"LibreOffice转换失败: {e}")
             return []
         except Exception as e:
@@ -342,8 +345,11 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
         # 转换 docx 为 pdf，LibreOffice 会自动输出到 tmpdir 中
         try:
             cmd=get_libreoffice_command(tmpdir,docx_path,'pdf')
-            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30, **get_libreoffice_subprocess_kwargs(cmd))
         except subprocess.CalledProcessError as e:
+            detail = explain_libreoffice_returncode(e.returncode)
+            if detail:
+                print(f"LibreOffice诊断: {detail}")
             raise RuntimeError(f"LibreOffice 转换失败: {e.stderr.decode()}")
         except subprocess.TimeoutExpired:
             raise RuntimeError("LibreOffice 转换超时（30秒）")

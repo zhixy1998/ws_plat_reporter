@@ -9,6 +9,7 @@ import tempfile
 import platform
 import subprocess
 import subprocess
+from pathlib import Path
 from io import BytesIO
 from config import config
 
@@ -25,7 +26,44 @@ def detect_file_format(file_content: bytes) -> str:
     else:
         return 'unknown'
 
- # 判断当前操作系统
+def _build_user_installation_uri(temp_dir: str) -> str:
+    profile_dir = Path(temp_dir).resolve() / 'libreoffice-profile'
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    return profile_dir.as_uri()
+
+
+def get_libreoffice_subprocess_kwargs(command: list) -> dict:
+    """为 Windows 便携版 LibreOffice 提供稳定的启动目录和 PATH。"""
+    if platform.system() != 'Windows' or not command:
+        return {}
+
+    executable = command[0]
+    if not isinstance(executable, str):
+        return {}
+
+    executable = os.path.abspath(executable)
+    program_dir = os.path.dirname(executable)
+    env = os.environ.copy()
+    env['PATH'] = program_dir + os.pathsep + env.get('PATH', '')
+    return {
+        'cwd': program_dir,
+        'env': env,
+    }
+
+
+def explain_libreoffice_returncode(returncode: int) -> str:
+    """将 Windows 进程退出码转换为可读诊断。"""
+    unsigned_code = returncode & 0xFFFFFFFF
+    if unsigned_code == 0xE06D7363:
+        return 'LibreOffice 在启动阶段抛出 Windows C++ 未处理异常，常见于便携版依赖/用户配置目录/运行目录不正确。'
+    if unsigned_code == 0xC0000135:
+        return 'LibreOffice 缺少运行依赖 DLL，进程未能正常启动。'
+    if unsigned_code == 0xC0000142:
+        return 'LibreOffice 初始化失败，通常与运行环境或依赖加载有关。'
+    return ''
+
+
+# 判断当前操作系统
 def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
     """
     根据操作系统类型返回相应的LibreOffice转换命令
@@ -49,17 +87,22 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
             doc_path
         ]
     elif system in ['Windows']:
-        libreoffice_path = config.libre_office_path
+        libreoffice_path = os.path.abspath(config.libre_office_path)
+        user_installation = _build_user_installation_uri(temp_dir)
         print(f"LibreOffice路径: {libreoffice_path}")
+        print(f"LibreOffice用户目录: {user_installation}")
         command = [
             libreoffice_path, 
             '--headless',
             '--norestore',
+            '--nodefault',
+            '--nolockcheck',
             '--nologo',
             '--nofirststartwizard',
+            f'-env:UserInstallation={user_installation}',
             '--convert-to', aim,
-            '--outdir', temp_dir,
-            doc_path
+            '--outdir', os.path.abspath(temp_dir),
+            os.path.abspath(doc_path)
         ]
 
     elif system in ['Linux']:  # macOS 或 Linux
@@ -106,10 +149,14 @@ def convert_doc_to_docx_libreoffice(doc_content: bytes) -> BytesIO:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30  # 30秒超时
+                timeout=30,  # 30秒超时
+                **get_libreoffice_subprocess_kwargs(cmd)
             )
             
             if result.returncode != 0:
+                detail = explain_libreoffice_returncode(result.returncode)
+                if detail:
+                    print(f"LibreOffice诊断: {detail}")
                 raise Exception(f"LibreOffice转换失败: {result.stderr}")
             
             # 读取转换后的DOCX文件
