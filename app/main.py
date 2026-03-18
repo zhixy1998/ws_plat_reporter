@@ -107,4 +107,5 @@ app.add_middleware(
     allow_credentials=True,       # 允许携带 cookie
     allow_methods=["*"],          # 允许所有方法
     allow_headers=["*"],          # 允许所有请求头
+    expose_headers=["Content-Disposition"] 
 )
