@@ -63,7 +63,7 @@ async def backup_import(
     content_bytes = await file.read()
     file_name = file.filename
     user_name = getattr(request.state, "user_name", None)
-    if file_name.split('.')[1] not in ['nxd', 'nxm']:
+    if file_name.split('.')[1] not in ['uvcd', 'uvcm']:
         raise APIException(ErrorCode.INVALID_FILE_FORMAT)
     content_str = content_bytes.decode('utf-8')
     decrypt_data = decrypt_json(content_str)

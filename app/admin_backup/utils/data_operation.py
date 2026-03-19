@@ -3,7 +3,7 @@ from datetime import datetime
 
 from tortoise.fields import data
 
-from app.db import execute_safe_sql_classic
+from app.db import execute_safe_sql_classic, execute_safe_sql
 from .encrypt import json_converter
 db_name = 'classic_db'
 
@@ -94,9 +94,29 @@ class DataOperation():
                     continue
                 for params in all_params:
                     await execute_safe_sql_classic(sql, params)
-
-
         return True
+    
+    @staticmethod
+    async def insert_data_guide(decrypt_data):
+        method_data = decrypt_data.get('method_data', {})
+        task_data = decrypt_data.get('task_data', {})
+        data_list = []
+        if method_data:
+            database_name = 't_measure_method'
+            data_list = method_data
+        if task_data:
+            database_name = 't_measure_task'
+            data_list = task_data
+        
+        sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
+        print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
+        if not sql:
+            return False
+        for params in all_params:
+            await execute_safe_sql(sql, params)
+        return True
+        
+        
     
     @staticmethod
     def insert_data_sql(database_name, data_list):
