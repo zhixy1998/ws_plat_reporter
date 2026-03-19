@@ -247,6 +247,43 @@ def _try_convert_with_docx2pdf(docx_path: str, pdf_path: str, timeout: int = 10)
 
     return False
 
+
+def _try_convert_with_wps(docx_path: str, pdf_path: str, timeout: int = 15) -> bool:
+    """尝试在限定时间内通过 WPS 转换，失败或超时返回 False。"""
+    try:
+        def wps_convert():
+            import pythoncom
+            pythoncom.CoInitialize()
+            try:
+                import win32com.client
+                # KWPS.Application 表示 WPS 文字
+                wps = win32com.client.DispatchEx("KWPS.Application")
+                wps.Visible = False
+                doc = wps.Documents.Open(os.path.abspath(docx_path), ReadOnly=True)
+                # 17 是导出成 PDF 的格式代码
+                doc.SaveAs(os.path.abspath(pdf_path), FileFormat=17)
+                doc.Close(0)
+                wps.Quit()
+            finally:
+                pythoncom.CoUninitialize()
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(wps_convert)
+            future.result(timeout=timeout)
+
+        if not os.path.exists(pdf_path) or os.path.getsize(pdf_path) == 0:
+            print("WPS 转换失败：PDF 文件为空或未生成")
+            return False
+
+        print("WPS 转换成功")
+        return True
+    except FuturesTimeoutError:
+        print(f"WPS 转换超过 {timeout} 秒，自动跳过")
+        return False
+    except Exception as exc:
+        print(f"WPS 转换异常: {exc}")
+        return False
+
 def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
     print("调试：开始LibreOffice转换")
     
@@ -402,10 +439,17 @@ def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
             
             print("调试：LibreOffice转换失败")
             system = platform.system()
-            if system == 'Windows' and has_ms_word():
+            if system == 'Windows':
                 print("调试：尝试Windows备用方案")
-                if _try_convert_with_docx2pdf(docx_path, pdf_path, timeout=10):
-                    return open(pdf_path, "rb").read()
+                if has_wps():
+                    print("调试：检测到WPS，尝试使用WPS转换")
+                    if _try_convert_with_wps(docx_path, pdf_path, timeout=15):
+                        return open(pdf_path, "rb").read()
+                
+                if has_ms_word():
+                    print("调试：没WPS或WPS失败，尝试使用MS Word转换")
+                    if _try_convert_with_docx2pdf(docx_path, pdf_path, timeout=10):
+                        return open(pdf_path, "rb").read()
 
             print("调试：所有转换方案都失败了")
             return b""
@@ -528,6 +572,16 @@ def has_ms_word():
         import win32com.client
         word = win32com.client.Dispatch("Word.Application")
         word.Quit()
+        return True
+    except Exception:
+        return False
+
+
+def has_wps():
+    try:
+        import win32com.client
+        wps = win32com.client.Dispatch("KWPS.Application")
+        wps.Quit()
         return True
     except Exception:
         return False

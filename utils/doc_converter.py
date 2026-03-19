@@ -100,9 +100,13 @@ def get_libreoffice_command(temp_dir: str, doc_path: str,aim :str ) -> list:
         ]
     elif system in ['Windows']:
         libreoffice_path = os.path.abspath(config.libre_office_path)
-        user_installation = _build_user_installation_uri()
+        # 使用隔离的专用目录作为 LibreOffice 的独立 profile
+        profile_dir = Path(temp_dir).resolve() / 'libreoffice-profile'
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        user_installation = profile_dir.as_uri()
+
         print(f"LibreOffice路径: {libreoffice_path}")
-        print(f"LibreOffice用户目录: {user_installation}")
+        print(f"LibreOffice用户目录(隔离): {user_installation}")
         command = [
             libreoffice_path, 
             '--headless',
