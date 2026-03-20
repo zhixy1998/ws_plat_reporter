@@ -22,7 +22,7 @@ except Exception:  # pragma: no cover
 
 from config import config
 from app.db import execute_safe_sql
-from utils.doc_converter import get_libreoffice_command
+from utils.doc_converter import get_libreoffice_command, get_libreoffice_timeout_seconds
 from app.template_doc.model.template_doc import TemplateDoc
 from constants.template_constant import MeasureMode
 
@@ -308,12 +308,9 @@ def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
     run_kwargs = {
         'stdout': subprocess.PIPE,
         'stderr': subprocess.PIPE,
-        'timeout': 20,
-        'cwd': tmpdir,
+        'timeout': get_libreoffice_timeout_seconds(),
         'check': False,
     }
-    if system == 'Windows' and hasattr(subprocess, 'CREATE_NO_WINDOW'):
-        run_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
 
     try:
         result = subprocess.run(cmd, **run_kwargs)
