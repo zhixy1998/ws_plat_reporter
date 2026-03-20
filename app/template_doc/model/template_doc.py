@@ -13,7 +13,7 @@ class TemplateDoc(TemplateDocBase):
     update_datetime = fields.DatetimeField(auto_now=True)
     template_content = fields.TextField()  # Base64 存储doc内容
     thumbnail_base64 = fields.TextField(null=True, help_text="缩略图 base64")
-    base_template_id = fields.IntField(null=True, help_text='基础模版的id')
+    base_template_id = fields.IntField(null=True, help_text='基础模板的id')
     is_del = fields.SmallIntField(default=0)
     order = fields.IntField(null=True,help_text='默认顺序')
     python_config = fields.TextField(null=True, help_text='Python配置文件内容（纯文本存储）')

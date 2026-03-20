@@ -34,7 +34,7 @@ async def create_template_view(
         base_template_doc_instance = await TemplateDocBase.get_or_none(id=base_template_id)
         content_base64 = base_template_doc_instance.template_content
 
-        # 先删除 之前的这个模版的标签
+        # 先删除 之前的这个模板的标签
         TemplateBookmark.filter(template_doc_id=id).update(is_del=1)
 
         # 存入
@@ -62,7 +62,7 @@ async def create_template(name: str, content_base64: str, content: bytes):
         }
         # 先创建base模型，方便以后回滚
         template_base_instance = await TemplateDocBase.create(**create_info)
-        # 创建模版
+        # 创建模板
         create_info['base_template_id'] = template_base_instance.id
         template =  await TemplateDoc.create(**create_info)
         # 创建标签

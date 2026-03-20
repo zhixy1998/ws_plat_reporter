@@ -16,7 +16,7 @@ title_mapping = { # 全部加t
     'remark_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
     'sample_preparation_t': {'name': '样品前处理', 'font': '宋体', 'font_size': 12},
 
-    # 原始数据模版用 也可能在原始记录中用
+    # 原始数据模板用 也可能在原始记录中用
     # 光谱
     '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
     '仪器序号_t': {'name': '仪器序号', 'font': '宋体', 'font_size': 12},

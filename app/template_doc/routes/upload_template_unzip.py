@@ -242,7 +242,7 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
 
         return {
             "code": 200,
-            "message": "模版上传成功",
+            "message": "模板上传成功",
             "data": {
                 "extracted_dir": str(extract_to),
                 "docx": docx_files,

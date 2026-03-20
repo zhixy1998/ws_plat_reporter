@@ -104,14 +104,14 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
                 'name': name,
                 'template_content': content_base64,
                 'experiment_type': experiment_type,
-                'type': template_type, # 模版类型
+                'type': template_type, # 模板类型
                 'industry_type': industry_type,
             }
             if old_template_name:
                 create_info['origin_type'] = TemplateOriginType.user_change.value
             # 先创建base模型，方便以后回滚
             template_base_instance = await TemplateDocBase.create(**create_info)
-            # 创建模版
+            # 创建模板
             create_info['base_template_id'] = template_base_instance.id
             template =  await TemplateDoc.create(**create_info)
             # 创建标签

@@ -113,7 +113,7 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
         }
         # 先创建base模型，方便以后回滚
         template_base_instance = await TemplateDocBase.create(**create_info, using_db=class_db_con)
-        # 创建模版
+        # 创建模板
         create_info['base_template_id'] = template_base_instance.id
         if thumbnail_base64:
             create_info['thumbnail_base64'] = thumbnail_base64
