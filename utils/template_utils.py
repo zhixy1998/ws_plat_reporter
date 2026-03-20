@@ -1,11 +1,9 @@
 import os
-import time
 import tempfile
 import platform
 import threading
 import importlib
 import subprocess
-import shutil
 import base64, json
 import typing
 from io import BytesIO
@@ -24,7 +22,7 @@ except Exception:  # pragma: no cover
 
 from config import config
 from app.db import execute_safe_sql
-from utils.doc_converter import get_libreoffice_command, get_libreoffice_subprocess_kwargs, explain_libreoffice_returncode, get_libreoffice_timeout_seconds
+from utils.doc_converter import get_libreoffice_command
 from app.template_doc.model.template_doc import TemplateDoc
 from constants.template_constant import MeasureMode
 
@@ -151,7 +149,6 @@ class GetDataFromDatabase:
             return analysis_result
 
 import threading
-import time
 import platform
 
 # 全局锁：控制 LibreOffice 并发
@@ -286,111 +283,77 @@ def _try_convert_with_wps(docx_path: str, pdf_path: str, timeout: int = 15) -> b
 
 def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
     print("调试：开始LibreOffice转换")
-    
-    # 检查文件和目录
+
     if not os.path.exists(docx_path):
         print("调试：DOCX文件不存在：" + docx_path)
         return b""
-    
+
     print("调试：DOCX文件大小：" + str(os.path.getsize(docx_path)) + "字节")
-    
+
+    cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
+    if not cmd:
+        print("调试：未生成 LibreOffice 命令")
+        return b""
+
     system = platform.system()
     if system == 'Windows':
-        libreoffice_path = os.path.abspath(config.libre_office_path)
-        if not os.path.exists(libreoffice_path):
-            print("调试：LibreOffice可执行文件不存在：" + libreoffice_path)
+        cmd[0] = os.path.abspath(cmd[0])
+        if not os.path.exists(cmd[0]):
+            print("调试：LibreOffice可执行文件不存在：" + cmd[0])
             return b""
-        print("调试：使用Windows LibreOffice：" + libreoffice_path)
-    else:
-        libreoffice_cmd = shutil.which('libreoffice') or shutil.which('soffice')
-        if not libreoffice_cmd:
-            print("调试：未找到 libreoffice/soffice 命令")
-            return b""
-        print("调试：找到LibreOffice命令：" + libreoffice_cmd)
-    
-    for attempt in range(2):
-        try:
-            print("调试：尝试转换，第" + str(attempt + 1) + "次")
-            cmd = get_libreoffice_command(tmpdir, docx_path, 'pdf')
-            print("调试：执行命令：" + str(cmd))
+        print("调试：使用Windows LibreOffice：" + cmd[0])
 
-            result = subprocess.run(
-                cmd, 
-                check=True, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
-                timeout=get_libreoffice_timeout_seconds(),
-                **get_libreoffice_subprocess_kwargs(cmd)
-            )
+    print("调试：执行命令：" + str(cmd))
 
-            stdout_text = result.stdout.decode('utf-8', errors='ignore').strip()
-            stderr_text = result.stderr.decode('utf-8', errors='ignore').strip()
-            if stdout_text:
-                print("调试：LibreOffice输出：" + stdout_text)
-            if stderr_text:
-                print("调试：LibreOffice错误：" + stderr_text)
+    run_kwargs = {
+        'stdout': subprocess.PIPE,
+        'stderr': subprocess.PIPE,
+        'timeout': 30,
+        'cwd': tmpdir,
+        'check': False,
+    }
+    if system == 'Windows' and hasattr(subprocess, 'CREATE_NO_WINDOW'):
+        run_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
 
-            time.sleep(0.5)
+    try:
+        result = subprocess.run(cmd, **run_kwargs)
+    except subprocess.TimeoutExpired:
+        print("调试：LibreOffice转换超时")
+        _kill_libreoffice_processes()
+        return b""
+    except FileNotFoundError:
+        print("调试：LibreOffice命令未找到")
+        return b""
+    except Exception as e:
+        print("调试：LibreOffice转换异常：" + str(e))
+        _kill_libreoffice_processes()
+        return b""
 
-            # 检查PDF是否生成
-            if not os.path.exists(pdf_path):
-                print("调试：PDF文件未生成")
-                if attempt == 0:
-                    _kill_libreoffice_processes()
-                    time.sleep(1)
-                    continue
-                return b""
+    stdout_text = result.stdout.decode('utf-8', errors='ignore').strip()
+    stderr_text = result.stderr.decode('utf-8', errors='ignore').strip()
+    if stdout_text:
+        print("调试：LibreOffice输出：" + stdout_text)
+    if stderr_text:
+        print("调试：LibreOffice错误：" + stderr_text)
 
-            # 读取PDF文件
-            with open(pdf_path, "rb") as pdf_file:
-                pdf_bytes = pdf_file.read()
+    if result.returncode != 0:
+        print("调试：LibreOffice执行失败，返回码：" + str(result.returncode))
+        _kill_libreoffice_processes()
+        return b""
 
-            if len(pdf_bytes) == 0:
-                print("调试：PDF文件为空")
-                if attempt == 0:
-                    _kill_libreoffice_processes()
-                    time.sleep(1)
-                    continue
-                return b""
+    if not os.path.exists(pdf_path):
+        print("调试：PDF文件未生成")
+        return b""
 
-            print("调试：PDF生成成功，大小：" + str(len(pdf_bytes)) + "字节")
-            return pdf_bytes
+    with open(pdf_path, "rb") as pdf_file:
+        pdf_bytes = pdf_file.read()
 
-        except subprocess.TimeoutExpired:
-            print("调试：LibreOffice超时，第" + str(attempt + 1) + "次尝试")
-            if attempt == 0:
-                _kill_libreoffice_processes()
-                time.sleep(2)
-                continue
-            return b""
+    if not pdf_bytes:
+        print("调试：PDF文件为空")
+        return b""
 
-        except subprocess.CalledProcessError as e:
-            print("调试：LibreOffice执行失败，返回码：" + str(e.returncode))
-            detail = explain_libreoffice_returncode(e.returncode)
-            if detail:
-                print("调试：" + detail)
-            if e.stderr:
-                print("调试：错误信息：" + e.stderr.decode('utf-8', errors='ignore'))
-            if attempt == 0:
-                _kill_libreoffice_processes()
-                time.sleep(1)
-                continue
-            return b""
-
-        except FileNotFoundError:
-            print("调试：LibreOffice命令未找到")
-            return b""
-
-        except Exception as e:
-            print("调试：转换异常：" + str(e))
-            if attempt == 0:
-                _kill_libreoffice_processes()
-                time.sleep(1)
-                continue
-            return b""
-    
-    print("调试：所有尝试都失败了")
-    return b""
+    print("调试：PDF生成成功，大小：" + str(len(pdf_bytes)) + "字节")
+    return pdf_bytes
 
 
 def _do_convert_docx_to_pdf_bytes(doc_raw_bytes: bytes) -> bytes:
