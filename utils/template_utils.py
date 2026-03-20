@@ -308,7 +308,7 @@ def _try_convert_docx_with_libreoffice(tmpdir, docx_path, pdf_path) -> bytes:
     run_kwargs = {
         'stdout': subprocess.PIPE,
         'stderr': subprocess.PIPE,
-        'timeout': 30,
+        'timeout': 20,
         'cwd': tmpdir,
         'check': False,
     }
