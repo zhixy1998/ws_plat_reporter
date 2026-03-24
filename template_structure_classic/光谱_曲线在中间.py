@@ -34,13 +34,13 @@ title_mapping = {
     '光谱带宽_t': {'name': '光谱带宽', 'font': '宋体', 'font_size': 12},
     '方法名称_t': {'name': '方法名称', 'font': '宋体', 'font_size': 12},
     '增益_t': {'name': '增益', 'font': '宋体', 'font_size': 12},
-    '重复次数_t': {'name': '重复次数', 'font': '宋体', 'font_size': 6667},
+    '重复次数_t': {'name': '重复次数', 'font': '宋体', 'font_size': 12},
     '仪器序号_t': {'name': '仪器序号', 'font': '宋体', 'font_size': 12},
     '扫描范围_t': {'name': '扫描范围', 'font': '宋体', 'font_size': 12},
     '扫描间隔_t': {'name': '扫描间隔', 'font': '宋体', 'font_size': 12},
     '扫描速度_t': {'name': '扫描速度', 'font': '宋体', 'font_size': 12},
     '分析时间_t': {'name': '分析时间', 'font': '宋体', 'font_size': 12},
-    '波长间隔_t': {'name': '波长间隔', 'font': '宋体', 'font_size': 6667},
+    '波长间隔_t': {'name': '波长间隔', 'font': '宋体', 'font_size': 12},
     '审核员_t': {'name': '审核员', 'font': '宋体', 'font_size': 12},
     '备注_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
     '数据文件_t': {'name': '数据文件', 'font': '宋体', 'font_size': 12},
@@ -48,7 +48,7 @@ title_mapping = {
     '分析员_t': {'name': '分析员', 'font': '宋体', 'font_size': 12},
     '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
     '光度模式_t': {'name': '光度模式', 'font': '宋体', 'font_size': 12},
-    '重复模式_t': {'name': '重复模式', 'font': '宋体', 'font_size': 6667}
+    '重复模式_t': {'name': '重复模式', 'font': '宋体', 'font_size': 12}
 }
 
 # 字段渲染表格

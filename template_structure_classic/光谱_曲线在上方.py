@@ -31,14 +31,14 @@ python_template_var = {
 # 标题映射（包含字体和字号信息）
 title_mapping = {
     '分析员_t': {'name': '分析员', 'font': '宋体', 'font_size': 12},
-    '重复次数_t': {'name': '重复次数', 'font': '宋体', 'font_size': 6667},
+    '重复次数_t': {'name': '重复次数', 'font': '宋体', 'font_size': 12},
     '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
     '备注_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
     '数据类型_t': {'name': '数据类型', 'font': '宋体', 'font_size': 12},
-    '波长间隔_t': {'name': '波长间隔', 'font': '宋体', 'font_size': 6667},
+    '波长间隔_t': {'name': '波长间隔', 'font': '宋体', 'font_size': 12},
     '增益_t': {'name': '增益', 'font': '宋体', 'font_size': 12},
     '方法名称_t': {'name': '方法名称', 'font': '宋体', 'font_size': 12},
-    '重复模式_t': {'name': '重复模式', 'font': '宋体', 'font_size': 6667},
+    '重复模式_t': {'name': '重复模式', 'font': '宋体', 'font_size': 12},
     '扫描速度_t': {'name': '扫描速度', 'font': '宋体', 'font_size': 12},
     '扫描间隔_t': {'name': '扫描间隔', 'font': '宋体', 'font_size': 12},
     '分析时间_t': {'name': '分析时间', 'font': '宋体', 'font_size': 12},
