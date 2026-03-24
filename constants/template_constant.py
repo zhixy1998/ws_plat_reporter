@@ -20,6 +20,7 @@ class ExperimentType(StorageInfo):
     quantitative_determination = MessageType(decs='定量测定', value=2, name='quantitative_determination')
     photometric_measurement = MessageType(decs='光度测量', value=3, name='photometric_measurement')
     calibration_template = MessageType(decs='校准模版', value=-1, name='calibration_template')
+    installation_acceptance_template = MessageType(decs='安装验收模版', value=-2, name='installation_acceptance_template')
 
 
 class StructureType(StorageInfo):

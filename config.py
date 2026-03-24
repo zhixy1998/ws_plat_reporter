@@ -137,6 +137,10 @@ class Config:
     @property
     def image_path(self):
         return Path(self.config.get('guide', 'image_path'))
+    
+    @property
+    def java_domain(self):
+        return self.config.get('java_url', 'domain')
 
     # 添加更多 getter 方法...
 

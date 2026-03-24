@@ -41,7 +41,8 @@ async def create_template_view(
                      {ExperimentType.time_scanning.decs}:{ExperimentType.time_scanning.value} \n
                      {ExperimentType.quantitative_determination.decs}:{ExperimentType.quantitative_determination.value} \n
                      {ExperimentType.photometric_measurement.decs}:{ExperimentType.photometric_measurement.value} \n
-                     {ExperimentType.calibration_template.decs}:{ExperimentType.calibration_template.value}"""),
+                     {ExperimentType.calibration_template.decs}:{ExperimentType.calibration_template.value}\n
+                     {ExperimentType.installation_acceptance_template.decs}:{ExperimentType.installation_acceptance_template.value}"""),
     industry_type: str = Form(None, description='行业类型'),
     file: UploadFile = File(..., description='模板文件')
     ):
@@ -98,7 +99,7 @@ async def create_template_view(
 
 async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, 
     industry_type: str = '', experiment_type: int = 0, title_mapping: Optional[Dict[str, Dict]] = None, old_template_name: Optional[str] = None) -> int:
-    if template_type in [TemplateType.report_template.value, TemplateType.original_records.value, TemplateType.calibration_template.value]:
+    if template_type in [TemplateType.report_template.value, TemplateType.original_records.value, TemplateType.calibration_template.value, TemplateType.installation_acceptance_template.value]:
         async with in_transaction('default') as connection:
             create_info = {
                 'name': name,
