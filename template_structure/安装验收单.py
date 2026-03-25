@@ -5,19 +5,24 @@
 
 from .common_data import BaseTableDataHandler, checkbox
 python_template_var = {
-    "wl_rep_standard": {"fill_type": 0},
-    "stab_value": {"fill_type": 0},
-    "sub_table": {"fill_type": 0},
-    "noise_value": {"fill_type": 0},
-    "stray_lt_standard": {"fill_type": 0},
-    "bsl_stab_standard": {"fill_type": 0},
-    "photo_acc_standard": {"fill_type": 0},
-    "stray_lt_value": {"fill_type": 0},
-    "photo_acc_value": {"fill_type": 0},
-    "wavelength_mpe_standard": {"fill_type": 0},
-    "noise_standard": {"fill_type": 0},
+    "wavelength_mpe_v2": {"fill_type": 0},
+    "wl_rep_v2": {"fill_type": 0},
+    "wavelength_mpe_v0": {"fill_type": 0},
     "bsl_stab_value": {"fill_type": 0},
-    "stab_standard": {"fill_type": 0}
+    "noise_standard": {"fill_type": 0},
+    "bsl_stab_standard": {"fill_type": 0},
+    "wl_rep_v1": {"fill_type": 0},
+    "wl_rep_standard": {"fill_type": 0},
+    "wl_rep_v0": {"fill_type": 0},
+    "noise_value": {"fill_type": 0},
+    "wavelength_mpe_v1": {"fill_type": 0},
+    "stab_standard": {"fill_type": 0},
+    "stray_lt_standard": {"fill_type": 0},
+    "wavelength_mpe_standard": {"fill_type": 0},
+    "photo_acc_standard": {"fill_type": 0},
+    "photo_acc_value": {"fill_type": 0},
+    "stab_value": {"fill_type": 0},
+    "stray_lt_value": {"fill_type": 0}
 }
 
 # 标题映射（包含字体和字号信息）

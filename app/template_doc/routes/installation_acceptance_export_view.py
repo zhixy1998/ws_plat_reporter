@@ -1,3 +1,4 @@
+import io
 import requests
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -15,6 +16,7 @@ import urllib.parse
 from fastapi.responses import StreamingResponse
 from exceptions.command_exception import APIException
 from exceptions.error import ErrorCode
+from utils.template_utils import convert_docx_to_pdf_bytes
 
 router = APIRouter()
 
@@ -30,7 +32,7 @@ def create_seamless_subdoc_table(tpl, rows):
         return subdoc
         
     t = subdoc.add_table(rows=table_rows, cols=table_cols)
-    t.style = "Table Grid"
+    # t.style = "Table Grid"
     
     for paragraph in subdoc.paragraphs:
         pPr = paragraph._element.get_or_add_pPr()
@@ -131,7 +133,7 @@ def create_seamless_subdoc_table(tpl, rows):
 
 class InputSchema(BaseModel):
     task_id: str = Field(..., description='任务id')
-    template_id: str = Field(..., description='模板id')
+    template_id: int = Field(..., description='模板id')
 
 @router.post('/installation_acceptance_export')
 @log_response
@@ -161,7 +163,9 @@ async def installation_acceptance_export_view(input: InputSchema):
         if k not in ['wavelength_mpe', 'wl_rep']:
             contexts[k+'_value'] = k_info.get('measuredValue')
         else:
-            table_data.append(k_info.get('measuredValue'))
+            for i in range(3):
+                contexts[k+'_v'+str(i)] = k_info.get('measuredValue')[i]
+                
     
     
     try:
@@ -175,17 +179,46 @@ async def installation_acceptance_export_view(input: InputSchema):
         output_stream = BytesIO()
         tpl.save(output_stream)
         output_stream.seek(0)
+
+        # Debug: Save the word document
+        # with open(f'debug_{input.task_id}.docx', 'wb') as f:
+        #     f.write(output_stream.getvalue())
+
+        pdf_bytes = convert_docx_to_pdf_bytes(output_stream)
         
-        filename = f"{template_name}_生成结果.docx"
-        safe_name = urllib.parse.quote(filename)
+        # if pdf_bytes:
+        #     # Debug: Save the converted PDF document
+        #     with open(f'debug_{input.task_id}.pdf', 'wb') as f:
+        #         f.write(pdf_bytes)
+
+        if not pdf_bytes:
+            # print(f"[DEBUG export_docx] !! pdf_bytes 为空，抛出异常")
+            raise APIException(ErrorCode.INTERNAL_ERROR, "PDF转换失败")
+
+        from urllib.parse import quote
+        filename = f"{template_name}_{input.task_id}.pdf"
+        encoded_filename = quote(filename)
+        # print(f"[DEBUG export_docx] 准备返回 StreamingResponse, filename={filename}, pdf_size={len(pdf_bytes)}")
+    
+        # 返回文件下载
         return StreamingResponse(
-            output_stream,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            BytesIO(pdf_bytes),
+            media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
-            },
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+                "Content-Length": str(len(pdf_bytes)),
+            }
         )
+        
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
+        empty_stream = io.BytesIO(b'')
+        return StreamingResponse(
+            empty_stream, 
+            media_type="application/pdf", 
+            headers={
+                "Content-Disposition": "attachment; filename=original.pdf",
+                "Content-Length": "0" 
+            }
+        )
