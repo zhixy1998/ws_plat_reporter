@@ -590,48 +590,125 @@ async def validate_python_file(content: str) -> tuple:
 
 
 
-def remove_marker_rows(doc_stream: BytesIO, marker: str) -> BytesIO:
+def remove_marker_text(doc_stream: BytesIO, marker: str, val_marker: str) -> BytesIO:
     """
-    删除 Word 文档中包含指定标记的段落（文字行）。
-        
-    适用于左右分栏/分页场景：标记可能出现在左侧或右侧，
-    只删除标记所在的那个段落，另一侧不受影响，下方内容自动上移。
-        
-    遍历文档中所有段落（包括表格单元格内的段落），
-    找到包含 marker 的段落后直接从 XML 树中移除该段落元素。
+    精确删除 Word 文档中含有删除标记的 **文本内容**，而不是删除整个段落或表格行。
+
+    设计思路：
+    - 模板中 {{ 光度模式_t }} ： {{ 光度模式 }} 渲染后变成  __DEL_ROW__ ： __DEL_VAL__
+    - 本函数只把 "__DEL_ROW__"、"__DEL_VAL__" 以及它们周围的分隔符（：、:、空格、制表符）
+      从 run 文本中移除，段落本身保留不动。
+    - 这样不会影响同一行的 {% if %} 控制标记，也不会破坏表格单元格结构。
+
+    如果清理后整个段落**只剩空白**且不在表格单元格中，则删除该段落，
+    避免留下无意义的空行。
 
     Args:
         doc_stream: Word文档流
-        marker: 要查找的标记字符串
+        marker:     标题标记（如 __DEL_ROW__）
+        val_marker: 值标记  （如 __DEL_VAL__）
 
     Returns:
         BytesIO: 处理后的文档流
     """
+    import re as _re
+
     try:
         from docx import Document
-        from lxml import etree
         doc_stream.seek(0)
         doc = Document(doc_stream)
 
-        # 在整个文档 XML 中查找所有包含 marker 的段落元素 (w:p)
-        # 这样无论段落在 body、表格单元格、页眉页脚中都能覆盖到
         nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
         body = doc.element.body
-        # 查找所有 w:p 元素（递归）
+
+        # 需要清除的标记列表（过滤掉空字符串）
+        markers = [m for m in [marker, val_marker] if m]
+
+        # 构建正则：匹配 marker 及其前后紧挨的分隔符（：:、空格、制表符）
+        # 例如 "__DEL_ROW__ ： __DEL_VAL__" -> ""
+        # 例如 "__DEL_ROW__：__DEL_VAL__"   -> ""
+        # 例如 "xxx __DEL_ROW__ ： __DEL_VAL__ yyy" -> "xxx  yyy"
+        pattern_parts = []
+        for m in markers:
+            escaped = _re.escape(m)
+            # 匹配: [前面的分隔符] + marker + [后面的分隔符]
+            # 分隔符包括：空格、制表符、：、:
+            pattern_parts.append(
+                r'[\s：:]*' + escaped + r'[\s：:]*'
+            )
+        combined_pattern = _re.compile('|'.join(pattern_parts))
+
         all_paragraphs = body.findall('.//w:p', nsmap)
-            
-        removed_count = 0
+
+        cleaned_run_count = 0
+        removed_para_count = 0
+
         for p_elem in all_paragraphs:
-            # 拼出该段落的纯文本
-            texts = p_elem.findall('.//w:t', nsmap)
-            full_text = ''.join(t.text or '' for t in texts)
-            if marker in full_text:
+            t_elements = p_elem.findall('.//w:t', nsmap)
+            full_text = ''.join(t.text or '' for t in t_elements)
+
+            # 快速跳过：段落不含任何标记
+            if not any(m in full_text for m in markers):
+                continue
+
+            # ---- 策略1: 尝试跨 run 拼接后替换，再回写 ----
+            # docxtpl 渲染后，一个 marker 可能被拆到多个连续 run 里
+            # 收集连续的 run 组，拼接文本后做替换，再分配回去
+
+            # 获取段落下直属的所有 w:r 元素（保持顺序）
+            run_elements = p_elem.findall('.//w:r', nsmap)
+            if not run_elements:
+                continue
+
+            # 拼出所有 run 的完整文本和每个 run 的边界
+            run_texts = []
+            for r_elem in run_elements:
+                t_in_run = r_elem.findall('.//w:t', nsmap)
+                run_text = ''.join(t.text or '' for t in t_in_run)
+                run_texts.append(run_text)
+
+            joined = ''.join(run_texts)
+
+            # 执行替换
+            cleaned = combined_pattern.sub('', joined)
+
+            if cleaned == joined:
+                # 没有实际变化，跳过
+                continue
+
+            cleaned_run_count += 1
+
+            # 把清理后的文本重新分配回各 run
+            # 策略：第一个 run 拿到所有清理后文本，其余 run 清空
+            for idx, r_elem in enumerate(run_elements):
+                t_in_run = r_elem.findall('.//w:t', nsmap)
+                if idx == 0:
+                    if t_in_run:
+                        t_in_run[0].text = cleaned
+                        # 保留空格
+                        t_in_run[0].set(
+                            '{http://www.w3.org/XML/1998/namespace}space',
+                            'preserve'
+                        )
+                        # 清空第一个 run 的其余 w:t
+                        for extra_t in t_in_run[1:]:
+                            extra_t.text = ''
+                else:
+                    for t_node in t_in_run:
+                        t_node.text = ''
+
+            # 如果清理后段落只剩空白，且不在表格单元格里，则删除整个段落
+            if not cleaned.strip():
                 parent = p_elem.getparent()
                 if parent is not None:
-                    parent.remove(p_elem)
-                    removed_count += 1
+                    parent_tag = parent.tag.split('}')[-1] if '}' in parent.tag else parent.tag
+                    if parent_tag != 'tc':
+                        # 不在表格单元格中，安全删除空段落
+                        parent.remove(p_elem)
+                        removed_para_count += 1
 
-        print(f"DEBUG remove_marker_rows: 共删除 {removed_count} 个包含标记的段落")
+        print(f"DEBUG remove_marker_text: 清理了 {cleaned_run_count} 个段落的标记文本, "
+              f"删除了 {removed_para_count} 个空段落")
 
         output_stream = BytesIO()
         doc.save(output_stream)
@@ -639,6 +716,12 @@ def remove_marker_rows(doc_stream: BytesIO, marker: str) -> BytesIO:
         return output_stream
 
     except Exception as e:
-        print(f"ERROR remove_marker_rows: {e}")
+        print(f"ERROR remove_marker_text: {e}")
         doc_stream.seek(0)
         return doc_stream
+
+
+# 保留旧函数名作为兼容别名
+def remove_marker_rows(doc_stream: BytesIO, marker: str) -> BytesIO:
+    """向后兼容：调用 remove_marker_text，val_marker 使用空字符串。"""
+    return remove_marker_text(doc_stream, marker, '')

@@ -23,7 +23,7 @@ from constants.template_constant import MeasureType, MeasureMode
 from exceptions.command_exception import APIException
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from utils.table_data_processor import TableDataProcessor
-from utils.template_utils import get_title_mapping, remove_marker_rows
+from utils.template_utils import get_title_mapping, remove_marker_text
 
 common_data_mapping = {
     # 光谱
@@ -142,18 +142,23 @@ class ClassicFillDataUtils():
 
         # 找出模板中有但 contexts 中没有数据的 _t 变量，打上删除标记
         _DEL_MARKER = '__DEL_ROW__'
+        _DEL_VAL_MARKER = '__DEL_VAL__'
         extra_keys = set(undeclared_key) - set(declared_key)
         if extra_keys:
-            print(f"DEBUG fill_template_by_jinja: 多余的_t变量(将标记删除行): {extra_keys}")
+            print(f"DEBUG fill_template_by_jinja: 多余的_t变量(将标记删除): {extra_keys}")
             for ek in extra_keys:
                 contexts[ek] = _DEL_MARKER
+                # 同时标记对应的值变量（去掉 _t 后缀）
+                val_key = ek[:-2]  # 去掉 '_t'
+                if val_key not in contexts or not contexts.get(val_key):
+                    contexts[val_key] = _DEL_VAL_MARKER
         
         tpl.render(context=contexts)
         output_stream = BytesIO()
         tpl.save(output_stream)
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
 
-        output_stream = remove_marker_rows(output_stream, _DEL_MARKER)
+        output_stream = remove_marker_text(output_stream, _DEL_MARKER, _DEL_VAL_MARKER)
 
         return output_stream
     
