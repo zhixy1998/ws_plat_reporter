@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{ title }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 15mm 12mm 15mm 12mm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "宋体", SimSun, "Noto Sans SC", sans-serif;
+        font-size: 9pt;
+        color: #000;
+        line-height: 1.4;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td,
+      th {
+        border: 1px solid #000;
+        padding: 3px 5px;
+        vertical-align: middle;
+        text-align: center;
+        font-weight: normal;
+        font-size: 9pt;
+      }
+
+      .header-table td {
+        height: 28px;
+      }
+      .logo-cell {
+        width: 15%;
+        text-align: center;
+      }
+      .logo-cell img {
+        max-width: 60px;
+        max-height: 40px;
+      }
+      .company-cell {
+        font-size: 13pt;
+        font-weight: bold;
+      }
+      .title-cell {
+        font-size: 11pt;
+        font-weight: bold;
+      }
+      .info-table td {
+        height: 26px;
+      }
+      .info-label {
+        background-color: #f8f8f8;
+        font-weight: bold;
+      }
+
+      /* 嵌套表格 */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: auto;
+      }
+      .data-table td,
+      .data-table th {
+        border: 1px solid #999;
+        padding: 2px 4px;
+        font-size: 8.5pt;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .data-table th {
+        background-color: #f0f0f0;
+        font-weight: bold;
+      }
+
+      /* 判定标准列（横排文字，自然换行） */
+      .data-table td.qual-col {
+        text-align: left;
+        font-size: 7.5pt;
+        padding: 4px 4px;
+        width: 90px;
+        min-width: 90px;
+        max-width: 90px;
+        white-space: normal !important;
+        word-break: break-all;
+        vertical-align: middle;
+        line-height: 1.3;
+      }
+
+      /* 内容单元格去掉 padding */
+      .section-content {
+        padding: 0 !important;
+      }
+
+      .result-label {
+        width: 15%;
+        font-weight: bold;
+        background-color: #f8f8f8;
+      }
+      tr {
+        page-break-inside: avoid;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 页眉 -->
+    <table class="header-table">
+      <colgroup>
+        <col style="width: 15%" />
+        <col style="width: 55%" />
+        <col style="width: 10%" />
+        <col style="width: 20%" />
+      </colgroup>
+      <tr>
+        <td class="logo-cell" rowspan="3">
+          {% if logo_base64 %}<img
+            src="data:image/png;base64,{{ logo_base64 }}"
+            alt="logo"
+          />{% endif %}
+        </td>
+        <td class="company-cell" rowspan="2">北京普析通用仪器有限责任公司</td>
+        <td>文件编号</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>版本/修订</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="title-cell">{{ title }}</td>
+        <td>发布/修订期</td>
+        <td></td>
+      </tr>
+    </table>
+
+    <!-- 基本信息 -->
+    <table class="info-table">
+      <colgroup>
+        <col style="width: 12%" />
+        <col style="width: 15%" />
+        <col style="width: 12%" />
+        <col style="width: 15%" />
+        <col style="width: 10%" />
+        <col style="width: 18%" />
+        <col style="width: 10%" />
+        <col style="width: 8%" />
+      </colgroup>
+      <tr>
+        <td class="info-label">产品型号</td>
+        <td></td>
+        <td class="info-label">产品编号</td>
+        <td></td>
+        <td class="info-label">检验员</td>
+        <td></td>
+        <td class="info-label">检验日期</td>
+        <td>{{ insp_date }}</td>
+      </tr>
+      <tr>
+        <td class="info-label">复核员</td>
+        <td></td>
+        <td class="info-label">温度(℃)</td>
+        <td>{{ temp }}</td>
+        <td class="info-label">相对湿度(%)</td>
+        <td>{{ humidity }}</td>
+        <td class="info-label">检验结果</td>
+        <td>{{ inspection_result }}</td>
+      </tr>
+      <tr>
+        <td class="info-label">UV‑iNexus<br />版本号</td>
+        <td colspan="3">{{ uv_version }}</td>
+        <td class="info-label" colspan="2">检验软件版本号</td>
+        <td colspan="2">{{ software_version }}</td>
+      </tr>
+    </table>
+
+    <!-- 检测项目主表 -->
+    <table class="main-table">
+      <colgroup>
+        <col style="width: 5%" />
+        <col style="width: 10%" />
+        <col style="width: 85%" />
+      </colgroup>
+      <tr style="background: #f0f0f0">
+        <th>序号</th>
+        <th>检测项目</th>
+        <th>结果</th>
+      </tr>
+
+      {# ===== 1. 波长示值误差与重复性校验 ===== #} {% if wt %}
+      <tr>
+        <td rowspan="{{ wt.row_count|default(1) }}">{{ wt.index }}</td>
+        <td rowspan="{{ wt.row_count|default(1) }}" style="font-weight: bold">
+          {{ wt.name }}
+        </td>
+        {% if wt.unique %}
+        <td class="section-content">
+          <table class="data-table">
+            <tr>
+              <td
+                class="qual-col"
+                rowspan="{{ wt.unique.vertical_rows|length }}"
+              >
+                {{ wt.unique.qualified_standard|safe }}
+              </td>
+              {% for cell in wt.unique.vertical_rows[0] %}
+              <td
+                {%
+                if
+                loop.first
+                %}style="background:#f0f0f0; font-weight:bold;"
+                {%
+                endif
+                %}
+              >
+                {{ cell }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% for vrow in wt.unique.vertical_rows[1:] %}
+            <tr>
+              {% for cell in vrow %}
+              <td
+                {%
+                if
+                loop.first
+                %}style="background:#f0f0f0; font-weight:bold;"
+                {%
+                endif
+                %}
+              >
+                {{ cell }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </table>
+        </td>
+      </tr>
+      {% endif %} {% if wt.repeated %} {% for group in wt.repeated %}
+      <tr>
+        <td class="section-content">
+          <table class="data-table">
+            <tr>
+              <td class="qual-col" rowspan="{{ group.vertical_rows|length }}">
+                {{ group.qualified_standard|safe }}
+              </td>
+              {% for cell in group.vertical_rows[0] %}
+              <td
+                {%
+                if
+                loop.first
+                %}style="background:#f0f0f0; font-weight:bold;"
+                {%
+                endif
+                %}
+              >
+                {{ cell }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% for vrow in group.vertical_rows[1:] %}
+            <tr>
+              {% for cell in vrow %}
+              <td
+                {%
+                if
+                loop.first
+                %}style="background:#f0f0f0; font-weight:bold;"
+                {%
+                endif
+                %}
+              >
+                {{ cell }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </table>
+        </td>
+      </tr>
+      {% endfor %} {% endif %} {% endif %} {# ===== 2.
+      透射比示值误差与重复性校验 ===== #} {% if tt %} {% for group in tt.groups
+      %}
+      <tr>
+        {% if loop.first %}
+        <td rowspan="{{ tt.total_rows }}">{{ tt.index }}</td>
+        <td rowspan="{{ tt.total_rows }}" style="font-weight: bold">
+          {{ tt.name }}
+        </td>
+        {% endif %}
+        <td class="section-content">
+          <table class="data-table">
+            <tr>
+              <td class="qual-col" rowspan="{{ group.vertical_rows|length }}">
+                {{ group.qualified_standard|safe }}<br /><br />{{
+                group.test_tool }}
+              </td>
+              {% for cell in group.vertical_rows[0] %}
+              <td
+                {%
+                if
+                loop.first
+                %}style="background:#f0f0f0; font-weight:bold;"
+                {%
+                endif
+                %}
+              >
+                {{ cell }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% for vrow in group.vertical_rows[1:] %}
+            <tr>
+              {% for cell in vrow %}
+              <td
+                {%
+                if
+                loop.first
+                %}style="background:#f0f0f0; font-weight:bold;"
+                {%
+                endif
+                %}
+              >
+                {{ cell }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </table>
+        </td>
+      </tr>
+      {% endfor %} {% endif %} {# ===== 3-5.
+      通用表格型：杂散光/基线平直度/基线暗噪声 ===== #} {% for section in [sl,
+      bs, bdn] %} {% if section %}
+      <tr>
+        <td>{{ section.index }}</td>
+        <td style="font-weight: bold">{{ section.name }}</td>
+        <td class="section-content">
+          <table class="data-table">
+            {% if section.headers %}
+            <tr>
+              {% for h in section.headers %}
+              <th>{{ h }}</th>
+              {% endfor %}
+            </tr>
+            {% endif %} {% for row in section.rows %}
+            <tr>
+              {% for cell in row %}
+              <td>{{ cell }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </table>
+        </td>
+      </tr>
+      {% endif %} {% endfor %} {# ===== 6. 光谱带宽（转置） ===== #} {% if sb %}
+      <tr>
+        <td>{{ sb.index }}</td>
+        <td style="font-weight: bold">{{ sb.name }}</td>
+        <td class="section-content">
+          <table class="data-table">
+            {% if sb.vertical_rows is defined %}
+            <tr>
+              <td class="qual-col" rowspan="{{ sb.vertical_rows|length }}">
+                {{ sb.qualified_standard }}
+              </td>
+              {% for cell in sb.vertical_rows[0] %}
+              <td
+                {%
+                if
+                loop.first
+                %}style="background:#f0f0f0; font-weight:bold;"
+                {%
+                endif
+                %}
+              >
+                {{ cell }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% for vrow in sb.vertical_rows[1:] %}
+            <tr>
+              {% for cell in vrow %}
+              <td
+                {%
+                if
+                loop.first
+                %}style="background:#f0f0f0; font-weight:bold;"
+                {%
+                endif
+                %}
+              >
+                {{ cell }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %} {% else %} {% if sb.headers %}
+            <tr>
+              {% for h in sb.headers %}
+              <th>{{ h }}</th>
+              {% endfor %}
+            </tr>
+            {% endif %} {% for row in sb.rows %}
+            <tr>
+              {% for cell in row %}
+              <td>{{ cell }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %} {% endif %}
+          </table>
+        </td>
+      </tr>
+      {% endif %} {# ===== 7-8. 交错型：噪声/漂移 ===== #} {% for section in [n,
+      d] %} {% if section %}
+      <tr>
+        <td>{{ section.index }}</td>
+        <td style="font-weight: bold">{{ section.name }}</td>
+        <td class="section-content">
+          <table class="data-table">
+            {% for row in section.rows %}
+            <tr>
+              {% for cell in row %} {% if loop.index is odd %}
+              <td style="background: #f0f0f0; font-weight: bold">{{ cell }}</td>
+              {% else %}
+              <td>{{ cell }}</td>
+              {% endif %} {% endfor %}
+            </tr>
+            {% endfor %}
+          </table>
+        </td>
+      </tr>
+      {% endif %} {% endfor %} {# ===== 9. 波长边缘噪声 ===== #} {% if wen %}
+      <tr>
+        <td>{{ wen.index }}</td>
+        <td style="font-weight: bold">{{ wen.name }}</td>
+        <td class="section-content">
+          <table class="data-table">
+            {% if wen.headers %}
+            <tr>
+              {% for h in wen.headers %}
+              <th>{{ h }}</th>
+              {% endfor %}
+            </tr>
+            {% endif %} {% for row in wen.rows %}
+            <tr>
+              {% for cell in row %}
+              <td>{{ cell }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </table>
+        </td>
+      </tr>
+      {% endif %} {# ===== 10-15.
+      通用型（无条件渲染）：介电强度/接触电流/保护接地/绝缘电阻/样品池/外观
+      ===== #} {% for section in [ds, cc, pg, ir, av, appearance] %} {% if
+      section %}
+      <tr>
+        <td>{{ section.index }}</td>
+        <td style="font-weight: bold">{{ section.name }}</td>
+        <td class="section-content">
+          {% if section.headers or section.rows %}
+          <table class="data-table">
+            {% if section.headers %}
+            <tr>
+              {% for h in section.headers %}
+              <th>{{ h }}</th>
+              {% endfor %}
+            </tr>
+            {% endif %} {% for row in section.rows %}
+            <tr>
+              {% for cell in row %}
+              <td>{{ cell }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </table>
+          {% else %}
+          <div style="padding: 6px; text-align: center"></div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %} {% endfor %}
+    </table>
+
+    <!-- 结论与备注 -->
+    <table style="margin-top: 0">
+      <colgroup>
+        <col style="width: 15%" />
+        <col style="width: 85%" />
+      </colgroup>
+      <tr>
+        <td class="result-label">检验结论</td>
+        <td style="text-align: left; padding: 6px 12px; height: 30px">
+          {{ result|default('') }}
+        </td>
+      </tr>
+      <tr>
+        <td class="result-label">备注</td>
+        <td style="text-align: left; padding: 6px 12px; height: 30px">
+          {{ remark|default('') }}
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

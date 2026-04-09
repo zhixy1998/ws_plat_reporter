@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>安装验收单</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "宋体", SimSun, "Noto Sans SC", sans-serif;
+      }
+      body {
+        width: 210mm;
+        margin: 0 auto;
+        background-color: #fff;
+        color: #000;
+      }
+      .page {
+        padding: 12mm 15mm 10mm 15mm;
+        height: 297mm;
+        position: relative;
+        page-break-after: always;
+      }
+      .page:last-child {
+        page-break-after: auto;
+      }
+
+      /* 顶部/底部飘带设定 */
+      .header-ribbon {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 12mm;
+        background-color: #e8ebee;
+        display: flex;
+        justify-content: flex-end;
+      }
+      .header-blue {
+        width: 70%;
+        height: 100%;
+        background-color: #174a89;
+        border-bottom-left-radius: 40mm;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        padding-right: 12mm;
+        color: #fff;
+      }
+      .header-blue img {
+        height: 6mm;
+        margin-right: 2mm;
+      }
+      .header-text {
+        font-family: sans-serif;
+        text-align: right;
+      }
+
+      .footer-ribbon {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 8mm;
+        background-color: #e8ebee;
+        display: flex;
+        justify-content: flex-start;
+      }
+      .footer-blue {
+        width: 25%;
+        height: 100%;
+        background-color: #174a89;
+        border-top-right-radius: 40mm;
+      }
+
+      /* 底部信息文字 */
+      .footer-text {
+        position: absolute;
+        bottom: 10mm;
+        left: 15mm;
+        right: 15mm;
+        font-size: 6.5pt;
+        color: #555;
+        text-align: center;
+      }
+
+      /* 标题部分 */
+      .main-title-container {
+        text-align: center;
+        margin-top: 8mm;
+        margin-bottom: 2mm;
+      }
+      .main-title {
+        font-size: 18pt;
+        font-weight: bold;
+        letter-spacing: 2px;
+        color: #777;
+      }
+      .sub-title {
+        font-size: 8.5pt;
+        color: #999;
+        margin-top: 1px;
+      }
+      .no-container {
+        text-align: right;
+        font-weight: bold;
+        font-size: 11pt;
+        margin-bottom: 1.5mm;
+      }
+
+      /* 表格基础重置 */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 3mm;
+      }
+      td,
+      th {
+        border: 1px solid #000;
+        padding: 3px 5px;
+        vertical-align: middle;
+        font-size: 9pt;
+        height: 6mm;
+      }
+      .text-center {
+        text-align: center;
+      }
+      .font-bold {
+        font-weight: bold;
+      }
+      .bg-light {
+        background-color: #f0f0f0;
+      }
+
+      .section-title {
+        font-weight: bold;
+        font-size: 10pt;
+        padding: 2px 5px;
+        border: 1px solid #000;
+        border-bottom: none;
+        background-color: #f6f6f6;
+      }
+
+      .flex-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .dotted-line {
+        border-bottom: 1px dotted #000;
+        display: inline-block;
+        width: 100%;
+        height: 5mm;
+        margin-top: 2mm;
+      }
+      .solid-line {
+        border-bottom: 1px solid #000;
+        display: inline-block;
+        vertical-align: bottom;
+      }
+      .checkbox-box {
+        display: inline-block;
+        width: 3mm;
+        height: 3mm;
+        border: 1px solid #000;
+        margin-right: 1mm;
+        vertical-align: middle;
+        position: relative;
+        top: -1px;
+      }
+      ul {
+        margin-left: 5mm;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 第一页 -->
+    <div class="page">
+      <!-- 飘带页眉 -->
+      <div class="header-ribbon">
+        <div class="header-blue">
+          <div class="header-text">
+            <div style="font-size: 11pt; font-weight: bold; color: #fff">
+              北京普析通用仪器有限责任公司
+            </div>
+            <div style="font-size: 6pt; color: #fff">
+              Beijing Purkinje General Instrument CO., LTD
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-title-container">
+        <div class="main-title">安装验收单</div>
+        <div class="sub-title">ACCEPTANCE CHECKLIST</div>
+        <div class="sub-title">(保修凭证)</div>
+      </div>
+      <div class="no-container">
+        NO:
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </div>
+
+      <!-- 1. 基本信息（修正列宽与跨列） -->
+      <table>
+        <colgroup>
+          <col style="width: 14%" />
+          <col style="width: 27%" />
+          <col style="width: 14%" />
+          <col style="width: 20%" />
+          <col style="width: 11%" />
+          <col style="width: 14%" />
+        </colgroup>
+        <tr>
+          <td class="font-bold text-center">产品名称</td>
+          <td>紫外（可见）分光光度计</td>
+          <td class="font-bold text-center">仪器型号</td>
+          <td colspan="3"></td>
+        </tr>
+        <tr>
+          <td class="font-bold text-center">仪器编号</td>
+          <td></td>
+          <td class="font-bold text-center">出厂日期</td>
+          <td></td>
+          <td class="font-bold text-center">检验员</td>
+          <td></td>
+        </tr>
+      </table>
+
+      <!-- 一、产品成套性验收 -->
+      <div class="section-title">
+        一、产品成套性验收<span style="font-size: 8.5pt; font-weight: normal"
+          >(根据装箱单与用户一起清点)</span
+        >
+      </div>
+      <table>
+        <colgroup>
+          <col style="width: 12%" />
+          <col style="width: 22%" />
+          <col style="width: 12%" />
+          <col style="width: 20%" />
+          <col style="width: 12%" />
+          <col style="width: 22%" />
+        </colgroup>
+        <tr>
+          <td class="font-bold text-center">外包装</td>
+          <td class="text-center">
+            <span class="checkbox-box"></span>完好&nbsp;&nbsp;&nbsp;<span
+              class="checkbox-box"
+            ></span
+            >破损
+          </td>
+          <td class="font-bold text-center">产品箱数</td>
+          <td></td>
+          <td class="font-bold text-center">成套性</td>
+          <td class="text-center">
+            <span class="checkbox-box"></span>齐全&nbsp;&nbsp;&nbsp;<span
+              class="checkbox-box"
+            ></span
+            >不齐全
+          </td>
+        </tr>
+      </table>
+
+      <!-- 二、仪器使用环境情况认证 -->
+      <div class="section-title">
+        二、仪器使用环境情况认证<span
+          style="font-size: 8.5pt; font-weight: normal"
+          >(温度: 5℃~35℃; 相对湿度: ≤85%)</span
+        >
+      </div>
+      <table>
+        <colgroup>
+          <col style="width: 15%" />
+          <col style="width: 16%" />
+          <col style="width: 17%" />
+          <col style="width: 21%" />
+          <col style="width: 31%" />
+        </colgroup>
+        <tr>
+          <td colspan="2" class="font-bold text-center">电源情况</td>
+          <td colspan="2" class="font-bold text-center">室内环境</td>
+          <td class="font-bold text-center">安装人员建议</td>
+        </tr>
+        <tr>
+          <td class="text-center">电压值</td>
+          <td></td>
+          <td class="text-center">是否有空调</td>
+          <td>
+            <span class="checkbox-box"></span>是 &nbsp;
+            <span class="checkbox-box"></span>否
+          </td>
+          <td rowspan="4"></td>
+        </tr>
+        <tr>
+          <td class="text-center">稳压器</td>
+          <td>
+            <span class="checkbox-box"></span>有 &nbsp;
+            <span class="checkbox-box"></span>无
+          </td>
+          <td class="text-center">工作台情况</td>
+          <td>
+            <span class="checkbox-box"></span>符合 &nbsp;
+            <span class="checkbox-box"></span>不符合
+          </td>
+        </tr>
+        <tr>
+          <td class="text-center">是否波动</td>
+          <td>
+            <span class="checkbox-box"></span>是 &nbsp;
+            <span class="checkbox-box"></span>否
+          </td>
+          <td class="text-center">室内通风设备</td>
+          <td>
+            <span class="checkbox-box"></span>符合 &nbsp;
+            <span class="checkbox-box"></span>不符合
+          </td>
+        </tr>
+        <tr>
+          <td class="text-center">是否接地</td>
+          <td>
+            <span class="checkbox-box"></span>是 &nbsp;
+            <span class="checkbox-box"></span>否
+          </td>
+          <td class="text-center">其它设备情况</td>
+          <td></td>
+        </tr>
+      </table>
+
+      <!-- 三、性能认证 与 四、备忘录左右并排 -->
+      <div class="flex-row">
+        <!-- 左侧表 -->
+        <div style="width: 65%">
+          <div class="section-title">三、产品性能指标认证</div>
+          <table style="margin-bottom: 0">
+            <colgroup>
+              {% if val_count == 5 %}
+              <col style="width: 25%" />
+              <col style="width: 25%" />
+              <col style="width: 10%" />
+              <col style="width: 10%" />
+              <col style="width: 10%" />
+              <col style="width: 10%" />
+              <col style="width: 10%" />
+              {% elif val_count == 4 %}
+              <col style="width: 25%" />
+              <col style="width: 27%" />
+              <col style="width: 12%" />
+              <col style="width: 12%" />
+              <col style="width: 12%" />
+              <col style="width: 12%" />
+              {% else %}
+              <col style="width: 25%" />
+              <col style="width: 35%" />
+              <col style="width: 13.3%" />
+              <col style="width: 13.3%" />
+              <col style="width: 13.4%" />
+              {% endif %}
+            </colgroup>
+            <tr>
+              <td class="font-bold text-center">验收项目</td>
+              <td class="font-bold text-center">指标验收标准值</td>
+              <td colspan="{{ val_count }}" class="font-bold text-center">
+                验收实测值
+              </td>
+            </tr>
+            <tr>
+              <td class="font-bold text-center">波长最大允许误差</td>
+              <td class="text-center">{{ wavelength_mpe_standard }}</td>
+              {% for v in wavelength_mpe_values %}
+              <td class="text-center" style="font-size: 8pt; padding: 2px">
+                {{ v }}
+              </td>
+              {% endfor %}
+            </tr>
+            <tr>
+              <td class="font-bold text-center">波长重复性</td>
+              <td class="text-center">{{ wl_rep_standard }}</td>
+              {% for v in wl_rep_values %}
+              <td class="text-center" style="font-size: 8pt; padding: 2px">
+                {{ v }}
+              </td>
+              {% endfor %}
+            </tr>
+            <tr>
+              <td class="font-bold text-center">基线稳定性</td>
+              <td class="text-center">{{ bsl_stab_standard }}</td>
+              <td colspan="{{ val_count }}" class="text-center">
+                {{ bsl_stab_value }}
+              </td>
+            </tr>
+            <tr>
+              <td class="font-bold text-center">稳定性</td>
+              <td class="text-center">{{ stab_standard }}</td>
+              <td colspan="{{ val_count }}" class="text-center">
+                {{ stab_value }}
+              </td>
+            </tr>
+            <tr>
+              <td class="font-bold text-center">噪声</td>
+              <td class="text-center">{{ noise_standard }}</td>
+              <td colspan="{{ val_count }}" class="text-center">
+                {{ noise_value }}
+              </td>
+            </tr>
+            <tr>
+              <td class="font-bold text-center">杂散光</td>
+              <td class="text-center">{{ stray_lt_standard }}</td>
+              <td colspan="{{ val_count }}" class="text-center">
+                {{ stray_lt_value }}
+              </td>
+            </tr>
+            <tr>
+              <td class="font-bold text-center">光度准确度</td>
+              <td class="text-center">{{ photo_acc_standard }}</td>
+              <td colspan="{{ val_count }}" class="text-center">
+                {{ photo_acc_value }}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- 右侧备忘录 -->
+        <div style="width: 32%">
+          <table style="margin-bottom: 0">
+            <tr>
+              <td
+                class="font-bold text-center bg-light"
+                style="font-size: 10pt; height: 7mm"
+              >
+                四、验收结论 &nbsp;&nbsp;&nbsp;&nbsp;合格
+              </td>
+            </tr>
+            <tr>
+              <td
+                style="
+                  height: 48mm;
+                  vertical-align: top;
+                  text-align: center;
+                  padding: 2mm 5px;
+                "
+              >
+                <div class="font-bold" style="margin-bottom: 1mm">备 忘 录</div>
+                <span class="dotted-line"></span>
+                <span class="dotted-line"></span>
+                <span class="dotted-line"></span>
+                <span class="dotted-line"></span>
+                <span class="dotted-line"></span>
+                <span class="dotted-line"></span>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- 五、保修与联系信息并排 -->
+      <div class="flex-row" style="margin-top: 3mm">
+        <!-- 左侧表格 (修正结构，把标题融入第一行中以展现边框) -->
+        <div style="width: 50%">
+          <table style="margin-bottom: 0">
+            <colgroup>
+              <col style="width: 25%" />
+              <col style="width: 25%" />
+              <col style="width: 25%" />
+              <col style="width: 25%" />
+            </colgroup>
+            <tr>
+              <td colspan="4" class="font-bold" style="padding: 4px 6px">
+                五、保修期限
+                <span class="solid-line" style="width: 10mm"></span>年<span
+                  class="solid-line"
+                  style="width: 5mm"
+                ></span
+                >月<span class="solid-line" style="width: 5mm"></span>日 至
+                <span class="solid-line" style="width: 10mm"></span>年<span
+                  class="solid-line"
+                  style="width: 5mm"
+                ></span
+                >月<span class="solid-line" style="width: 5mm"></span>日
+              </td>
+            </tr>
+            <tr>
+              <td class="text-center">安装开始日期<br />(年\月\日)</td>
+              <td></td>
+              <td class="text-center">验收完成日期<br />(年\月\日)</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td class="text-center">安装人签字</td>
+              <td></td>
+              <td class="text-center">验收人签字</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td class="text-center">联系电话</td>
+              <td></td>
+              <td class="text-center">联系电话</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td
+                colspan="2"
+                style="
+                  height: 18mm;
+                  vertical-align: bottom;
+                  text-align: center;
+                  padding-bottom: 2mm;
+                "
+              >
+                盖章
+              </td>
+              <td
+                colspan="2"
+                style="
+                  vertical-align: bottom;
+                  text-align: center;
+                  padding-bottom: 2mm;
+                "
+              >
+                盖章
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- 右侧联系人 -->
+        <div
+          style="
+            width: 48%;
+            padding-top: 2mm;
+            padding-left: 2mm;
+            line-height: 1.2;
+          "
+        >
+          <div>
+            使用单位：<span class="solid-line" style="width: 65mm"></span>
+          </div>
+          <div>
+            通讯地址：<span class="solid-line" style="width: 65mm"></span>
+          </div>
+          <div>
+            邮政编码：<span class="solid-line" style="width: 65mm"></span>
+          </div>
+          <div>
+            使 用 者：<span class="solid-line" style="width: 65mm"></span>
+          </div>
+          <div>
+            联系电话：<span class="solid-line" style="width: 65mm"></span>
+          </div>
+          <div style="color: #444; font-size: 8.5pt; margin-top: 2mm">
+            注：请用正楷填写一式两份，双方各执
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部文本及底边飘带 -->
+      <div class="footer-text">
+        生产单位：北京普析通用仪器有限责任公司 &nbsp;&nbsp;
+        通讯地址：北京市平谷区平三路3号 &nbsp;&nbsp; 邮政编码：101200
+        &nbsp;&nbsp; 联系电话：010-69910000 800-810-0172 &nbsp;&nbsp;
+        传真：010-69910621
+      </div>
+      <div class="footer-ribbon">
+        <div class="footer-blue"></div>
+      </div>
+    </div>
+
+    <!-- 第二页 -->
+    <div class="page">
+      <!-- 飘带页眉 -->
+      <div class="header-ribbon">
+        <div class="header-blue">
+          <div class="header-text">
+            <div style="font-size: 11pt; font-weight: bold; color: #fff">
+              北京普析通用仪器有限责任公司
+            </div>
+            <div style="font-size: 6pt; color: #fff">
+              Beijing Purkinje General Instrument CO., LTD
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-title-container" style="margin-bottom: 4mm">
+        <div class="main-title" style="font-size: 16pt">安装验收单</div>
+        <div class="sub-title">ACCEPTANCE CHECKLIST</div>
+        <div class="sub-title">(保修凭证)</div>
+      </div>
+      <div class="no-container">
+        NO:
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      </div>
+
+      <!-- 培训表 -->
+      <table>
+        <colgroup>
+          <col style="width: 20%" />
+          <col style="width: 30%" />
+          <col style="width: 20%" />
+          <col style="width: 30%" />
+        </colgroup>
+        <tr>
+          <td class="font-bold text-center">用户单位名称</td>
+          <td></td>
+          <td class="font-bold text-center">用户地址</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="font-bold text-center">联系人</td>
+          <td></td>
+          <td class="font-bold text-center">联系电话</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="font-bold text-center">培训日期</td>
+          <td></td>
+          <td class="font-bold text-center">培训形式</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="4" class="font-bold text-center bg-light">
+            培训用户人员情况
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" class="font-bold text-center">人员姓名</td>
+          <td colspan="2" class="font-bold text-center">工作职务</td>
+        </tr>
+        <!-- 预留3个空行 -->
+        <tr>
+          <td colspan="2" style="height: 6mm"></td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td colspan="2" style="height: 6mm"></td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td colspan="2" style="height: 6mm"></td>
+          <td colspan="2"></td>
+        </tr>
+
+        <tr>
+          <td colspan="3" class="font-bold text-center bg-light">培训内容</td>
+          <td class="font-bold text-center bg-light">是否培训</td>
+        </tr>
+        <tr>
+          <td class="text-center">安装环境</td>
+          <td colspan="2">
+            温度：5℃~35℃; 湿度：≤85% 电压要求(220±10%)V 频率(50±1)Hz
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="text-center">结构原理</td>
+          <td colspan="2">紫外整机外部基本结构及操作使用介绍</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="text-center">基本操作</td>
+          <td colspan="2">
+            单机软件基本操作介绍及UVWIN软件(选配)安装\使用操作介绍
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="text-center">验收指标测试</td>
+          <td colspan="2" style="line-height: 1.5">
+            1.波长测试<br />2.噪声测试<br />3.基线测试<br />
+            4.透射比测试<br />5.杂散光测试<br />6.仪器漂移测试
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="text-center">附件使用</td>
+          <td colspan="2">附件的使用、调节、维护方法</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="text-center">使用注意事项</td>
+          <td colspan="2" style="line-height: 1.5">
+            <ul style="list-style-type: square">
+              <li>仪器应置于稳固的工作台上，不应有强震动源。</li>
+              <li>周围无强电磁干扰、有害气体及腐蚀性气体。</li>
+              <li>
+                当仪器从寒冷地区运输或在寒冷条件储存，根据GB/T
+                11606-2007规定，应在正常温度下恢复24小时以上开机。
+              </li>
+            </ul>
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="4" style="color: red; padding: 3mm 5mm">
+            <span class="font-bold">培训人签字：</span>
+            <span class="font-bold" style="float: right; margin-right: 30mm"
+              >日期：</span
+            >
+          </td>
+        </tr>
+        <tr>
+          <td class="font-bold text-center" style="color: red">
+            培<br />训<br />评<br />价
+          </td>
+          <td
+            colspan="3"
+            style="
+              color: red;
+              padding: 4mm 8mm;
+              vertical-align: top;
+              height: 35mm;
+              line-height: 1.5;
+            "
+          >
+            <span style="font-weight: bold"
+              >已参加完上述内容的培训，可以独立操作仪器；知晓仪器的安全注意事项，并能够独立按照要求执行维护。</span
+            >
+            <div
+              style="
+                text-align: right;
+                margin-top: 10mm;
+                margin-right: 15mm;
+                font-weight: bold;
+              "
+            >
+              用户代表签字：
+            </div>
+            <div
+              style="
+                text-align: right;
+                margin-top: 4mm;
+                margin-right: 15mm;
+                font-weight: bold;
+              "
+            >
+              日 &nbsp;&nbsp;&nbsp;期：
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- 底部文本及底边飘带 -->
+      <div class="footer-text">
+        生产单位：北京普析通用仪器有限责任公司 &nbsp;&nbsp;
+        通讯地址：北京市平谷区平三路3号 &nbsp;&nbsp; 邮政编码：101200
+        &nbsp;&nbsp; 联系电话：010-69910000 800-810-0172 &nbsp;&nbsp;
+        传真：010-69910621
+      </div>
+      <div class="footer-ribbon">
+        <div class="footer-blue"></div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -151,42 +151,84 @@ async def installation_acceptance_export_view(input: InputSchema):
     url = java_domain_url + '?taskId=' + input.task_id
     reponse = requests.get(url)
     r_json = reponse.json()
-    res_data = r_json.get('data')
+    res_data = r_json.get('data') or {}
     contexts = {}
     
     table_data = []
     k_list = ['wavelength_mpe', 'wl_rep', 'bsl_stab', 'stab', 'noise', 'stray_lt', 'photo_acc']
+    
+    # 获取动态列数（要求最少3列，最大扩展到5列）
+    max_len = 3
+    for k in ['wavelength_mpe', 'wl_rep']:
+        k_info = res_data.get(k) or {}
+        m_val = k_info.get('measuredValue')
+        if isinstance(m_val, list) and len(m_val) > max_len:
+            max_len = len(m_val)
+    val_count = min(max_len, 5)
+    contexts['val_count'] = val_count
+    
     for k in k_list:
-        k_info = res_data.get(k)
+        k_info = res_data.get(k) or {}
 
         contexts[k+'_standard'] = k_info.get('standardValue')
         if k not in ['wavelength_mpe', 'wl_rep']:
             contexts[k+'_value'] = k_info.get('measuredValue')
         else:
+            m_val = k_info.get('measuredValue') or []
+            padded_vals = []
+            for i in range(val_count):
+                if i < len(m_val):
+                    padded_vals.append(m_val[i])
+                else:
+                    padded_vals.append("")
+            contexts[k+'_values'] = padded_vals
+            
+            # 为了兼容保留旧的v0, v1, v2给word模版以防其仍然访问
             for i in range(3):
-                contexts[k+'_v'+str(i)] = k_info.get('measuredValue')[i]
+                if i < len(padded_vals):
+                    contexts[k+'_v'+str(i)] = padded_vals[i]
+                else:
+                    contexts[k+'_v'+str(i)] = ""
                 
     
     
     try:
+        # ---- 临时测试代码：写死读取本地 HTML 模板 ----
         template_name, doc_stream = await get_doc_name_and_doc_stream_obj(input.template_id)
-        tpl = DocxTemplate(doc_stream)
+        doc_bytes = doc_stream.read()
+        is_html = doc_bytes.strip().startswith(b'<')
         
-        # 将表格转换为紧贴边框的无边框sub_doc
-        contexts['sub_table'] = create_seamless_subdoc_table(tpl, table_data)
+        # is_html = True
+        # template_name = "测试_本地安装验收"
 
-        tpl.render(contexts)
-        output_stream = BytesIO()
-        tpl.save(output_stream)
-        output_stream.seek(0)
+        if is_html:
+            from utils.verification_calibration_utils.html_report.installation_html_builder import InstallationHtmlBuilder
+            
+            # 使用本地文件 template_file 而不是 template_html
+            builder = InstallationHtmlBuilder(context_data=contexts, template_file='installation_acceptance.html')
+            pdf_out_stream = builder.run()
+            pdf_out_stream.seek(0)
+            pdf_bytes = pdf_out_stream.read()
 
-        # Debug: Save the word document
-        # with open(f'debug_{input.task_id}.docx', 'wb') as f:
-        #     f.write(output_stream.getvalue())
+        else:
+            doc_stream.seek(0)
+            tpl = DocxTemplate(doc_stream)
+            
+            # 将表格转换为紧贴边框的无边框sub_doc
+            contexts['sub_table'] = create_seamless_subdoc_table(tpl, table_data)
 
-        pdf_bytes = convert_docx_to_pdf_bytes(output_stream)
-        
-        # if pdf_bytes:
+            tpl.render(contexts)
+            output_stream = BytesIO()
+            tpl.save(output_stream)
+            output_stream.seek(0)
+
+            # Debug: Save the word document
+            # with open(f'debug_{input.task_id}.docx', 'wb') as f:
+            #     f.write(output_stream.getvalue())
+
+            pdf_bytes = convert_docx_to_pdf_bytes(output_stream)
+
+        # Debug logs can go here
         #     # Debug: Save the converted PDF document
         #     with open(f'debug_{input.task_id}.pdf', 'wb') as f:
         #         f.write(pdf_bytes)

@@ -17,7 +17,10 @@ import base64
 
 from config import config
 from utils.log_decorator import log_response
-from utils.verification_calibration_utils.verification_calibration_handle import InspectionAndCorrectionReport
+# 导入两种报告生成方式
+from utils.verification_calibration_utils.verification_calibration_handle import InspectionAndCorrectionReport as WordCalibrationReportBuilder
+from utils.verification_calibration_utils.html_report.calibration_html_builder import HtmlCalibrationReportBuilder
+
 from utils.doc_converter import get_libreoffice_command, get_libreoffice_subprocess_kwargs, explain_libreoffice_returncode
 from app.template_doc.model.template_doc import TemplateDoc
 
@@ -365,60 +368,18 @@ async def verification_calibration(data: VerificationCalibrationInputSchema):
         task_id = data.task_id
         sample_id = data.sample_id
         template_id = data.template_id
-        
-        template_instance = await TemplateDoc.get(id=template_id, is_del=0)
-        template_content = template_instance.template_content  # base64编码的内容
-        # 解码base64为字节流
-        doc_bytes = base64.b64decode(template_content)
-        doc_stream = BytesIO(doc_bytes)
-        # 使用DocxTemplate而不是Template
-        template = DocxTemplate(doc_stream)
 
         verification_calibration_url = config.verification_calibration_url
         request_url  = verification_calibration_url + f'?taskId={task_id}'
         res = requests.get(request_url)
         res_json = res.json()
 
-        # 生成Word文档流
-        iar = InspectionAndCorrectionReport(
-            doc=template,
-            vc_data_list=res_json.get('data').get('worksheets'),
-            operation_instrument=res_json.get('data').get('operationInstrument')
-        )
-        docx_out_stream = iar.run()
-        
         # 保存文件到本地
         current_dir = os.path.dirname(os.path.abspath(__file__))
         output_dir = os.path.join(current_dir, '../../../output/verification_calibration')
         os.makedirs(output_dir, exist_ok=True)
-        
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        
-        # 先保存Word文件（用于调试）
-        docx_out_stream.seek(0)
-        docx_bytes = docx_out_stream.read()
-        docx_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.docx')
-        with open(docx_filename, 'wb') as f:
-            f.write(docx_bytes)
-        print(f"Word文档已保存至: {docx_filename}")
-        
-        # 使用已保存的Word文件进行PDF转换
-        # pdf_bytes = convert_docx_to_pdf_with_priority(docx_filename)
-        
-        # # 保存PDF到本地
-        # pdf_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.pdf')
-        
-        # with open(pdf_filename, 'wb') as f:
-        #     f.write(pdf_bytes)
-        
-        # # 将PDF字节流转换为base64用于返回
-        # import base64
-        # pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-        
-        # print(f"验证校准成功, PDF已保存至: {pdf_filename}")
-        # print(f"Verification Calibration Response: {res_json.get('data').get('worksheets')}")
 
-        # 返回 docx 文件流给前端（作为附件下载）
         def file_iterator(path, chunk_size=8192):
             with open(path, 'rb') as fh:
                 while True:
@@ -427,10 +388,65 @@ async def verification_calibration(data: VerificationCalibrationInputSchema):
                         break
                     yield chunk
 
-        headers = {
-            'Content-Disposition': f'attachment; filename="{os.path.basename(docx_filename)}"'
-        }
-        return StreamingResponse(file_iterator(docx_filename), media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', headers=headers)
+        # ====================================================================
+        # 动态获取模板并判断类型 (HTML 或 Word)
+        # ====================================================================
+        template_instance = await TemplateDoc.get(id=template_id, is_del=0)
+        template_content = template_instance.template_content  # base64编码的内容
+        doc_bytes = base64.b64decode(template_content)
+        
+        # 判断内容是否为 HTML：HTML 开头通常有 < 标签，而 DOCX 是 ZIP 压缩包 (以 PK 打头)
+        is_html = doc_bytes.strip().startswith(b'<')
+
+        if is_html:
+            # --- HTML 渲染方式 ---
+            template_html = doc_bytes.decode('utf-8')
+            iar = HtmlCalibrationReportBuilder(
+                vc_data_list=res_json.get('data', {}).get('worksheets', []),
+                operation_instrument=res_json.get('data', {}).get('operationInstrument', ''),
+                template_html=template_html
+            )
+            # 生成 PDF
+            pdf_out_stream = iar.run()
+            pdf_out_stream.seek(0)
+            pdf_bytes = pdf_out_stream.read()
+            pdf_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.pdf')
+            with open(pdf_filename, 'wb') as f:
+                f.write(pdf_bytes)
+            print(f"[自动识别-HTML] PDF已保存至: {pdf_filename}")
+            
+            headers = {
+                'Content-Disposition': f'attachment; filename="{os.path.basename(pdf_filename)}"'
+            }
+            return StreamingResponse(file_iterator(pdf_filename), media_type='application/pdf', headers=headers)
+        
+        else:
+            # --- Word (docxtpl) 渲染方式 ---
+            doc_stream = BytesIO(doc_bytes)
+            template = DocxTemplate(doc_stream)
+            
+            iar = WordCalibrationReportBuilder(
+                doc=template,
+                vc_data_list=res_json.get('data', {}).get('worksheets', []),
+                operation_instrument=res_json.get('data', {}).get('operationInstrument', '')
+            )
+            docx_out_stream = iar.run()
+            
+            docx_out_stream.seek(0)
+            docx_bytes = docx_out_stream.read()
+            docx_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.docx')
+            with open(docx_filename, 'wb') as f:
+                f.write(docx_bytes)
+            print(f"[自动识别-Word] Word文档已保存至: {docx_filename}")
+            
+            headers = {
+                'Content-Disposition': f'attachment; filename="{os.path.basename(docx_filename)}"'
+            }
+            return StreamingResponse(
+                file_iterator(docx_filename), 
+                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                headers=headers
+            )
     except Exception as e:
         import traceback
         

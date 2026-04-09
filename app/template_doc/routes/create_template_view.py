@@ -48,6 +48,39 @@ async def create_template_view(
     ):
     try:
         original_file_name = file.filename
+
+        # ====== HTML 模板上传（新增） ======
+        if original_file_name.endswith('.html') or original_file_name.endswith('.htm'):
+            html_name = original_file_name.rsplit('.', 1)[0]
+            if name:
+                if await TemplateDocBase.get_or_none(name=name, is_del=0):
+                    raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
+            else:
+                if await TemplateDocBase.get_or_none(name=html_name, is_del=0):
+                    raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
+                name = html_name
+
+            content = await file.read()
+            content_base64 = base64.b64encode(content).decode('utf-8')
+
+            # HTML 模板：只存数据库，不做书签分析、不创建 python 配置文件
+            async with in_transaction('default') as connection:
+                create_info = {
+                    'name': name,
+                    'template_content': content_base64,
+                    'experiment_type': experiment_type,
+                    'type': template_type,
+                    'industry_type': industry_type or '',
+                }
+                template_base_instance = await TemplateDocBase.create(**create_info)
+                create_info['base_template_id'] = template_base_instance.id
+                template = await TemplateDoc.create(**create_info)
+                template_id = template.id
+
+            print(f"HTML模板上传成功: {name}, id={template_id}")
+            return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
+
+        # ====== Word 模板上传（原有逻辑） ======
         if '.docx' in original_file_name:
             docx_name = original_file_name.split('.docx')[0]
         elif '.doc' in original_file_name:
