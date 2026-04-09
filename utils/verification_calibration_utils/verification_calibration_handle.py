@@ -376,7 +376,7 @@ class InspectionAndCorrectionReport():
     contexts = {}
     table_data = {}
 
-    def __init__(self, doc, vc_data_list):
+    def __init__(self, doc, vc_data_list, operation_instrument):
         # 获取模板文件的完整路径
         # current_dir = os.path.dirname(os.path.abspath(__file__))
         # self.template_path = os.path.join(current_dir, 'verification_jinja.docx')
@@ -384,7 +384,7 @@ class InspectionAndCorrectionReport():
         img_path = config.image_path
         self.logo_image = os.path.join(img_path, 'persee_logo_image.png')
         self.doc = doc
-
+        self.operation_instrument = operation_instrument # 系列紫外可见分光光度计整机检验原始记录表
         # 在渲染之前定义图片对象
         # self.doc = doc
         self.vc_data_list = vc_data_list
@@ -501,6 +501,7 @@ class InspectionAndCorrectionReport():
         #     data['index'] = i
         # contexts = {'table_data': self.table_data}
         # contexts.update(self.contexts)
+        self.contexts['instrument_test_title'] = self.operation_instrument + '系列紫外可见分光光度计整机检验原始记录表'
         logo_pic = InlineImage(self.doc, self.logo_image, width=Mm(40)) # 指定宽度
         self.contexts['logo_image'] = logo_pic
         

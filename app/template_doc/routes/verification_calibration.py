@@ -380,7 +380,11 @@ async def verification_calibration(data: VerificationCalibrationInputSchema):
         res_json = res.json()
 
         # 生成Word文档流
-        iar = InspectionAndCorrectionReport(doc=template, vc_data_list=res_json.get('data').get('worksheets'))
+        iar = InspectionAndCorrectionReport(
+            doc=template,
+            vc_data_list=res_json.get('data').get('worksheets'),
+            operation_instrument=res_json.get('data').get('operationInstrument')
+        )
         docx_out_stream = iar.run()
         
         # 保存文件到本地
