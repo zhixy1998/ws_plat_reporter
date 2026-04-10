@@ -1,6 +1,7 @@
 from jinja2 import Template
 import requests
 import os
+from urllib.parse import quote
 import platform
 import subprocess
 import tempfile
@@ -27,6 +28,129 @@ from app.template_doc.model.template_doc import TemplateDoc
 router = APIRouter()
 _docx2pdf_disabled = False  # 一旦检测到 RPC 失败则禁用 docx2pdf，改走 PowerShell/LibreOffice
 
+
+class VerificationCalibrationInputSchema(BaseModel):
+    """验证校准请求数据模型"""
+    task_id: str = Field(..., description='任务id')
+    sample_id: Dict[str, Any] = Field(None, description='样品id')
+    template_id: int = Field(..., description='模板id')
+
+
+@router.post('/verification_calibration', response_class=StreamingResponse, responses={200: {"content": {"application/pdf": {}}}})
+@log_response
+async def verification_calibration(data: VerificationCalibrationInputSchema):
+    """
+    验证校准接口
+    
+    Args:
+        data: 包含校准ID和验证数据的请求体
+        
+    Returns:
+        JSON响应，包含code、message和pdf数据（base64格式）
+    """
+    try:
+        task_id = data.task_id
+        sample_id = data.sample_id
+        template_id = data.template_id
+
+        verification_calibration_url = config.verification_calibration_url
+        request_url  = verification_calibration_url + f'?taskId={task_id}'
+        res = requests.get(request_url)
+        res_json = res.json()
+
+        # 保存文件到本地
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        output_dir = os.path.join(current_dir, '../../../output/verification_calibration')
+        os.makedirs(output_dir, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        def file_iterator(path, chunk_size=8192):
+            with open(path, 'rb') as fh:
+                while True:
+                    chunk = fh.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+
+        # ====================================================================
+        # 动态获取模板并判断类型 (HTML 或 Word)
+        # ====================================================================
+        template_instance = await TemplateDoc.get(id=template_id, is_del=0)
+        template_content = template_instance.template_content  # base64编码的内容
+        doc_bytes = base64.b64decode(template_content)
+        
+        # 判断内容是否为 HTML：HTML 开头通常有 < 标签，而 DOCX 是 ZIP 压缩包 (以 PK 打头)
+        is_html = doc_bytes.strip().startswith(b'<')
+
+        if is_html:
+            # --- HTML 渲染方式 ---
+            template_html = doc_bytes.decode('utf-8')
+            iar = HtmlCalibrationReportBuilder(
+                vc_data_list=res_json.get('data', {}).get('worksheets', []),
+                operation_instrument=res_json.get('data', {}).get('operationInstrument', ''),
+                template_html=template_html
+            )
+            # 生成 PDF
+            pdf_out_stream = iar.run()
+            pdf_out_stream.seek(0)
+            pdf_bytes = pdf_out_stream.read()
+            pdf_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.pdf')
+            with open(pdf_filename, 'wb') as f:
+                f.write(pdf_bytes)
+            print(f"[自动识别-HTML] PDF已保存至: {pdf_filename}")
+            
+            safe_filename = quote(f"检定校准报告_{task_id}_{timestamp}.pdf")
+            return StreamingResponse(
+                BytesIO(pdf_bytes),
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}",
+                    "Content-Length": str(len(pdf_bytes)),
+                }
+            )
+        
+        else:
+            # --- Word (docxtpl) 渲染方式 ---
+            doc_stream = BytesIO(doc_bytes)
+            template = DocxTemplate(doc_stream)
+            
+            iar = WordCalibrationReportBuilder(
+                doc=template,
+                vc_data_list=res_json.get('data', {}).get('worksheets', []),
+                operation_instrument=res_json.get('data', {}).get('operationInstrument', '')
+            )
+            docx_out_stream = iar.run()
+            
+            docx_out_stream.seek(0)
+            docx_bytes = docx_out_stream.read()
+            docx_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.docx')
+            with open(docx_filename, 'wb') as f:
+                f.write(docx_bytes)
+            print(f"[自动识别-Word] Word文档已保存至: {docx_filename}")
+            
+            headers = {
+                'Content-Disposition': f'attachment; filename="{os.path.basename(docx_filename)}"'
+            }
+            return StreamingResponse(
+                file_iterator(docx_filename), 
+                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                headers=headers
+            )
+    except Exception as e:
+        import traceback
+        
+        # 获取调用栈字符串
+        error_traceback = traceback.format_exc()
+        
+        # 同时使用print和logging，确保在各种环境下都能看到
+        print(f"验证校准失败: {str(e)}")
+        print('调用栈：')
+        print(error_traceback)
+        return {
+            'code': 500,
+            'message': f'验证校准失败: {str(e)}',
+            'data': {}
+        }
 
 def flatten_docx_for_conversion(file_path: str) -> str:
     """
@@ -343,122 +467,3 @@ def _try_office_conversion(docx_path: str, pdf_path: str, system: str) -> bool:
                 continue
     
     return False
-
-
-class VerificationCalibrationInputSchema(BaseModel):
-    """验证校准请求数据模型"""
-    task_id: str = Field(..., description='任务id')
-    sample_id: Dict[str, Any] = Field(None, description='样品id')
-    template_id: int = Field(..., description='模板id')
-
-
-@router.post('/verification_calibration')
-@log_response
-async def verification_calibration(data: VerificationCalibrationInputSchema):
-    """
-    验证校准接口
-    
-    Args:
-        data: 包含校准ID和验证数据的请求体
-        
-    Returns:
-        JSON响应，包含code、message和pdf数据（base64格式）
-    """
-    try:
-        task_id = data.task_id
-        sample_id = data.sample_id
-        template_id = data.template_id
-
-        verification_calibration_url = config.verification_calibration_url
-        request_url  = verification_calibration_url + f'?taskId={task_id}'
-        res = requests.get(request_url)
-        res_json = res.json()
-
-        # 保存文件到本地
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        output_dir = os.path.join(current_dir, '../../../output/verification_calibration')
-        os.makedirs(output_dir, exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-        def file_iterator(path, chunk_size=8192):
-            with open(path, 'rb') as fh:
-                while True:
-                    chunk = fh.read(chunk_size)
-                    if not chunk:
-                        break
-                    yield chunk
-
-        # ====================================================================
-        # 动态获取模板并判断类型 (HTML 或 Word)
-        # ====================================================================
-        template_instance = await TemplateDoc.get(id=template_id, is_del=0)
-        template_content = template_instance.template_content  # base64编码的内容
-        doc_bytes = base64.b64decode(template_content)
-        
-        # 判断内容是否为 HTML：HTML 开头通常有 < 标签，而 DOCX 是 ZIP 压缩包 (以 PK 打头)
-        is_html = doc_bytes.strip().startswith(b'<')
-
-        if is_html:
-            # --- HTML 渲染方式 ---
-            template_html = doc_bytes.decode('utf-8')
-            iar = HtmlCalibrationReportBuilder(
-                vc_data_list=res_json.get('data', {}).get('worksheets', []),
-                operation_instrument=res_json.get('data', {}).get('operationInstrument', ''),
-                template_html=template_html
-            )
-            # 生成 PDF
-            pdf_out_stream = iar.run()
-            pdf_out_stream.seek(0)
-            pdf_bytes = pdf_out_stream.read()
-            pdf_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.pdf')
-            with open(pdf_filename, 'wb') as f:
-                f.write(pdf_bytes)
-            print(f"[自动识别-HTML] PDF已保存至: {pdf_filename}")
-            
-            headers = {
-                'Content-Disposition': f'attachment; filename="{os.path.basename(pdf_filename)}"'
-            }
-            return StreamingResponse(file_iterator(pdf_filename), media_type='application/pdf', headers=headers)
-        
-        else:
-            # --- Word (docxtpl) 渲染方式 ---
-            doc_stream = BytesIO(doc_bytes)
-            template = DocxTemplate(doc_stream)
-            
-            iar = WordCalibrationReportBuilder(
-                doc=template,
-                vc_data_list=res_json.get('data', {}).get('worksheets', []),
-                operation_instrument=res_json.get('data', {}).get('operationInstrument', '')
-            )
-            docx_out_stream = iar.run()
-            
-            docx_out_stream.seek(0)
-            docx_bytes = docx_out_stream.read()
-            docx_filename = os.path.join(output_dir, f'verification_and_calibration_{task_id}_{timestamp}.docx')
-            with open(docx_filename, 'wb') as f:
-                f.write(docx_bytes)
-            print(f"[自动识别-Word] Word文档已保存至: {docx_filename}")
-            
-            headers = {
-                'Content-Disposition': f'attachment; filename="{os.path.basename(docx_filename)}"'
-            }
-            return StreamingResponse(
-                file_iterator(docx_filename), 
-                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-                headers=headers
-            )
-    except Exception as e:
-        import traceback
-        
-        # 获取调用栈字符串
-        error_traceback = traceback.format_exc()
-        
-        # 同时使用print和logging，确保在各种环境下都能看到
-        print(f"验证校准失败: {str(e)}")
-        print('调用栈：')
-        print(error_traceback)
-        return {
-            'code': 500,
-            'message': f'验证校准失败: {str(e)}',
-            'data': {}
-        }

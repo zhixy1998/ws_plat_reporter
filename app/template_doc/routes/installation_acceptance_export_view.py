@@ -135,7 +135,7 @@ class InputSchema(BaseModel):
     task_id: str = Field(..., description='任务id')
     template_id: int = Field(..., description='模板id')
 
-@router.post('/installation_acceptance_export')
+@router.post('/installation_acceptance_export', response_class=StreamingResponse, responses={200: {"content": {"application/pdf": {}}}})
 @log_response
 async def installation_acceptance_export_view(input: InputSchema):
     """
