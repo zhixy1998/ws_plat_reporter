@@ -53,6 +53,11 @@ class BaseHtmlReportBuilder:
         提取到独立线程防止与 FastAPI asyncio event loop 冲突
         """
         def _convert_in_thread():
+            import sys
+            import asyncio
+            if sys.platform == "win32":
+                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+                
             from playwright.sync_api import sync_playwright
             with sync_playwright() as p:
                 try:
