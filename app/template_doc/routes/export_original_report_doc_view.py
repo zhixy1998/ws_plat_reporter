@@ -32,6 +32,7 @@ class InputSchema(BaseModel):
     task_id: str = Field(..., description='任务id')
     sample_id: str = Field(None, description='样品id')
     analysis_id: str = Field(None, description='分析id')
+    all_display: int = Field(0, description='Abs和T%是否显示')
     image_base64: str = Field(None, description='图片base64')
     export_report: bool = Field(False, description='是否导出报告，默认False')
 
@@ -45,6 +46,7 @@ async def export_docx(data: InputSchema):
     test_data_report_id = data.test_data_report_id # 测量数据
     analysis_id = data.analysis_id
     image_base64 = data.image_base64
+    all_display = data.all_display
     if not raw_data_report_id and not test_data_report_id:
         raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
     # task_id = "61aa663028192bcc8d73b54562af000d"
@@ -54,7 +56,7 @@ async def export_docx(data: InputSchema):
         report_template_name, report_doc_steam_obj = await get_doc_name_and_doc_stream_obj(raw_data_report_id)
         template = await TemplateDoc.get_or_none(id=raw_data_report_id)
         fill_data_instance_report = FillDataUtils(report_template_name, template=template)
-        report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id,  raw_data_report_id, image_base64=image_base64, analysis_id=analysis_id)
+        report_doc_steam_obj = await fill_data_instance_report.fill_data(report_doc_steam_obj, task_id, sample_id,  raw_data_report_id, image_base64=image_base64, analysis_id=analysis_id, all_display=all_display)
         # 合并前先移除页码，最后统一插入
         if raw_data_report_id and test_data_report_id:
             report_doc_steam_obj = fill_data_instance_report.remove_header_page_number(report_doc_steam_obj)
@@ -65,7 +67,7 @@ async def export_docx(data: InputSchema):
         original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(test_data_report_id)
         template = await TemplateDoc.get_or_none(id=test_data_report_id)
         fill_data_instance_original = FillDataUtils(original_template_name, template=template)
-        original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id, test_data_report_id, image_base64=image_base64, analysis_id=analysis_id)
+        original_doc_stream_obj = await fill_data_instance_original.fill_data(original_doc_stream_obj, task_id, sample_id, test_data_report_id, image_base64=image_base64, analysis_id=analysis_id, all_display=all_display)
         if raw_data_report_id and test_data_report_id:
             original_doc_stream_obj = fill_data_instance_original.remove_header_page_number(original_doc_stream_obj)
         doc_original = Document(original_doc_stream_obj)

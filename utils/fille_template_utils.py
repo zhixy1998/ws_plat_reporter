@@ -116,11 +116,11 @@ class FillDataUtils():
         return 0  # 默认不展示
         
 
-    async def fill_data(self, doc_stream, task_id, sample_id=None, template_id=None, analysis_id=None, image_base64=None):
+    async def fill_data(self, doc_stream, task_id, sample_id=None, template_id=None, analysis_id=None, image_base64=None, all_display=False):
         common_val = self.get_common_data_by_endpoint(task_id, analysis_id=analysis_id)
 
         # get_table_head_data_from_endpoint expects (task_id, analysis_id, ...)
-        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id)
+        end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id, all_display)
         self.end_point_header_and_data = end_point_header_and_data
         # 先加载通用数据
 
