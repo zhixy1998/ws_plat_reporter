@@ -47,6 +47,7 @@ title_mapping = {
     '数据文件_t': {'name': '数据文件', 'font': '宋体', 'font_size': 12},
     '扫描速度_t': {'name': '扫描速度', 'font': '宋体', 'font_size': 12},
     '光谱带宽_t': {'name': '光谱带宽', 'font': '宋体', 'font_size': 12},
+    '能量灯_t': {'name': '能量灯', 'font': '宋体', 'font_size': 12},
     '备注_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
     '扫描范围_t': {'name': '扫描范围', 'font': '宋体', 'font_size': 12}
 }
