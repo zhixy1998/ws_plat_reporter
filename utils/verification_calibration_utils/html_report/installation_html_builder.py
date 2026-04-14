@@ -7,13 +7,13 @@ class InstallationHtmlBuilder(BaseHtmlReportBuilder):
     继承自BaseHtmlReportBuilder，将后端组织好的表单数据映射给Jinja2。
     """
 
-    def __init__(self, context_data: dict, template_html: str = None, **kwargs):
+    def __init__(self, context_data: dict, template_html: str = None, template_file: str = 'installation_acceptance.html', **kwargs):
         """
         Args:
             context_data: view 中组织好的上下文字典，包含诸如 wavelength_mpe_standard 等变量
             template_html: 数据库存储的自定义 HTML，非必需
         """
-        super().__init__(template_html=template_html, template_file='installation_acceptance.html')
+        super().__init__(template_html=template_html, template_file=template_file)
         self.context_data = context_data or {}
 
     def _build_context(self) -> dict:

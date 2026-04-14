@@ -193,22 +193,26 @@ async def installation_acceptance_export_view(input: InputSchema):
     
     
     try:
+        # print(f"[installation_acceptance_export] start task_id={input.task_id}, template_id={input.template_id}")
         # ---- 临时测试代码：写死读取本地 HTML 模板 ----
         template_name, doc_stream = await get_doc_name_and_doc_stream_obj(input.template_id)
         doc_bytes = doc_stream.read()
         is_html = doc_bytes.strip().startswith(b'<')
+        # print(f"[installation_acceptance_export] template_name={template_name}, is_html={is_html}, template_size={len(doc_bytes)}")
         
         # is_html = True
         # template_name = "测试_本地安装验收"
 
         if is_html:
             from utils.verification_calibration_utils.html_report.installation_html_builder import InstallationHtmlBuilder
-            
-            # 使用本地文件 template_file 而不是 template_html
-            builder = InstallationHtmlBuilder(context_data=contexts, template_file='installation_acceptance.html')
+
+            template_html = doc_bytes.decode('utf-8')
+            # print(f"[installation_acceptance_export] using database html template, html_size={len(template_html)}")
+            builder = InstallationHtmlBuilder(context_data=contexts, template_html=template_html)
             pdf_out_stream = builder.run()
             pdf_out_stream.seek(0)
             pdf_bytes = pdf_out_stream.read()
+            # print(f"[installation_acceptance_export] html->pdf done, pdf_size={len(pdf_bytes)}")
 
         else:
             doc_stream.seek(0)
@@ -227,6 +231,7 @@ async def installation_acceptance_export_view(input: InputSchema):
             #     f.write(output_stream.getvalue())
 
             pdf_bytes = convert_docx_to_pdf_bytes(output_stream)
+            # print(f"[installation_acceptance_export] docx->pdf done, pdf_size={len(pdf_bytes) if pdf_bytes else 0}")
 
         # Debug logs can go here
         #     # Debug: Save the converted PDF document
@@ -254,6 +259,7 @@ async def installation_acceptance_export_view(input: InputSchema):
         
     except Exception as e:
         import traceback
+        print(f"[installation_acceptance_export] failed: {e}")
         traceback.print_exc()
         empty_stream = io.BytesIO(b'')
         return StreamingResponse(
