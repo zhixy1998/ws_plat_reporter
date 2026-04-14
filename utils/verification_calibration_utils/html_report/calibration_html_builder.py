@@ -60,10 +60,8 @@ class HtmlCalibrationReportBuilder(BaseHtmlReportBuilder):
         if logo_path and os.path.exists(logo_path):
             self.logo_path = logo_path
         else:
-            self.logo_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                'img', 'persee_logo_image.png'
-            )
+            from config import config
+            self.logo_path = str(config.image_path / 'persee_logo_image.png')
 
 
 
