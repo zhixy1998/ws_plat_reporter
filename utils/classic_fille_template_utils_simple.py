@@ -907,19 +907,19 @@ class ClassicFillDataUtils():
         columns = [data[k] for k in keys]
         return [dict(zip(keys, row)) for row in zip(*columns)]
 
-    def _build_name_identity_and_headers(self, header_list: List[Dict]) -> Tuple[Dict[str, str], List[str]]:
+    def _build_identity_name_and_headers(self, header_list: List[Dict]) -> Tuple[Dict[str, str], List[str]]:
         """
-        根据 header_list 构建 name_identity_mapping 和 headers，逻辑与原处完全一致。
+        根据 header_list 构建 identity_name_mapping 和 headers，逻辑与原处完全一致。
 
         返回:
-            (name_identity_mapping, headers)
+            (identity_name_mapping, headers)
         """
-        name_identity_mapping = {}
+        identity_name_mapping = {}
         for header in header_list:
             if header.get('unit'):
-                name_identity_mapping[header.get('name') + '-' + header.get('unit')] = header.get('identity')
+                identity_name_mapping[header.get('identity')] = header.get('name') + '-' + header.get('unit')
             else:
-                name_identity_mapping[header.get('name')] = header.get('identity')
+                identity_name_mapping[header.get('identity')] = header.get('name')
 
         headers = []
         for h in header_list:
@@ -934,7 +934,7 @@ class ClassicFillDataUtils():
                 else:
                     headers.append(h.get('name'))
 
-        return name_identity_mapping, headers
+        return identity_name_mapping, headers
     
     def get_cm(self):
         name_cm_mapping = {
@@ -1049,11 +1049,11 @@ class ClassicFillDataUtils():
         
 
     def get_quantitative_determination_standard_table(self, standard_header_list, standard_data_list):
-        name_identity_mapping, headers = self._build_name_identity_and_headers(standard_header_list)
+        identity_name_mapping, headers = self._build_identity_name_and_headers(standard_header_list)
         row_data = []
         for data in standard_data_list:
             row = []
-            for _, identity in name_identity_mapping.items():
+            for identity, _ in identity_name_mapping.items():
                 row_value = data.get(identity)
                 if row_value:
                     row.append(row_value)
@@ -1063,7 +1063,7 @@ class ClassicFillDataUtils():
             if data.get('children', []):
                 for children_data in data.get('children', []):
                     row = []
-                    for _, identity in name_identity_mapping.items():
+                    for identity, _ in identity_name_mapping.items():
                         row_value = children_data.get(identity)
                         if row_value:
                             row.append(row_value)
@@ -1108,11 +1108,11 @@ class ClassicFillDataUtils():
         # return header_name, knows_data_list
     
     def get_quantitative_determination_unknown_table(self, unknown_header_list, unknown_data_list):
-        name_identity_mapping, headers = self._build_name_identity_and_headers(unknown_header_list)
+        identity_name_mapping, headers = self._build_identity_name_and_headers(unknown_header_list)
         row_data = []
         for data in unknown_data_list:
             row = []
-            for _, identity in name_identity_mapping.items():
+            for identity, _ in identity_name_mapping.items():
                 row_value = data.get(identity)
                 if row_value:
                     row.append(row_value)
@@ -1122,7 +1122,7 @@ class ClassicFillDataUtils():
             if data.get('children', []):
                 for children_data in data.get('children', []):
                     row = []
-                    for _, identity in name_identity_mapping.items():
+                    for identity, _ in identity_name_mapping.items():
                         row_value = children_data.get(identity)
                         if row_value:
                             row.append(row_value)
@@ -1174,11 +1174,11 @@ class ClassicFillDataUtils():
         # return header_name, return_unknown_data_list
     
     def photometric_measurement_table_data(self, header_list, data_list):
-        name_identity_mapping, headers = self._build_name_identity_and_headers(header_list)
+        identity_name_mapping, headers = self._build_identity_name_and_headers(header_list)
         row_data = []
         for data in data_list:
             row = []
-            for _, identity in name_identity_mapping.items():
+            for _, identity in identity_name_mapping.items():
                 row_value = data.get(identity)
                 if row_value:
                     row.append(row_value)
@@ -1189,7 +1189,11 @@ class ClassicFillDataUtils():
                 for children_data in data.get('children', []):
                     row = []
                     for name in headers:
-                        identity = name_identity_mapping.get(name)
+                        identity = None
+                        for id, id_name in identity_name_mapping.items():
+                            if name == id_name:
+                                identity = id
+                                break
                         if identity:
                             row_value = children_data.get(identity)
                             if row_value:
