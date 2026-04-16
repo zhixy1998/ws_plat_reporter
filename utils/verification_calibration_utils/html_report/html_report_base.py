@@ -5,6 +5,8 @@ from typing import Optional
 
 from jinja2 import Environment, FileSystemLoader
 
+from config import config
+
 # HTML 模板所在目录
 _TEMPLATE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,6 +50,45 @@ class BaseHtmlReportBuilder:
         return template.render(**context)
 
     @staticmethod
+    def _find_windows_browser_executable() -> tuple[Optional[str], Optional[str]]:
+        browser_candidates = [
+            (
+                "Edge",
+                [
+                    os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
+                    os.path.join(os.environ.get("PROGRAMFILES", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
+                    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
+                ],
+            ),
+            (
+                "Chrome",
+                [
+                    os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Google", "Chrome", "Application", "chrome.exe"),
+                    os.path.join(os.environ.get("PROGRAMFILES", ""), "Google", "Chrome", "Application", "chrome.exe"),
+                    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
+                ],
+            ),
+        ]
+
+        for browser_name, candidate_paths in browser_candidates:
+            for candidate_path in candidate_paths:
+                if candidate_path and os.path.exists(candidate_path):
+                    return browser_name, candidate_path
+
+        return None, None
+
+    @staticmethod
+    def _get_configured_browser_executable() -> tuple[Optional[str], Optional[str]]:
+        browser_path = config.browser_executable_path
+        if not browser_path:
+            return None, None
+
+        if os.path.exists(browser_path):
+            return "配置浏览器", browser_path
+
+        return "配置浏览器", None
+
+    @staticmethod
     def _html_to_pdf(html_str: str) -> bytes:
         """
         提取到独立线程防止与 FastAPI asyncio event loop 冲突
@@ -60,16 +101,61 @@ class BaseHtmlReportBuilder:
                 
             from playwright.sync_api import sync_playwright
             with sync_playwright() as p:
-                try:
-                    # 1. 优先尝试系统自带的 Edge (Windows 10/11 默认自带)
-                    browser = p.chromium.launch(headless=True, channel='msedge')
-                except Exception:
+                browser = None
+                launch_errors = []
+
+                if sys.platform == "win32":
+                    browser_name, browser_path = BaseHtmlReportBuilder._find_windows_browser_executable()
+                    if browser_name == "Edge" and browser_path:
+                        try:
+                            print(f"[Playwright] 使用系统{browser_name}: {browser_path}")
+                            browser = p.chromium.launch(
+                                headless=True,
+                                executable_path=browser_path,
+                            )
+                        except Exception as exc:
+                            launch_errors.append(f"系统{browser_name}启动失败: {exc}")
+
+                    if browser is None:
+                        chrome_candidates = [
+                            os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Google", "Chrome", "Application", "chrome.exe"),
+                            os.path.join(os.environ.get("PROGRAMFILES", ""), "Google", "Chrome", "Application", "chrome.exe"),
+                            os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
+                        ]
+                        chrome_path = next((path for path in chrome_candidates if path and os.path.exists(path)), None)
+                        if chrome_path:
+                            try:
+                                print(f"[Playwright] 使用系统Chrome: {chrome_path}")
+                                browser = p.chromium.launch(
+                                    headless=True,
+                                    executable_path=chrome_path,
+                                )
+                            except Exception as exc:
+                                launch_errors.append(f"系统Chrome启动失败: {exc}")
+                        else:
+                            launch_errors.append("未找到系统 Chrome 可执行文件")
+
+                    if browser is None:
+                        configured_browser_name, configured_browser_path = BaseHtmlReportBuilder._get_configured_browser_executable()
+                        if configured_browser_path:
+                            try:
+                                print(f"[Playwright] 使用{configured_browser_name}: {configured_browser_path}")
+                                browser = p.chromium.launch(
+                                    headless=True,
+                                    executable_path=configured_browser_path,
+                                )
+                            except Exception as exc:
+                                launch_errors.append(f"{configured_browser_name}启动失败: {exc}")
+                        elif configured_browser_name:
+                            launch_errors.append(f"配置的浏览器路径不存在: {config.browser_executable_path}")
+
+                if browser is None:
                     try:
-                        # 2. 如果没有 Edge，尝试系统自带的 Chrome
-                        browser = p.chromium.launch(headless=True, channel='chrome')
-                    except Exception:
-                        # 3. 最后回退到 Playwright 下载的默认 Chromium（本地开发或打包环境）
+                        print("[Playwright] 回退到 Playwright 默认 Chromium")
                         browser = p.chromium.launch(headless=True)
+                    except Exception as exc:
+                        launch_errors.append(f"Playwright 默认 Chromium 启动失败: {exc}")
+                        raise RuntimeError("; ".join(launch_errors)) from exc
                         
                 page = browser.new_page()
                 page.set_content(html_str, wait_until='networkidle')

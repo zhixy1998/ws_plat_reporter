@@ -86,6 +86,11 @@ class Config:
     @property
     def libre_office_path(self):
         return self.config.get('env', 'libre_office_path')
+
+    @property
+    def browser_executable_path(self):
+        value = self.config.get('env', 'browser_executable_path', fallback='').strip()
+        return value or None
     
     @property
     def report_worker(self):
