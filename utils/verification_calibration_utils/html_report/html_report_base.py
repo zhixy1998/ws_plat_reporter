@@ -1,7 +1,7 @@
 import os
 import concurrent.futures
 from io import BytesIO
-from typing import Optional
+from typing import Optional, Tuple
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -50,7 +50,7 @@ class BaseHtmlReportBuilder:
         return template.render(**context)
 
     @staticmethod
-    def _find_windows_browser_executable() -> tuple[Optional[str], Optional[str]]:
+    def _find_windows_browser_executable() -> Tuple[Optional[str], Optional[str]]:
         browser_candidates = [
             (
                 "Edge",
@@ -78,7 +78,7 @@ class BaseHtmlReportBuilder:
         return None, None
 
     @staticmethod
-    def _get_configured_browser_executable() -> tuple[Optional[str], Optional[str]]:
+    def _get_configured_browser_executable() -> Tuple[Optional[str], Optional[str]]:
         browser_path = config.browser_executable_path
         if not browser_path:
             return None, None
