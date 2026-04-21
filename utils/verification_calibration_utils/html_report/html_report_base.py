@@ -1,7 +1,7 @@
 import os
 import concurrent.futures
 from io import BytesIO
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -89,6 +89,26 @@ class BaseHtmlReportBuilder:
         return "配置浏览器", None
 
     @staticmethod
+    def _build_launch_kwargs(executable_path: Optional[str] = None) -> Dict[str, object]:
+        launch_kwargs: Dict[str, object] = {}
+        if executable_path:
+            launch_kwargs["executable_path"] = executable_path
+
+        if os.name == "nt":
+            launch_kwargs["headless"] = False
+            launch_kwargs["args"] = ["--headless=new"]
+        else:
+            launch_kwargs["headless"] = True
+
+        return launch_kwargs
+
+    @staticmethod
+    def _launch_browser(playwright_instance, executable_path: Optional[str] = None):
+        return playwright_instance.chromium.launch(
+            **BaseHtmlReportBuilder._build_launch_kwargs(executable_path=executable_path)
+        )
+
+    @staticmethod
     def _html_to_pdf(html_str: str) -> bytes:
         """
         提取到独立线程防止与 FastAPI asyncio event loop 冲突
@@ -109,8 +129,8 @@ class BaseHtmlReportBuilder:
                     if browser_name == "Edge" and browser_path:
                         try:
                             print(f"[Playwright] 使用系统{browser_name}: {browser_path}")
-                            browser = p.chromium.launch(
-                                headless=True,
+                            browser = BaseHtmlReportBuilder._launch_browser(
+                                p,
                                 executable_path=browser_path,
                             )
                         except Exception as exc:
@@ -126,8 +146,8 @@ class BaseHtmlReportBuilder:
                         if chrome_path:
                             try:
                                 print(f"[Playwright] 使用系统Chrome: {chrome_path}")
-                                browser = p.chromium.launch(
-                                    headless=True,
+                                browser = BaseHtmlReportBuilder._launch_browser(
+                                    p,
                                     executable_path=chrome_path,
                                 )
                             except Exception as exc:
@@ -140,8 +160,8 @@ class BaseHtmlReportBuilder:
                         if configured_browser_path:
                             try:
                                 print(f"[Playwright] 使用{configured_browser_name}: {configured_browser_path}")
-                                browser = p.chromium.launch(
-                                    headless=True,
+                                browser = BaseHtmlReportBuilder._launch_browser(
+                                    p,
                                     executable_path=configured_browser_path,
                                 )
                             except Exception as exc:
@@ -152,7 +172,7 @@ class BaseHtmlReportBuilder:
                 if browser is None:
                     try:
                         print("[Playwright] 回退到 Playwright 默认 Chromium")
-                        browser = p.chromium.launch(headless=True)
+                        browser = BaseHtmlReportBuilder._launch_browser(p)
                     except Exception as exc:
                         launch_errors.append(f"Playwright 默认 Chromium 启动失败: {exc}")
                         raise RuntimeError("; ".join(launch_errors)) from exc
