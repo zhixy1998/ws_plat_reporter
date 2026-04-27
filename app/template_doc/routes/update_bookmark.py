@@ -91,6 +91,7 @@ async def update_bookmark(data: InputSchema):
         merged_title_mapping = {k: new_title_mapping[k] for k in origin_title_mapping if k in new_title_mapping}
         content_base64 = template.template_content
         content = base64.b64decode(content_base64)  # 解码 base64 回原始 DOCX 字节
+        thumbnail_base64 = template.thumbnail_base64
 
         # 如果传递了页眉或页脚，先插入到文档中，再更新 content 和 content_base64
         if data.header or data.footer:
@@ -111,7 +112,7 @@ async def update_bookmark(data: InputSchema):
             content_base64 = base64.b64encode(content).decode('utf-8')
 
         if data.measure_mode == MeasureMode.classic.value:
-            await classic_create_template(new_name, content_base64, content=content, template_type=template.type, experiment_type=template.experiment_type, title_mapping=merged_title_mapping, old_template_name=template_name)
+            await classic_create_template(new_name, content_base64, content=content, template_type=template.type, thumbnail_base64=thumbnail_base64, experiment_type=template.experiment_type, title_mapping=merged_title_mapping, old_template_name=template_name)
         else:
             await create_template(data.name, content_base64, content=content, template_type=template.type, 
         industry_type=template.industry_type, experiment_type=template.experiment_type, 
