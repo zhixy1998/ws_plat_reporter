@@ -101,7 +101,7 @@ class MeasureType(ExperimentType):
     pass
 
 class TemplateOriginType(StorageInfo):
-    system_default = MessageType(decs='系统默认模板', value=0, name="system_default")
+    system_default = MessageType(decs='系统内置模板', value=0, name="system_default")
     user_change = MessageType(decs='用户另存为模板', value=1, name="user_change")
 
 

@@ -365,4 +365,5 @@ async def download_template_zip(payload: dict = Body(...)):
         headers = {'Content-Disposition': 'attachment; filename="templates.zip"'}
         return StreamingResponse(zip_buffer, media_type='application/zip', headers=headers)
     except Exception as e:
+        print(e)
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
