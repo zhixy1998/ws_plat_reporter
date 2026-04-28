@@ -1178,7 +1178,7 @@ class ClassicFillDataUtils():
         row_data = []
         for data in data_list:
             row = []
-            for _, identity in identity_name_mapping.items():
+            for identity, _ in identity_name_mapping.items():
                 row_value = data.get(identity)
                 if row_value:
                     row.append(row_value)
