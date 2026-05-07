@@ -90,10 +90,10 @@ async def get_report_template(
     count = await query.count()
     # 排序 + 分页
     query = query.order_by(sort_key).offset((page - 1) * page_size).limit(page_size)
-    print('count:', await query.count())
+    # print('count:', await query.count())
     # 执行查询
     template_list = await query.values('id', 'name', 'type', 'create_datetime', 'update_datetime', 'industry_type', 'experiment_type', 'origin_type')
-    print('template_list:', template_list)
+    # print('template_list:', template_list)
     template_list = [
     
     {

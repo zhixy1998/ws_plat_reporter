@@ -76,7 +76,7 @@ class DataOperation():
         if task_data:
             for _task_id, database_data_mapping in decrypt_data.get('task_data').items():
                 for database_name, data_list in database_data_mapping.items():
-                    if database_name == 'f_t_measure_task':
+                    if database_name == 'f_t_measure_task' and data_list:
                         data_list[0]['user_id'] = user_id
                     sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
                     if not sql:

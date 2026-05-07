@@ -56,6 +56,9 @@ async def guide_export(data: InputSchema):
     )
 
     
+"""
+经典模式下的任务包叫 .UVCD 方法包叫 .UVCM     向导模式下的任务包叫 .UVGD  方法包叫 .UVGM
+"""
 @router.post('/guide_import')
 async def guide_import(
     request: Request,
