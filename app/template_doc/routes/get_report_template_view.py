@@ -41,7 +41,7 @@ async def get_report_template(
     origin_type: Optional[int]= Query(None, description='模板来源类型'),
     experiment_type: Optional[Union[int, str]]= Query(None, description='实验类型'),
     template_type: Optional[int]= Query(None, description='模板类型'),
-    desc: Optional[int] = Query(0, description='0: 升序，1: 降序'),
+    desc: Optional[int] = Query(1, description='0: 升序，1: 降序'),
     sort_field: Optional[int] = Query(None, description='排序字段 0: id, 1: 创建时间, 2: 更新时间'),
     page: int = Query(1, ge=1, description='页码，从1开始'),
     page_size: int = Query(100, ge=1, le=100, description='每页条数，默认10，最大100'),
@@ -49,11 +49,11 @@ async def get_report_template(
 
     # 排序字段映射
     sort_map = {
-        0: 'id',
-        1: 'create_datetime',
+        0: 'create_datetime',
+        1: 'id',
         2: 'update_datetime'
     }
-    sort_key = sort_map.get(sort_field, 'id')
+    sort_key = sort_map.get(sort_field, 'create_datetime')
     if desc == 0:
         sort_key = f'{sort_key}'  # 升序排序，Tortoise ORM语法
     else:
