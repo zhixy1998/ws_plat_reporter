@@ -1,10 +1,7 @@
 import json
 from datetime import datetime
 
-from tortoise.fields import data
-
 from app.db import execute_safe_sql_classic, execute_safe_sql
-from .encrypt import json_converter
 db_name = 'classic_db'
 
 class DataOperation():
@@ -14,59 +11,76 @@ class DataOperation():
     def __init__(self, task_id):
         self.task_id = task_id
         self.sample_key_list = []
+        self.project_item_key = None
 
-    async def get_measure_task_info(self):
+    @staticmethod
+    def build_measure_table_name(table_prefix, table_suffix):
+        return f'{table_prefix}measure_{table_suffix}'
+
+    async def get_measure_task_info(self, table_prefix='f_t_', sql_executor=execute_safe_sql_classic):
+        table_name = self.build_measure_table_name(table_prefix, 'task')
         sql_text = """
-            select * from f_t_measure_task where id = %s and is_delete = 0;
-        """
-        sql_result = await execute_safe_sql_classic(sql_text, [self.task_id], return_dict=True)
+            select * from {table_name} where id = %s and is_delete = 0;
+        """.format(table_name=table_name)
+        sql_result = await sql_executor(sql_text, [self.task_id], return_dict=True)
         if len(sql_result) == 1:
             self.method_key = sql_result[0].get('method_key')
+            self.project_item_key = sql_result[0].get('project_item_key')
             if sql_result[0].get('sample_key'):
                 sample_key = json.loads(sql_result[0].get('sample_key'))
                 for item in sample_key:
                     self.sample_key_list.append(item.get('specimenKey'))
         return sql_result
 
-    async def get_measure_analysis_data_info(self):
+    async def get_measure_analysis_data_info(self, table_prefix='f_t_', sql_executor=execute_safe_sql_classic):
+        table_name = self.build_measure_table_name(table_prefix, 'analysis_data')
         sql_text = """
-            select * from f_t_measure_analysis_data where task_id = %s and is_delete = 0;
-        """
-        sql_result = await execute_safe_sql_classic(sql_text, [self.task_id], return_dict=True)
+            select * from {table_name} where task_id = %s and is_delete = 0;
+        """.format(table_name=table_name)
+        sql_result = await sql_executor(sql_text, [self.task_id], return_dict=True)
         return sql_result
 
-    async def get_measure_data_info(self):
+    async def get_measure_data_info(self, table_prefix='f_t_', sql_executor=execute_safe_sql_classic):
+        table_name = self.build_measure_table_name(table_prefix, 'data')
         sql_text = """
-            select * from f_t_measure_data where task_id = %s and is_delete = 0;
-        """
-        sql_result = await execute_safe_sql_classic(sql_text, [self.task_id], return_dict=True)
+            select * from {table_name} where task_id = %s and is_delete = 0;
+        """.format(table_name=table_name)
+        sql_result = await sql_executor(sql_text, [self.task_id], return_dict=True)
         return sql_result
     
-    async def get_measure_method_info(self):
+    async def get_measure_method_info(self, table_prefix='f_t_', sql_executor=execute_safe_sql_classic):
+        table_name = self.build_measure_table_name(table_prefix, 'method')
         sql_text = """
-            select * from f_t_measure_method where id = %s;
-        """
-        sql_result = await execute_safe_sql_classic(sql_text, [self.method_key], return_dict=True)
+            select * from {table_name} where id = %s;
+        """.format(table_name=table_name)
+        sql_result = await sql_executor(sql_text, [self.method_key], return_dict=True)
         return sql_result
     
-    async def get_measure_sample_info(self):
+    async def get_measure_sample_info(self, table_prefix='f_t_', sql_executor=execute_safe_sql_classic):
         if not self.sample_key_list:
             return []
-        
-        if len(self.sample_key_list) == 1:
-            sql_text = f"select * from f_t_measure_sample where id = '{self.sample_key_list[0]}';"
-        else:
-            sql_text = f"select * from f_t_measure_sample where id in {tuple(self.sample_key_list)};"
-            
-        sql_result = await execute_safe_sql_classic(sql_text, [], return_dict=True)
+
+        table_name = self.build_measure_table_name(table_prefix, 'sample')
+        placeholders = ','.join(['%s'] * len(self.sample_key_list))
+        sql_text = f"select * from {table_name} where id in ({placeholders});"
+        sql_result = await sql_executor(sql_text, self.sample_key_list, return_dict=True)
         return sql_result
     
-    async def get_measure_task_attachment_info(self):
-        sql_text = f"""
-            select * from f_t_measure_task_attachment where task_id = %s;
-        """
-        sql_result = await execute_safe_sql_classic(sql_text, [self.task_id], return_dict=True)
+    async def get_measure_task_attachment_info(self, table_prefix='f_t_', sql_executor=execute_safe_sql_classic):
+        table_name = self.build_measure_table_name(table_prefix, 'task_attachment')
+        sql_text = """
+            select * from {table_name} where task_id = %s;
+        """.format(table_name=table_name)
+        sql_result = await sql_executor(sql_text, [self.task_id], return_dict=True)
         return sql_result   
+    
+    async def get_measure_project_info(self, table_prefix='f_t_', sql_executor=execute_safe_sql_classic):
+        table_name = self.build_measure_table_name(table_prefix, 'project')
+        sql_text = """
+            select * from {table_name} where id = %s and is_delete = 0;
+        """.format(table_name=table_name)
+        sql_result = await sql_executor(sql_text, [self.project_item_key], return_dict=True)
+        return sql_result
     
     @staticmethod
     async def insert_data(decrypt_data, user_name, user_id):
@@ -100,20 +114,23 @@ class DataOperation():
     async def insert_data_guide(decrypt_data):
         method_data = decrypt_data.get('method_data', {})
         task_data = decrypt_data.get('task_data', {})
-        data_list = []
-        if method_data:
-            database_name = 't_measure_method'
-            data_list = method_data
         if task_data:
-            database_name = 't_measure_task'
-            data_list = task_data
-        
-        sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
-        print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
-        if not sql:
-            return False
-        for params in all_params:
-            await execute_safe_sql(sql, params)
+            for _task_id, database_data_mapping in task_data.items():
+                for database_name, data_list in database_data_mapping.items():
+                    sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
+                    if not sql:
+                        continue
+                    print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
+                    for params in all_params:
+                        await execute_safe_sql(sql, params)
+        if method_data:
+            for database_name, data_list in method_data.items():
+                sql, all_params, data_ids = DataOperation.insert_data_sql(database_name, data_list)
+                if not sql:
+                    continue
+                print(f"Executing: INSERT/UPDATE into {database_name} with ID: {data_ids}")
+                for params in all_params:
+                    await execute_safe_sql(sql, params)
         return True
         
         
@@ -190,9 +207,14 @@ class DataOperation():
     
     
     @staticmethod
-    async def static_method_get_measure_method_info(method_key_list):
-        sql_text = """
-            select * from f_t_measure_method where id in %s;
+    async def static_method_get_measure_method_info(method_key_list, table_prefix='f_t_', sql_executor=execute_safe_sql_classic):
+        if not method_key_list:
+            return []
+
+        table_name = DataOperation.build_measure_table_name(table_prefix, 'method')
+        placeholders = ','.join(['%s'] * len(method_key_list))
+        sql_text = f"""
+            select * from {table_name} where id in ({placeholders});
         """
-        sql_result = await execute_safe_sql_classic(sql_text, [method_key_list], return_dict=True)
+        sql_result = await sql_executor(sql_text, method_key_list, return_dict=True)
         return sql_result

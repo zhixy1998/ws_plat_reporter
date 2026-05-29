@@ -4,7 +4,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File
 
 from app.db import execute_safe_sql
 from exceptions.error import ErrorCode
@@ -31,19 +31,48 @@ async def guide_export(data: InputSchema):
             }
         )
 
-    placeholders = ','.join(['%s'] * len(ids))
-
     if data.operation_type == 'method':
-        sql_text = f"""
-        select * from t_measure_method where id in ({placeholders})
-        """
-        method_data = await execute_safe_sql(sql_text, ids, return_dict=True)
-        result_json['method_data'] = method_data
+        result_json['method_data'] = {
+            't_measure_method': await DataOperation.static_method_get_measure_method_info(
+                ids,
+                table_prefix='t_',
+                sql_executor=execute_safe_sql,
+            )
+        }
     if data.operation_type == 'task':
-        sql_text = f"""
-        select * from t_measure_task where id in ({placeholders})
-        """
-        task_data = await execute_safe_sql(sql_text, ids, return_dict=True)
+        task_data = {}
+        for task_id in ids:
+            task_id_map = {}
+            data_operation = DataOperation(task_id)
+            task_id_map['t_measure_task'] = await data_operation.get_measure_task_info(
+                table_prefix='t_',
+                sql_executor=execute_safe_sql,
+            )
+            task_id_map['t_measure_analysis_data'] = await data_operation.get_measure_analysis_data_info(
+                table_prefix='t_',
+                sql_executor=execute_safe_sql,
+            )
+            task_id_map['t_measure_data'] = await data_operation.get_measure_data_info(
+                table_prefix='t_',
+                sql_executor=execute_safe_sql,
+            )
+            task_id_map['t_measure_method'] = await data_operation.get_measure_method_info(
+                table_prefix='t_',
+                sql_executor=execute_safe_sql,
+            )
+            task_id_map['t_measure_sample'] = await data_operation.get_measure_sample_info(
+                table_prefix='t_',
+                sql_executor=execute_safe_sql,
+            )
+            task_id_map['t_measure_task_attachment'] = await data_operation.get_measure_task_attachment_info(
+                table_prefix='t_',
+                sql_executor=execute_safe_sql,
+            )
+            task_id_map['t_measure_project'] = await data_operation.get_measure_project_info(
+                table_prefix='t_',
+                sql_executor=execute_safe_sql,
+            )
+            task_data[task_id] = task_id_map
         result_json['task_data'] = task_data
     
     encrypt_end_bytes = encrypt_json(result_json)
