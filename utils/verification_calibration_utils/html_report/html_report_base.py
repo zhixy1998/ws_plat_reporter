@@ -46,7 +46,6 @@ class BaseHtmlReportBuilder:
             template = self.env.get_template(self.template_file)
         else:
             raise ValueError("未提供 template_html 或 template_file")
-
         return template.render(**context)
 
     @staticmethod
