@@ -537,9 +537,14 @@ class FillDataUtils():
                                     if v_size:
                                         run.font.size = _Pt(v_size)
 
-                # 只扫描顶层段落（标题/说明行），不扫描表格数据单元格
-                # 扫描表格数据单元格会因大量子串误命中导致行高增大、内容溢出产生空白页
-                # _apply_title_runs(used_tpl.docx.paragraphs)
+                # 扫描顶层段落（标题/说明行）
+                _apply_title_runs(used_tpl.docx.paragraphs)
+                # 同时扫描表格内的段落（如表格标题行中的标签文字）
+                # 由于 _apply_title_runs 使用精确匹配（==），不会误命中数值数据单元格
+                for table in used_tpl.docx.tables:
+                    for row in table.rows:
+                        for cell in row.cells:
+                            _apply_title_runs(cell.paragraphs)
 
             output_stream = BytesIO()
             used_tpl.save(output_stream)
