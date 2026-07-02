@@ -37,7 +37,6 @@ title_mapping = {
     '自动切换样品池_t': {'name': '自动切换样品池', 'font': '宋体', 'font_size': 12},
     '数据文件_t': {'name': '数据文件', 'font': '宋体', 'font_size': 12},
     '强制过零点_t': {'name': '强制过零点', 'font': '宋体', 'font_size': 12},
-    'R_t': {'name': 'R', 'font': '宋体', 'font_size': 12},
     '测量波长_t': {'name': '测量波长', 'font': '宋体', 'font_size': 12},
     '方法名称_t': {'name': '方法名称', 'font': '宋体', 'font_size': 12}
 }

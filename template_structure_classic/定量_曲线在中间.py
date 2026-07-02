@@ -28,7 +28,6 @@ python_template_var = {
 title_mapping = {
     '数据文件_t': {'name': '数据文件', 'font': '宋体', 'font_size': 12},
     '分析时间_t': {'name': '分析时间', 'font': '宋体', 'font_size': 12},
-    'R_t': {'name': 'R', 'font': '宋体', 'font_size': 12},
     '曲线方程_t': {'name': '曲线方程', 'font': '宋体', 'font_size': 12},
     '零点插入_t': {'name': '零点插入', 'font': '宋体', 'font_size': 12},
     '测量波长_t': {'name': '测量波长', 'font': '宋体', 'font_size': 12},

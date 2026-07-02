@@ -27,7 +27,6 @@ python_template_var = {
 title_mapping = {
     '校正方法_t': {'name': '校正方法', 'font': '宋体', 'font_size': 12},
     '重复测量_t': {'name': '重复测量', 'font': '宋体', 'font_size': 12},
-    'R_t': {'name': 'R', 'font': '宋体', 'font_size': 12},
     '分析时间_t': {'name': '分析时间', 'font': '宋体', 'font_size': 12},
     '方程次数_t': {'name': '方程次数', 'font': '宋体', 'font_size': 12},
     '自动切换样品池_t': {'name': '自动切换样品池', 'font': '宋体', 'font_size': 12},
