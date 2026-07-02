@@ -38,7 +38,6 @@ title_mapping = {
     '零点插入_t': {'name': '零点插入', 'font': '宋体', 'font_size': 12},
     '方程次数_t': {'name': '方程次数', 'font': '宋体', 'font_size': 12},
     '校正方法_t': {'name': '校正方法', 'font': '宋体', 'font_size': 12},
-    # 'R_t': {'name': 'R', 'font': '宋体', 'font_size': 12},
     '公式_t': {'name': '公式', 'font': '宋体', 'font_size': 12}
 }
 
