@@ -154,6 +154,39 @@ class ClassicFillDataUtils():
                     contexts[val_key] = _DEL_VAL_MARKER
         
         tpl.render(context=contexts)
+
+        # ===== 渲染后：应用 title_mapping 中指定的字体和字号 =====
+        # title_mapping 结构: {'var_t': {'name': '文本', 'font': '宋体', 'font_size': 12}, ...}
+        # jinja2 渲染只替换文本，不处理格式，所以需要在此处手动设置
+        from docx.shared import Pt as _Pt
+        from docx.oxml.ns import qn as _qn
+
+        def _apply_font_to_runs(paragraphs):
+            """遍历段落中的 run，若文本精确匹配 title_mapping 的 name，则设置字体/字号"""
+            for para in paragraphs:
+                for run in para.runs:
+                    text = run.text.strip()
+                    if not text:
+                        continue
+                    for t_desc in title_mapping.values():
+                        target_text = t_desc.get('name', '')
+                        if target_text and text == target_text:
+                            if t_desc.get('font'):
+                                run.font.name = t_desc['font']
+                                rPr = run._element.get_or_add_rPr()
+                                rFonts = rPr.get_or_add_rFonts()
+                                rFonts.set(_qn('w:eastAsia'), t_desc['font'])
+                            if t_desc.get('font_size'):
+                                run.font.size = _Pt(t_desc['font_size'])
+
+        # 1. 扫描文档主体段落（标题、说明行等）
+        _apply_font_to_runs(tpl.docx.paragraphs)
+        # 2. 扫描表格内段落（表格中的标签文字）
+        for table in tpl.docx.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    _apply_font_to_runs(cell.paragraphs)
+
         output_stream = BytesIO()
         tpl.save(output_stream)
         output_stream.seek(0)  # 很重要：回到开头，供后续读取
