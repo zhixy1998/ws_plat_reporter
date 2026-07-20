@@ -118,6 +118,7 @@ class ClassicFillDataUtils():
         self.end_point_header_and_data = None
         self.measure_type = measure_type
         self.single_sample = single_sample
+        self.for_html = False  # 是否产出 HTML 兼容的 contexts（图片用 base64 data URI）
 
     async def fill_data(self, doc_stream, task_id, sample_id=None, serial_number=None, image_base64=None, analysis_id=None, all_display=0, is_repeat_mode=0, digit=None):
         common_val = self.get_common_data_by_endpoint(task_id, analysis_id)
@@ -221,6 +222,60 @@ class ClassicFillDataUtils():
         if self.measure_type  == MeasureType.photometric_measurement.decs:
             contexts = await self.photometric_measurement_context(tpl, contexts)
         return True, contexts
+
+    async def get_html_contexts(self, image_base64=None):
+        """
+        获取 HTML 兼容的 contexts（图片为 base64 data URI 而非 InlineImage）。
+        复用 get_context 的数据获取逻辑，但跳过 docxtpl 依赖。
+        """
+        self.for_html = True
+        contexts = {}
+        if self.measure_type is None:
+            self.for_html = False
+            return contexts
+
+        # 填充 _t 标签变量（与 fill_data 中的 title_mapping 逻辑一致）
+        from utils.template_utils import get_title_mapping
+        from constants.template_constant import MeasureMode
+        title_mapping = get_title_mapping(self.name, measure_mode=MeasureMode.classic.value)
+        for t_key, t_desc in title_mapping.items():
+            contexts[t_key] = t_desc.get('name', '')
+            if t_key.endswith('_t'):
+                base = t_key[:-2]
+                if t_desc.get('font_size'):
+                    contexts[base + '_fs'] = t_desc['font_size']
+                if t_desc.get('font'):
+                    contexts[base + '_font'] = t_desc['font']
+
+        # 从配置文件的 extra_info 读取页眉页脚标题，注入 contexts
+        try:
+            module_name = config.classic_structure_module + "." + self.name
+            private_mod = importlib.import_module(module_name)
+            if hasattr(private_mod, 'extra_info'):
+                ei = private_mod.extra_info
+                if 'header' in ei:
+                    contexts['__header__'] = ei['header']
+                if 'footer' in ei:
+                    contexts['__footer__'] = ei['footer']
+                if 'title_list' in ei:
+                    contexts['__title_list__'] = ei['title_list']
+                if 'page_num_type' in ei:
+                    contexts['__page_num_type__'] = ei['page_num_type']
+                if 'page_num' in ei:
+                    contexts['__page_num__'] = ei['page_num']
+        except Exception as e:
+            print(f"[get_html_contexts] 读取 extra_info 失败: {e}")
+
+        if self.measure_type == MeasureType.spectral_scanning.decs:
+            contexts = await self.get_spectral_scanning_context(tpl=None, image_base64=image_base64, contexts=contexts)
+        if self.measure_type == MeasureType.time_scanning.decs:
+            contexts = await self.get_time_scanning_context(tpl=None, image_base64=image_base64, contexts=contexts)
+        if self.measure_type == MeasureType.quantitative_determination.decs:
+            contexts = await self.get_quantitative_determination_context(tpl=None, contexts=contexts)
+        if self.measure_type == MeasureType.photometric_measurement.decs:
+            contexts = await self.photometric_measurement_context(tpl=None, contexts=contexts)
+        self.for_html = False
+        return contexts
     
     async def get_spectral_scanning_context(self, tpl, image_base64, contexts):
         spectral_scanning_mapping = common_data_mapping.get(self.measure_type)
@@ -266,7 +321,10 @@ class ClassicFillDataUtils():
         return contexts
 
     def _build_table_subdoc(self, tpl: DocxTemplate, table_data: dict):
-        """用 python-docx 在 subdoc 中构造表格，供 docxtpl 插入。"""
+        """用 python-docx 在 subdoc 中构造表格，供 docxtpl 插入。
+        HTML 模式下（tpl=None）跳过，返回空字符串。"""
+        if tpl is None:
+            return ''
         subdoc = tpl.new_subdoc()
         headers = (table_data or {}).get('header') or (table_data or {}).get('headers') or []
         row_data = (table_data or {}).get('row_data') or []
@@ -565,8 +623,15 @@ class ClassicFillDataUtils():
         plt.close()  # 关闭图形以释放内存
             
         img_buffer.seek(0)
+
+        # HTML 模式：返回 base64 data URI
+        if self.for_html:
+            img_bytes = img_buffer.read()
+            b64_str = base64.b64encode(img_bytes).decode('utf-8')
+            return f"data:image/png;base64,{b64_str}"
+
+        # DOCX 模式：返回 InlineImage
         cm = self.get_cm() 
-        # 转换为 InlineImage
         return InlineImage(tpl, img_buffer, width=Cm(cm))
             
         # except Exception as e:
@@ -675,6 +740,13 @@ class ClassicFillDataUtils():
                 return None
             
             image_data = base64.b64decode(val)
+
+            # HTML 模式：直接返回 base64 data URI
+            if self.for_html:
+                b64_str = base64.b64encode(image_data).decode('utf-8')
+                return f"data:image/png;base64,{b64_str}"
+
+            # DOCX 模式：返回 InlineImage
             image_stream = BytesIO(image_data)
             cm = self.get_cm()
             return InlineImage(tpl, image_stream, width=Cm(cm))

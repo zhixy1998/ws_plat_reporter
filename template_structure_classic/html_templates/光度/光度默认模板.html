@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>光度测量原始记录</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 12mm 18mm 10mm 18mm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "宋体", SimSun, "Noto Sans SC", sans-serif;
+        font-size: 11pt;
+        color: #000;
+        line-height: 2;
+        background: #fff;
+      }
+      h1 {
+        text-align: center;
+        font-size: 15pt;
+        font-weight: bold;
+        margin-bottom: 5mm;
+        font-family: "黑体", SimHei, "Noto Sans SC", sans-serif;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: auto 1fr auto 1fr;
+        margin-bottom: 1mm;
+      }
+      .row.single {
+        grid-template-columns: auto 1fr;
+      }
+      .lbl {
+        font-weight: bold;
+        white-space: nowrap;
+        padding-right: 2mm;
+      }
+      .val {
+        min-width: 0;
+      }
+      .sep {
+        text-align: center;
+        margin: 3mm 0 1mm 0;
+        letter-spacing: 4pt;
+        color: #000;
+      }
+      .hr {
+        border-bottom: 1px solid #000;
+        margin-bottom: 3mm;
+      }
+      .dt {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2mm;
+        font-size: 9pt;
+      }
+      .dt th,
+      .dt td {
+        padding: 2px 6px;
+        text-align: center;
+        border: none;
+      }
+      .dt th {
+        font-weight: bold;
+        border-bottom: 1px solid #000;
+      }
+      .dt td {
+        border-bottom: 1px dotted #ccc;
+      }
+      .sig {
+        margin-top: 6mm;
+        font-size: 10.5pt;
+        display: flex;
+        justify-content: space-around;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      {{ __title_list__[0].value if __title_list__ else '光度测量原始记录' }}
+    </h1>
+
+    <div class="sep">仪器性能</div>
+    <div class="hr"></div>
+
+    {% if 仪器型号_t %}
+    <div class="row">
+      <span
+        class="lbl"
+        style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}{% if 仪器型号_font %}font-family: '{{ 仪器型号_font }}';{% endif %}"
+        >{{ 仪器型号_t }}：</span
+      ><span
+        class="val"
+        style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}"
+        >{{ 仪器型号 or '' }}</span
+      >
+      <span
+        class="lbl"
+        style="{% if 仪器序号_fs %}font-size: {{ 仪器序号_fs }}pt;{% endif %}{% if 仪器序号_font %}font-family: '{{ 仪器序号_font }}';{% endif %}"
+        >{{ 仪器序号_t }}：</span
+      ><span
+        class="val"
+        style="{% if 仪器序号_fs %}font-size: {{ 仪器序号_fs }}pt;{% endif %}"
+        >{{ 仪器序号 or '' }}</span
+      >
+    </div>
+    {% endif %} {% if 光谱带宽_t %}
+    <div class="row single">
+      <span
+        class="lbl"
+        style="{% if 光谱带宽_fs %}font-size: {{ 光谱带宽_fs }}pt;{% endif %}{% if 光谱带宽_font %}font-family: '{{ 光谱带宽_font }}';{% endif %}"
+        >{{ 光谱带宽_t }}：</span
+      ><span
+        class="val"
+        style="{% if 光谱带宽_fs %}font-size: {{ 光谱带宽_fs }}pt;{% endif %}"
+        >{{ 光谱带宽 or '' }}</span
+      >
+    </div>
+    {% endif %}
+
+    <div class="sep">文件信息</div>
+    <div class="hr"></div>
+
+    {% if 数据文件_t %}
+    <div class="row single">
+      <span
+        class="lbl"
+        style="{% if 数据文件_fs %}font-size: {{ 数据文件_fs }}pt;{% endif %}{% if 数据文件_font %}font-family: '{{ 数据文件_font }}';{% endif %}"
+        >{{ 数据文件_t }}：</span
+      ><span
+        class="val"
+        style="{% if 数据文件_fs %}font-size: {{ 数据文件_fs }}pt;{% endif %}"
+        >{{ 数据文件 or '' }}</span
+      >
+    </div>
+    {% endif %} {% if 分析时间_t %}
+    <div class="row single">
+      <span
+        class="lbl"
+        style="{% if 分析时间_fs %}font-size: {{ 分析时间_fs }}pt;{% endif %}{% if 分析时间_font %}font-family: '{{ 分析时间_font }}';{% endif %}"
+        >{{ 分析时间_t }}：</span
+      ><span
+        class="val"
+        style="{% if 分析时间_fs %}font-size: {{ 分析时间_fs }}pt;{% endif %}"
+        >{{ 分析时间 or '' }}</span
+      >
+    </div>
+    {% endif %} {% if 数据类型_t %}
+    <div class="row single">
+      <span
+        class="lbl"
+        style="{% if 数据类型_fs %}font-size: {{ 数据类型_fs }}pt;{% endif %}{% if 数据类型_font %}font-family: '{{ 数据类型_font }}';{% endif %}"
+        >{{ 数据类型_t }}：</span
+      ><span
+        class="val"
+        style="{% if 数据类型_fs %}font-size: {{ 数据类型_fs }}pt;{% endif %}"
+        >原始数据</span
+      >
+    </div>
+    {% endif %} {% if 方法名称_t %}
+    <div class="row single">
+      <span
+        class="lbl"
+        style="{% if 方法名称_fs %}font-size: {{ 方法名称_fs }}pt;{% endif %}{% if 方法名称_font %}font-family: '{{ 方法名称_font }}';{% endif %}"
+        >{{ 方法名称_t }}：</span
+      ><span
+        class="val"
+        style="{% if 方法名称_fs %}font-size: {{ 方法名称_fs }}pt;{% endif %}"
+        >{{ 方法名称 or '' }}</span
+      >
+    </div>
+    {% endif %} {% if table_data and table_data.headers and table_data.row_data
+    %}
+
+    <div class="sep">分析记录</div>
+    <div class="hr"></div>
+
+    {% if 分析员_t %}
+    <div class="row single">
+      <span
+        class="lbl"
+        style="{% if 分析员_fs %}font-size: {{ 分析员_fs }}pt;{% endif %}{% if 分析员_font %}font-family: '{{ 分析员_font }}';{% endif %}"
+        >{{ 分析员_t }}：</span
+      ><span
+        class="val"
+        style="{% if 分析员_fs %}font-size: {{ 分析员_fs }}pt;{% endif %}"
+        >{{ 分析员 or '' }}</span
+      >
+    </div>
+    {% endif %} {% if 审核员_t %}
+    <div class="row single">
+      <span
+        class="lbl"
+        style="{% if 审核员_fs %}font-size: {{ 审核员_fs }}pt;{% endif %}{% if 审核员_font %}font-family: '{{ 审核员_font }}';{% endif %}"
+        >{{ 审核员_t }}：</span
+      ><span
+        class="val"
+        style="{% if 审核员_fs %}font-size: {{ 审核员_fs }}pt;{% endif %}"
+        >{{ 审核员 or '' }}</span
+      >
+    </div>
+    {% endif %} {% if 注释_t %}
+    <div class="row single">
+      <span
+        class="lbl"
+        style="{% if 注释_fs %}font-size: {{ 注释_fs }}pt;{% endif %}{% if 注释_font %}font-family: '{{ 注释_font }}';{% endif %}"
+        >{{ 注释_t }}：</span
+      ><span
+        class="val"
+        style="{% if 注释_fs %}font-size: {{ 注释_fs }}pt;{% endif %}"
+        >{{ 注释 or '' }}</span
+      >
+    </div>
+    {% endif %}
+
+    <div style="height: 5mm"></div>
+
+    <table class="dt">
+      <thead>
+        <tr>
+          {% for h in table_data.headers %}
+          <th>{{ h }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in table_data.row_data %}
+        <tr>
+          {% for cell in row %}
+          <td>{{ cell }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </body>
+</html>

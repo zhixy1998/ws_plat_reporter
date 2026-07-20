@@ -1,4 +1,5 @@
 from io import BytesIO
+import base64
 
 from fastapi import APIRouter
 from tortoise import connections
@@ -8,10 +9,10 @@ from fastapi.responses import StreamingResponse
 from exceptions.error import ErrorCode
 from utils.log_decorator import log_response
 from exceptions.command_exception import APIException
-from utils.template_utils import get_doc_name_and_doc_stream_obj
 from utils.classic_fille_template_utils_simple import ClassicFillDataUtils
+from utils.classic_html_builder import ClassicHtmlBuilder
+from app.template_doc.model.template_doc import TemplateDoc
 from .classic_export_original_data_doc_view import get_measure_type
-from utils.template_utils import convert_docx_to_pdf_base64, convert_docx_to_pdf_bytes
 
 router = APIRouter()
 
@@ -30,44 +31,60 @@ class InputSchema(BaseModel):
 @router.post('/preview_template')
 @log_response
 async def preview_template(data: InputSchema):
-    """预览模板，将docx转换为PDF的base64返回"""
+    """预览模板，从数据库取 HTML 模板，通过 Playwright 渲染为 PDF base64"""
     classic_db_con = connections.get('classic_db')
     template_id = data.template_id
     task_id = data.task_id
-    sample_id = data.sample_id
-    serial_number = data.serial_number
 
-    # 直接获取文件流，更简单
     measure_type = await get_measure_type(task_id)
     if template_id is None:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
-    original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(template_id=template_id, conn=classic_db_con)
-    fill_data_instance_original = ClassicFillDataUtils(original_template_name, template_id=template_id, measure_type=measure_type)
+
+    # 从数据库获取模板
+    template = await TemplateDoc.get_or_none(id=template_id, using_db=classic_db_con)
+    if not template:
+        raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
+
+    template_name = template.name
+
+    # 获取 HTML 模板字符串（从 DB 的 template_content 字段）
+    html_template_str = _get_html_from_template(template)
+    builder = ClassicHtmlBuilder(template_html=html_template_str)
+
+    fill_data_instance = ClassicFillDataUtils(
+        template_name, template_id=template_id, measure_type=measure_type
+    )
+
     try:
-        original_doc_stream_obj = await fill_data_instance_original.fill_data(doc_stream=original_doc_stream_obj, task_id=task_id, sample_id=sample_id, 
-            serial_number=serial_number, image_base64=data.image_base64, analysis_id=data.analysis_id, all_display=data.all_display, 
-            is_repeat_mode=data.is_repeat_mode, digit=data.digit)
-        if original_doc_stream_obj:
-            # 转换为PDF
-            pdf_base64 = convert_docx_to_pdf_base64(original_doc_stream_obj)
-    
-            return {
-                'code': 200,
-                'message': '预览成功',
-                'data': {'pdf': pdf_base64}
-            }
+        # 获取通用数据和表头数据
+        fill_data_instance.get_common_data_by_endpoint(task_id, data.analysis_id)
+        if data.analysis_id and len(data.analysis_id.split(',')) == 1:
+            fill_data_instance.single_sample = True
+        fill_data_instance.end_point_header_and_data = (
+            fill_data_instance.get_table_head_data_from_endpoint(
+                task_id, data.analysis_id, data.all_display, data.digit
+            )
+        )
+
+        # 获取 HTML 兼容的 contexts
+        contexts = await fill_data_instance.get_html_contexts(
+            image_base64=data.image_base64
+        )
+
+        if not contexts:
+            return {'code': 200, 'message': '预览成功', 'data': {'pdf': ''}}
+
+        # Playwright 渲染 HTML → PDF
+        pdf_base64 = builder.build_pdf_base64(contexts)
+
         return {
             'code': 200,
             'message': '预览成功',
-            'data': {'pdf': ''}
+            'data': {'pdf': pdf_base64}
         }
     except Exception as e:
         import traceback
-        
-        # 获取调用栈字符串
         error_traceback = traceback.format_exc()
-        
-        # 同时使用print和logging，确保在各种环境下都能看到
         print('预览模板异常：', str(e))
         print('调用栈：')
         print(error_traceback)
@@ -78,39 +95,59 @@ async def preview_template(data: InputSchema):
         }
 
 
+def _get_html_from_template(template) -> str:
+    """从 TemplateDoc 记录中提取 HTML 模板字符串。"""
+    content_b64 = template.template_content
+    if not content_b64:
+        return ''
+    return base64.b64decode(content_b64).decode('utf-8')
+
+
 @router.post('/preview_template_download')
 async def preview_template_download(data: InputSchema):
-    """
-    预览模板，将docx转换为PDF并直接返回文件下载（调试用）
-    """
+    """预览模板下载，从数据库取 HTML，Playwright 渲染 PDF 直接返回"""
     classic_db_con = connections.get('classic_db')
     template_id = data.template_id
     task_id = data.task_id
-    sample_id = data.sample_id
-    serial_number = data.serial_number
 
-    # 直接获取文件流，更简单
     measure_type = await get_measure_type(task_id)
     if template_id is None:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
-    original_template_name, original_doc_stream_obj = await get_doc_name_and_doc_stream_obj(template_id=template_id, conn=classic_db_con)
-    fill_data_instance_original = ClassicFillDataUtils(original_template_name, template_id=template_id, measure_type=measure_type)
-    original_doc_stream_obj = await fill_data_instance_original.fill_data(doc_stream=original_doc_stream_obj, task_id=task_id, sample_id=sample_id, 
-                             serial_number=serial_number, image_base64=data.image_base64, analysis_id=data.analysis_id, all_display=data.all_display, 
-                             is_repeat_mode=data.is_repeat_mode, digit=data.digit)
-    
-    # 转换为PDF（返回字节流）
-    pdf_bytes = convert_docx_to_pdf_bytes(original_doc_stream_obj)
-    
+
+    template = await TemplateDoc.get_or_none(id=template_id, using_db=classic_db_con)
+    if not template:
+        raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
+
+    template_name = template.name
+    html_template_str = _get_html_from_template(template)
+
+    fill_data_instance = ClassicFillDataUtils(
+        template_name, template_id=template_id, measure_type=measure_type
+    )
+
+    fill_data_instance.get_common_data_by_endpoint(task_id, data.analysis_id)
+    if data.analysis_id and len(data.analysis_id.split(',')) == 1:
+        fill_data_instance.single_sample = True
+    fill_data_instance.end_point_header_and_data = (
+        fill_data_instance.get_table_head_data_from_endpoint(
+            task_id, data.analysis_id, data.all_display, data.digit
+        )
+    )
+
+    contexts = await fill_data_instance.get_html_contexts(
+        image_base64=data.image_base64
+    )
+
+    builder = ClassicHtmlBuilder(template_html=html_template_str)
+    pdf_bytes = builder.build_pdf(contexts)
+
     if not pdf_bytes:
         raise APIException(ErrorCode.DOCX_CONVERSION_FAILED, "PDF转换失败")
-    
-    # 生成文件名（处理中文编码）
+
     from urllib.parse import quote
-    filename = f"{original_template_name}_{task_id}.pdf"
+    filename = f"{template_name}_{task_id}.pdf"
     encoded_filename = quote(filename)
-    
-    # 返回文件下载
+
     return StreamingResponse(
         BytesIO(pdf_bytes),
         media_type="application/pdf",

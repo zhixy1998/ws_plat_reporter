@@ -49,12 +49,12 @@ async def create_template_view(
     class_db_con = connections.get('classic_db')
     try:
         original_file_name = file.filename
-        if '.docx' in original_file_name:
-            docx_name = original_file_name.split('.docx')[0]
-        elif '.doc' in original_file_name:
-            docx_name = original_file_name.split('.doc')[0] 
+
+        if '.html' in original_file_name or '.htm' in original_file_name:
+            docx_name = original_file_name.rsplit('.html', 1)[0] if '.html' in original_file_name else original_file_name.rsplit('.htm', 1)[0]
         else:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
+
         if name:
             if await TemplateDocBase.get_or_none(name=name, is_del=0, using_db=class_db_con):
                 raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
@@ -62,24 +62,17 @@ async def create_template_view(
             if await TemplateDocBase.get_or_none(name=docx_name, is_del=0, using_db=class_db_con):
                 raise APIException(ErrorCode.TEMPLATE_NAME_EXIST)
             name = docx_name
+
         content = await file.read()
         thumbnail_content = await thumbnail.read()
 
-        # 检测文件格式并自动转换DOC到DOCX
-        file_format = detect_file_format(content)
-        if file_format == 'doc':
-            print(f"检测到DOC文件，正在转换为DOCX: {file.filename}")
-            try:
-                docx_stream = convert_doc_to_docx(content)
-                content = docx_stream.read()  # 获取转换后的字节内容
-                print(f" DOC文件转换成功: {file.filename}")
-            except Exception as e:
-                print(f" DOC文件转换失败: {e}")
+        # 验证 HTML 模板
+        print(f"检测到HTML模板: {file.filename}")
+        try:
+            html_str = content.decode('utf-8')
+            if '<html' not in html_str.lower() and '{{' not in html_str:
                 raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
-        elif file_format == 'docx':
-            print(f"检测到DOCX文件: {file.filename}")
-        else:
-            print(f" 不支持的文件格式: {file.filename}")
+        except UnicodeDecodeError:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
 
         content_base64 = base64.b64encode(content).decode('utf-8')
@@ -89,7 +82,7 @@ async def create_template_view(
             thumbnail_base64 = None
         # 存入数据库
         try:
-            template_id = await create_template(name, content_base64, content, template_type=template_type, thumbnail_base64=thumbnail_base64, experiment_type=experiment_type)
+            template_id = await create_template(name, content_base64, template_type=template_type, thumbnail_base64=thumbnail_base64, experiment_type=experiment_type)
         except BadZipFile:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT) 
     except APIException as e:
@@ -101,7 +94,8 @@ async def create_template_view(
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
     return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
 
-async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, thumbnail_base64: str = None, experiment_type=0, title_mapping=None, old_template_name=None) -> int:
+async def create_template(name: str, content_base64: str, template_type: int = 0, thumbnail_base64: str = None, experiment_type=0, title_mapping=None, old_template_name=None) -> int:
+    """创建经典模式 HTML 模板。"""
 
     class_db_con = connections.get('classic_db')
     async with in_transaction('classic_db') as connection:
@@ -111,20 +105,11 @@ async def create_template(name: str, content_base64: str, content: bytes, templa
             'type': template_type,
             'experiment_type': experiment_type,
         }
-        # 先创建base模型，方便以后回滚
         template_base_instance = await TemplateDocBase.create(**create_info, using_db=class_db_con)
-        # 创建模板
         create_info['base_template_id'] = template_base_instance.id
         if thumbnail_base64:
             create_info['thumbnail_base64'] = thumbnail_base64
         template = await TemplateDoc.create(**create_info, using_db=class_db_con)
-        # 创建标签
-        analysis_bookmark = AnalysisBookMark(BytesIO(content))
-        book_markets = analysis_bookmark.get_word_bookmarks()
-        # 创建json文件
-        for book_mark in book_markets:
-            await recursion_create_bookmark(book_mark, template.id)     
-        await classic_create_python_setting_file(template_id = template.id, name=name, template_file_steam=BytesIO(content), connection=connection, title_mapping=title_mapping, old_template_name=old_template_name)
         return template.id
 
 

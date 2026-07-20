@@ -3,7 +3,7 @@
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
-from .common_data import BaseTableDataHandler, checkbox
+
 python_template_var = {
     "公式": {"fill_type": 0},
     "强制过零点": {"fill_type": 0},
@@ -44,7 +44,16 @@ title_mapping = {
 # 字段渲染表格
 extra_info = {
     'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
-    'page_num_type': 0
+    'page_num_type': 0,
+    # 页眉页脚（经典模式 HTML 渲染用）
+    'header': {'value': '', 'font': '宋体', 'font_size': 10},
+    'footer': {'value': '', 'font': '宋体', 'font_size': 9},
+    # 页码（position: left / center / right）
+    'page_num': {'position': 'left', 'font': '宋体', 'font_size': 9},
+    # 报告标题
+    'title_list': [
+        {'name': '报告名称', 'value': '定量测定原始数据', 'font': '黑体', 'font_size': 15},
+    ],
 }
 
 table_fields = []

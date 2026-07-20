@@ -31,6 +31,7 @@ from utils.doc_converter import get_libreoffice_command, get_libreoffice_subproc
 from constants.template_constant import TemplatePageNumType, MeasureMode
 from config import config
 from utils.EditDocxXML import fill_word_bookmark
+from utils.classic_html_builder import ClassicHtmlBuilder
 
 router = APIRouter()
 
@@ -90,11 +91,12 @@ async def update_bookmark(data: InputSchema):
         # 合并标题映射
         merged_title_mapping = {k: new_title_mapping[k] for k in origin_title_mapping if k in new_title_mapping}
         content_base64 = template.template_content
-        content = base64.b64decode(content_base64)  # 解码 base64 回原始 DOCX 字节
+        content = base64.b64decode(content_base64)
         thumbnail_base64 = template.thumbnail_base64
 
-        # 如果传递了页眉或页脚，先插入到文档中，再更新 content 和 content_base64
-        if data.header or data.footer:
+        is_classic_save = data.measure_mode == MeasureMode.classic.value
+        if not is_classic_save and (data.header or data.footer):
+            # 非经典模式：DOCX 里插入页眉页脚
             doc_stream = BytesIO(content)
             doc = Document(doc_stream)
             if data.header:
@@ -112,7 +114,15 @@ async def update_bookmark(data: InputSchema):
             content_base64 = base64.b64encode(content).decode('utf-8')
 
         if data.measure_mode == MeasureMode.classic.value:
-            await classic_create_template(new_name, content_base64, content=content, template_type=template.type, thumbnail_base64=thumbnail_base64, experiment_type=template.experiment_type, title_mapping=merged_title_mapping, old_template_name=template_name)
+            await classic_create_template(new_name, content_base64, template_type=template.type, thumbnail_base64=thumbnail_base64, experiment_type=template.experiment_type)
+            # 创建 .py 配置文件（从原模板复制，更新 title_mapping、标题、页眉页脚、页码）
+            page_num = None
+            if data.page_num_type:
+                type_map_rev = {'左边展示': 'left', '居中展示': 'center', '右边展示': 'right'}
+                pos = type_map_rev.get(data.page_num_type)
+                if pos:
+                    page_num = {'position': pos, 'font': '宋体', 'font_size': 9}
+            _save_classic_config_file(template_name, new_name, merged_title_mapping, data.header, data.footer, title_list, page_num)
         else:
             await create_template(data.name, content_base64, content=content, template_type=template.type, 
         industry_type=template.industry_type, experiment_type=template.experiment_type, 
@@ -121,6 +131,80 @@ async def update_bookmark(data: InputSchema):
 
     else:  # 预览
 
+        # ---- 经典模式：从 DB 取 HTML 模板，Playwright 渲染 PDF ----
+        if data.measure_mode == MeasureMode.classic.value:
+
+            # 从 title_mapping 构建 contexts（_t = 标签名，值留空，_fs/_font = 字号/字体）
+            contexts = {}
+            for key, info in new_title_mapping.items():
+                if key.endswith('_t'):
+                    base = key[:-2]
+                    contexts[key] = info.get('name', '')           # 标签
+                    contexts[base] = ''                             # 值留空
+                    if info.get('font_size'):
+                        contexts[base + '_fs'] = info['font_size']
+                    if info.get('font'):
+                        contexts[base + '_font'] = info['font']
+
+            if data.remark and data.remark.value:
+                contexts['备注'] = data.remark.value
+
+            # 标题列表（前端传过来的修改后名称）
+            if title_list:
+                contexts['__title_list__'] = [
+                    {'name': getattr(t, 'desc_t', ''), 'value': t.value, 'font': t.font, 'font_size': t.font_size}
+                    for t in title_list
+                ]
+
+            # 从配置文件读取标题、页码、页眉页脚（前端传的会覆盖）
+            try:
+                import importlib as _il
+                mod = _il.import_module(config.classic_structure_module + "." + template_name)
+                if hasattr(mod, 'extra_info'):
+                    ei = mod.extra_info
+                    # 页码：前端 page_num_type 优先，否则用配置文件
+                    if 'page_num' in ei:
+                        contexts['__page_num__'] = dict(ei['page_num'])
+                    # 配置文件默认值（会被前端覆盖）
+                    contexts.setdefault('__title_list__', ei.get('title_list', []))
+                    contexts.setdefault('__header__', ei.get('header', {}))
+                    contexts.setdefault('__footer__', ei.get('footer', {}))
+            except Exception:
+                pass
+
+            # 前端传的覆盖配置文件
+            if data.page_num_type:
+                type_map = {'左边展示': 'left', '居中展示': 'center', '右边展示': 'right'}
+                pos = type_map.get(data.page_num_type, 'center')
+                contexts.setdefault('__page_num__', {})['position'] = pos
+            if data.header and data.header.value:
+                contexts['__header__'] = {'value': data.header.value, 'font': data.header.font or '宋体', 'font_size': data.header.font_size or 10}
+            if data.footer and data.footer.value:
+                contexts['__footer__'] = {'value': data.footer.value, 'font': data.footer.font or '宋体', 'font_size': data.footer.font_size or 9}
+
+            # 从 DB 获取 HTML 模板字符串
+            html_template_str = _get_html_from_template(template)
+            builder = ClassicHtmlBuilder(template_html=html_template_str)
+            try:
+                pdf_bytes = builder.build_pdf(contexts)
+            except Exception as e:
+                print(f"ERROR: ClassicHtmlBuilder 渲染失败: {e}")
+                import traceback
+                traceback.print_exc()
+                raise APIException(ErrorCode.CONVERT_PDF_FAILED)
+
+            filename = f"{template_name}_filled.pdf"
+            safe_name = quote(filename)
+            return StreamingResponse(
+                BytesIO(pdf_bytes),
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}",
+                    "Content-Length": str(len(pdf_bytes)),
+                },
+            )
+
+        # ---- 新模式：沿用原有 DOCX + LibreOffice 流程 ----
         # doc = await get_doc_obj_by_template_id(template_id=data.template_id)
 
         content_bytes = base64.b64decode(template.template_content)
@@ -366,3 +450,80 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
         with open(pdf_path, "rb") as f:
             pdf_content = f.read()
             return pdf_content
+
+
+def _get_html_from_template(template) -> str:
+    """从 TemplateDoc 记录中提取 HTML 模板字符串。"""
+    import base64 as _b64
+    content_b64 = template.template_content
+    if not content_b64:
+        return ''
+    return _b64.b64decode(content_b64).decode('utf-8')
+
+
+def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header, footer, title_list=None, page_num=None):
+    """
+    经典模式另存为：从原 .py 配置文件复制，更新 title_mapping / 标题 / 页眉页脚 / 页码。
+    """
+    import shutil
+
+    py_dir = str(config.classic_structure_path)
+    old_path = os.path.join(py_dir, f"{old_name}.py")
+    new_path = os.path.join(py_dir, f"{new_name}.py")
+
+    if not os.path.exists(old_path):
+        print(f"[_save_classic_config_file] 原配置文件不存在: {old_path}")
+        return
+
+    shutil.copy(old_path, new_path)
+
+    with open(new_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    import re
+
+    # 1. 重建 title_mapping 段
+    lines = ["title_mapping = {\n"]
+    keys = list(title_mapping.keys())
+    for i, k in enumerate(keys):
+        info = title_mapping[k]
+        comma = "," if i < len(keys) - 1 else ""
+        lines.append(
+            f"    '{k}': {{'name': '{info.get('name', '')}', "
+            f"'font': '{info.get('font', '宋体')}', "
+            f"'font_size': {info.get('font_size', 12)}}}{comma}\n"
+        )
+    lines.append("}\n")
+    content = re.sub(r'title_mapping = \{[\s\S]*?\n\}\n', ''.join(lines), content)
+
+    # 2. 更新 extra_info 中 header / footer
+    if header and header.value:
+        hf = header.font or "宋体"
+        hs = header.font_size or 10
+        content = re.sub(r"'header'\s*:\s*\{[^}]*\}", f"'header': {{'value': '{header.value}', 'font': '{hf}', 'font_size': {hs}}}", content)
+    if footer and footer.value:
+        ff = footer.font or "宋体"
+        fs = footer.font_size or 9
+        content = re.sub(r"'footer'\s*:\s*\{[^}]*\}", f"'footer': {{'value': '{footer.value}', 'font': '{ff}', 'font_size': {fs}}}", content)
+
+    # 3. 更新 extra_info 中 title_list
+    if title_list:
+        tl_lines = ["'title_list': [\n"]
+        for t in title_list:
+            tl_lines.append(
+                f"        {{'name': '报告名称', 'value': '{t.value}', "
+                f"'font': '{t.font or '黑体'}', 'font_size': {t.font_size or 15}}},\n"
+            )
+        tl_lines.append("    ]")
+        tl_block = ''.join(tl_lines)
+        content = re.sub(r"'title_list'\s*:\s*\[[\s\S]*?\]", tl_block, content)
+
+    # 4. 更新 extra_info 中 page_num
+    if page_num:
+        pn_block = f"'page_num': {{'position': '{page_num['position']}', 'font': '{page_num.get('font', '宋体')}', 'font_size': {page_num.get('font_size', 9)}}}"
+        content = re.sub(r"'page_num'\s*:\s*\{[^}]*\}", pn_block, content)
+
+    with open(new_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    print(f"[_save_classic_config_file] 配置文件已保存: {new_path}")

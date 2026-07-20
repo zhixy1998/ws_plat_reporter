@@ -1,4 +1,3 @@
-import sys
 import importlib
 from typing import List, Dict, Union, Optional
 from fastapi import APIRouter, Query
@@ -13,7 +12,6 @@ from utils.template_utils import get_doc_obj_by_template_id
 from utils.get_bookmark_text import get_bookmark_text
 from utils.handle_header_footer import get_header_footer_font_info
 from utils.log_decorator import log_response
-from app.template_doc.model.template_extra_info import TemplateExtraInfo
 from constants.template_constant import TemplatePageNumType, MeasureMode
 from config import config
 
@@ -42,55 +40,81 @@ class OutSchema(BaseModel):
 async def get_template_extra_info(template_id: int, measure_mode: Optional[int] = None):
 
     class_db_con = connections.get('classic_db')
-    if measure_mode == MeasureMode.classic.value:
+    is_classic = measure_mode == MeasureMode.classic.value
+
+    if is_classic:
         template_instance = await TemplateDoc.get_or_none(id=template_id, is_del=0).using_db(class_db_con)
     else:
         template_instance = await TemplateDoc.get_or_none(id=template_id)
     if not template_instance:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
-    
-    if measure_mode == MeasureMode.classic.value:
-        doc = await get_doc_obj_by_template_id(template_id, classic_db=class_db_con)
-    else:
-        doc = await get_doc_obj_by_template_id(template_id)
 
-    header_and_footer_info = get_header_footer_font_info(doc) 
-    if measure_mode == MeasureMode.classic.value:
-        pass
+    header_and_footer_info: dict = {}
+
+    if is_classic:
+        # 经典模式（HTML 模板）：从头读取，后面从配置文件的 extra_info 取值
+        header_and_footer_info: dict = {}
     else:
+        # 新模式（DOCX 模板）：读 DOCX 取页眉页脚和标题
+        doc = await get_doc_obj_by_template_id(template_id)
+        header_and_footer_info = get_header_footer_font_info(doc)
+
         title_content_value_list = []
         title_bookmark_instances = await TemplateBookmark.filter(template_doc_id=template_id, name__contains='标题', is_del=0)
         title_bookmark_info_list = [{'bm_id': i.id, 'font': i.font, 'font_size': i.font_size, 'name': i.name} for i in title_bookmark_instances]
         for title_bookmark_info in title_bookmark_info_list:
             title_content = get_bookmark_text(doc, title_bookmark_info.get('name'))
-            title_content_value_list.append({ **title_bookmark_info, 'value': title_content})
+            title_content_value_list.append({**title_bookmark_info, 'value': title_content})
         header_and_footer_info['title_list'] = title_content_value_list
-    # 设置默认 page_num_type，防止模板未配置时序列化失败
+
+    # 设置默认值
     header_and_footer_info.setdefault('page_num_type', TemplatePageNumType.get_name_desc_by_value(0))
+    header_and_footer_info.setdefault('header', {})
+    header_and_footer_info.setdefault('footer', {})
+    header_and_footer_info.setdefault('remark', {})
+    header_and_footer_info.setdefault('title_list', [])
 
-    # 获取备注
+    # 读取 Python 配置文件的 extra_info（经典/新模式通用）
     template_name = template_instance.name
-    # template_extra_info = await TemplateExtraInfo.get_or_none(template_doc_id=template_id)
-
-    if measure_mode == MeasureMode.classic.value:
+    if is_classic:
         module_name = config.classic_structure_module + "." + template_name
     else:
         module_name = config.structure_module + "." + template_name
 
     try:
-        # 清理可能的损坏缓存，确保重新从文件系统加载
-        # if module_name in sys.modules:
-        #     del sys.modules[module_name]
-        # importlib.invalidate_caches()
         private_mod = importlib.import_module(module_name)
     except Exception as e:
         print(f"[get_template_extra_info] import {module_name} failed: {e}")
         private_mod = None
     if private_mod and hasattr(private_mod, 'extra_info'):
         extra_info_config = getattr(private_mod, 'extra_info')
+        # 备注
         if 'remark' in extra_info_config:
             header_and_footer_info['remark'] = extra_info_config['remark']
-        if extra_info_config.get('page_num_type') is not None:
-            header_and_footer_info['page_num_type'] = TemplatePageNumType.get_name_desc_by_value(extra_info_config.get('page_num_type'))
+        # 页码类型：经典模式从 page_num.position 映射，非经典从 page_num_type
+        if is_classic:
+            if 'page_num' in extra_info_config:
+                pos = extra_info_config['page_num'].get('position', '')
+                if pos:
+                    type_map = {'left': 2, 'center': 1, 'right': 0}
+                    header_and_footer_info['page_num_type'] = TemplatePageNumType.get_name_desc_by_value(
+                        type_map.get(pos, 3)
+                    )
+                else:
+                    header_and_footer_info['page_num_type'] = TemplatePageNumType.no_page.decs
+
+            # 页眉/页脚/标题 从配置文件取
+            if 'header' in extra_info_config:
+                header_and_footer_info['header'] = extra_info_config['header']
+            if 'footer' in extra_info_config:
+                header_and_footer_info['footer'] = extra_info_config['footer']
+            if 'title_list' in extra_info_config:
+                header_and_footer_info['title_list'] = extra_info_config['title_list']
+        else:
+            if extra_info_config.get('page_num_type') is not None:
+                header_and_footer_info['page_num_type'] = TemplatePageNumType.get_name_desc_by_value(
+                    extra_info_config.get('page_num_type')
+                )
+
     header_and_footer_info['page_num_type_list'] = [k for k, v in TemplatePageNumType.generate_decs_value_map().items()]
     return {'code': 200, 'message': '获取页眉页脚标题成功', 'data': header_and_footer_info}

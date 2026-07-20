@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>定量测定原始记录</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 12mm 18mm 10mm 18mm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "宋体", SimSun, "Noto Sans SC", sans-serif;
+        font-size: 11pt;
+        color: #000;
+        line-height: 2;
+        background: #fff;
+      }
+      .chart {
+        text-align: center;
+      }
+      .chart img {
+        max-width: 90%;
+        max-height: 260mm;
+      }
+    </style>
+  </head>
+  <body>
+    {% if 定量分析图片 %}
+    <div class="chart">
+      <img src="{{ 定量分析图片 }}" alt="校正曲线" />
+    </div>
+    {% endif %}
+  </body>
+</html>
