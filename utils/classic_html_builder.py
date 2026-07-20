@@ -170,9 +170,24 @@ class ClassicHtmlBuilder:
         header_info = contexts.pop('__header__', None) or {}
         footer_info = contexts.pop('__footer__', None) or {}
         page_num_info = contexts.pop('__page_num__', None) or {}
+        margin_info = contexts.pop('__margin__', None) or {}
+        orientation_info = contexts.pop('__orientation__', None) or {}
+        line_height_info = contexts.pop('__line_height__', None) or {}
 
         html_str = self.render_html(contexts)
         print(f"[ClassicHtmlBuilder] HTML 渲染完成，长度: {len(html_str)}")
+
+        # 注入动态样式：边距 / 横向 / 行边距
+        extra_styles = []
+        if margin_info.get('value'):
+            extra_styles.append(f"@page {{ margin: {margin_info['value']}mm; }}")
+        if orientation_info.get('value') == 1:
+            extra_styles.append("@page { size: A4 landscape; }")
+        if line_height_info.get('value'):
+            extra_styles.append(f"body {{ line-height: {line_height_info['value']}; }}")
+        if extra_styles:
+            style_tag = f"<style>{' '.join(extra_styles)}</style>"
+            html_str = html_str.replace('</head>', f"{style_tag}\n</head>", 1)
 
         # 构建 Playwright 页眉模板
         header_tpl = None

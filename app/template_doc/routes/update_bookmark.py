@@ -55,6 +55,9 @@ class InputSchema(BaseModel):
     project_name: Optional[BookmarkItem] = Field(None, description='动态项目名称')
     page_num_type: str = Field(TemplatePageNumType.no_page.value, description='页码类型')
     measure_mode: int = Field(None, description='测量模式 1:默认 2:仅测量标签位置不修改标签字体大小')
+    margin: Optional[str] = Field(None, description='动态边距(mm)')
+    orientation: Optional[int] = Field(None, description='横向/纵向 0=纵向 1=横向')
+    line_height: Optional[str] = Field(None, description='行边距')
 
 
 
@@ -122,7 +125,7 @@ async def update_bookmark(data: InputSchema):
                 pos = type_map_rev.get(data.page_num_type)
                 if pos:
                     page_num = {'position': pos, 'font': '宋体', 'font_size': 9}
-            _save_classic_config_file(template_name, new_name, merged_title_mapping, data.header, data.footer, title_list, page_num)
+            _save_classic_config_file(template_name, new_name, merged_title_mapping, data.header, data.footer, title_list, page_num, data.margin, data.orientation, data.line_height)
         else:
             await create_template(data.name, content_base64, content=content, template_type=template.type, 
         industry_type=template.industry_type, experiment_type=template.experiment_type, 
@@ -181,6 +184,13 @@ async def update_bookmark(data: InputSchema):
                 contexts['__header__'] = {'value': data.header.value, 'font': data.header.font or '宋体', 'font_size': data.header.font_size or 10}
             if data.footer and data.footer.value:
                 contexts['__footer__'] = {'value': data.footer.value, 'font': data.footer.font or '宋体', 'font_size': data.footer.font_size or 9}
+            # 边距 / 横向纵向 / 行边距（前端传的覆盖配置文件）
+            if data.margin is not None:
+                contexts['__margin__'] = {'value': data.margin}
+            if data.orientation is not None:
+                contexts['__orientation__'] = {'value': data.orientation}
+            if data.line_height is not None:
+                contexts['__line_height__'] = {'value': data.line_height}
 
             # 从 DB 获取 HTML 模板字符串
             html_template_str = _get_html_from_template(template)
@@ -461,7 +471,7 @@ def _get_html_from_template(template) -> str:
     return _b64.b64decode(content_b64).decode('utf-8')
 
 
-def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header, footer, title_list=None, page_num=None):
+def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header, footer, title_list=None, page_num=None, margin=None, orientation=None, line_height=None):
     """
     经典模式另存为：从原 .py 配置文件复制，更新 title_mapping / 标题 / 页眉页脚 / 页码。
     """
@@ -522,6 +532,18 @@ def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict,
     if page_num:
         pn_block = f"'page_num': {{'position': '{page_num['position']}', 'font': '{page_num.get('font', '宋体')}', 'font_size': {page_num.get('font_size', 9)}}}"
         content = re.sub(r"'page_num'\s*:\s*\{[^}]*\}", pn_block, content)
+
+    # 5. 更新 extra_info 中 margin（动态边距）
+    if margin is not None:
+        content = re.sub(r"'margin'\s*:\s*\{[^}]*\}", f"'margin': {{'value': '{margin}'}}", content)
+
+    # 6. 更新 extra_info 中 orientation（横向/纵向）
+    if orientation is not None:
+        content = re.sub(r"'orientation'\s*:\s*\{[^}]*\}", f"'orientation': {{'value': {orientation}}}", content)
+
+    # 7. 更新 extra_info 中 line_height（行边距）
+    if line_height is not None:
+        content = re.sub(r"'line_height'\s*:\s*\{[^}]*\}", f"'line_height': {{'value': '{line_height}'}}", content)
 
     with open(new_path, 'w', encoding='utf-8') as f:
         f.write(content)

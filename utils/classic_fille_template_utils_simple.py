@@ -263,6 +263,12 @@ class ClassicFillDataUtils():
                     contexts['__page_num_type__'] = ei['page_num_type']
                 if 'page_num' in ei:
                     contexts['__page_num__'] = ei['page_num']
+                if 'margin' in ei:
+                    contexts['__margin__'] = ei['margin']
+                if 'orientation' in ei:
+                    contexts['__orientation__'] = ei['orientation']
+                if 'line_height' in ei:
+                    contexts['__line_height__'] = ei['line_height']
         except Exception as e:
             print(f"[get_html_contexts] 读取 extra_info 失败: {e}")
 

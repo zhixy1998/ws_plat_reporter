@@ -28,6 +28,9 @@ class DataSchema(BaseModel):
     remark: Dict[str, Union[str, int, float, None]] = Field(None, description='备注')
     page_num_type: str = Field(..., description='页码类型')
     page_num_type_list: List[str] = Field(..., description='页码类型列表')
+    margin: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='动态边距(mm)')
+    orientation: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='横向/纵向')
+    line_height: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='行边距')
 
 
 class OutSchema(BaseModel):
@@ -73,6 +76,9 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
     header_and_footer_info.setdefault('footer', {})
     header_and_footer_info.setdefault('remark', {})
     header_and_footer_info.setdefault('title_list', [])
+    header_and_footer_info.setdefault('margin', {'value': '20'})
+    header_and_footer_info.setdefault('orientation', {'value': 0})
+    header_and_footer_info.setdefault('line_height', {'value': '1.5'})
 
     # 读取 Python 配置文件的 extra_info（经典/新模式通用）
     template_name = template_instance.name
@@ -91,6 +97,15 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
         # 备注
         if 'remark' in extra_info_config:
             header_and_footer_info['remark'] = extra_info_config['remark']
+        # 动态边距
+        if 'margin' in extra_info_config:
+            header_and_footer_info['margin'] = extra_info_config['margin']
+        # 横向/纵向
+        if 'orientation' in extra_info_config:
+            header_and_footer_info['orientation'] = extra_info_config['orientation']
+        # 行边距
+        if 'line_height' in extra_info_config:
+            header_and_footer_info['line_height'] = extra_info_config['line_height']
         # 页码类型：经典模式从 page_num.position 映射，非经典从 page_num_type
         if is_classic:
             if 'page_num' in extra_info_config:
