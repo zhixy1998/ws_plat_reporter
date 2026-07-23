@@ -59,15 +59,20 @@ async def update_template(data: InputSchema):
         raise APIException(ErrorCode.TEMPLATE_FILE_ALREADY_EXISTS)
 
     try:
-        async with transactions.in_transaction('default'):
-            os.rename(old_file_path, new_file_path)
-
-            template.name = new_name
-            await template.save()
+        if data.measure_mode == MeasureMode.classic.value:
+            async with transactions.in_transaction('classic_db'):
+                os.rename(old_file_path, new_file_path)
+                template.name = new_name
+                await template.save(using_db=class_db_con)
+        else:
+            async with transactions.in_transaction('default'):
+                os.rename(old_file_path, new_file_path)
+                template.name = new_name
+                await template.save()
 
     except Exception as e:
         if os.path.exists(new_file_path) and not os.path.exists(old_file_path):
             os.rename(new_file_path, old_file_path)
-        raise APIException(ErrorCode.TEMPLATE_UPDATE_FAILED, detail=str(e))
+        raise APIException(ErrorCode.TEMPLATE_UPDATE_FAILED, message=str(e))
 
     return {'code': 200, 'message': '模板更新成功'}

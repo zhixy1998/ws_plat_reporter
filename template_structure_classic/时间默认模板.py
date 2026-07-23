@@ -58,5 +58,10 @@ extra_info = {
     'title_list': [
         {'name': '报告名称', 'value': '时间扫描原始数据', 'font': '黑体', 'font_size': 15},
     ],
+    'margin': {'value': '20'},
+    # 横向/纵向：0=纵向（portrait）| 1=横向（landscape）
+    'orientation': {'value': 0},
+    # 行边距（line-height 倍数）
+    'line_height': {'value': '1.5'},
 }
 table_fields = []
