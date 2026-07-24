@@ -23,6 +23,9 @@ ALGORITHM = "HS256"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    from config import config
+    print(f"[启动] 向导数据库(default): {config.database_url}")
+    print(f"[启动] 经典数据库(classic_db): {config.classic_database_url}")
     print("应用启动成功！")
     print("UV-iNexus-1.0.1.260529-INS-REL_test")
     yield

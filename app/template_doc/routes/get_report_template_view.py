@@ -63,10 +63,14 @@ async def get_report_template(
     #     raise APIException(ErrorCode.REPORT_TEMPLATE_TYPE_ERROR)
 
     # 构建基础查询（如果 name 存在就加筛选）
+    print(f"[get_report_template] measure_mode={measure_mode}, MeasureMode.classic.value={MeasureMode.classic.value}, is_classic={measure_mode == MeasureMode.classic.value}")
     if measure_mode == MeasureMode.classic.value:
         class_db_con = connections.get('classic_db')
+        print(f"[get_report_template] 查询经典数据库: {class_db_con}")
         query = TemplateDoc.filter(is_del=0).using_db(class_db_con)
     else:
+        default_con = connections.get('default')
+        print(f"[get_report_template] 查询向导数据库(default): {default_con}")
         if template_type is not None:
             query = TemplateDoc.filter(is_del=0, type=template_type)
         else:
