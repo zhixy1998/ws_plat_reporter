@@ -114,7 +114,7 @@ async def update_bookmark(data: InputSchema):
             content_stream = BytesIO()
             doc.save(content_stream)
             content = content_stream.getvalue()
-            content_base64 = base64.b64encode(content).decode('utf-8')
+            content_base64 = base64.b64encode(content)
 
         if data.measure_mode == MeasureMode.classic.value:
             await classic_create_template(new_name, content_base64, template_type=template.type, thumbnail_base64=thumbnail_base64, experiment_type=template.experiment_type)

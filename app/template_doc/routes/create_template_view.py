@@ -61,7 +61,7 @@ async def create_template_view(
                 name = html_name
 
             content = await file.read()
-            content_base64 = base64.b64encode(content).decode('utf-8')
+            content_base64 = base64.b64encode(content)
 
             # HTML 模板：只存数据库，不做书签分析、不创建 python 配置文件
             async with in_transaction('default') as connection:
@@ -130,7 +130,7 @@ async def create_template_view(
     return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
 
 
-async def create_template(name: str, content_base64: str, content: bytes, template_type: int = 0, 
+async def create_template(name: str, content_base64: bytes, content: bytes, template_type: int = 0, 
     industry_type: str = '', experiment_type: int = 0, title_mapping: Optional[Dict[str, Dict]] = None, old_template_name: Optional[str] = None) -> int:
     if template_type in [TemplateType.report_template.value, TemplateType.original_records.value, TemplateType.calibration_template.value, TemplateType.installation_acceptance_template.value]:
         async with in_transaction('default') as connection:

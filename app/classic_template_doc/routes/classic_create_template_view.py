@@ -75,7 +75,7 @@ async def create_template_view(
         except UnicodeDecodeError:
             raise APIException(ErrorCode.INVALID_DOCX_FORMAT)
 
-        content_base64 = base64.b64encode(content).decode('utf-8')
+        content_base64 = base64.b64encode(content)
         if thumbnail_content:
             thumbnail_base64 = base64.b64encode(thumbnail_content).decode('utf-8')
         else:
@@ -94,7 +94,7 @@ async def create_template_view(
         raise APIException(ErrorCode.SAVE_TEMPLATE_FAILED)
     return {'code': 200, 'message': '模板保存成功', 'data': {'id': template_id}}
 
-async def create_template(name: str, content_base64: str, template_type: int = 0, thumbnail_base64: str = None, experiment_type=0, title_mapping=None, old_template_name=None) -> int:
+async def create_template(name: str, content_base64: bytes, template_type: int = 0, thumbnail_base64: str = None, experiment_type=0, title_mapping=None, old_template_name=None) -> int:
     """创建经典模式 HTML 模板。"""
 
     class_db_con = connections.get('classic_db')

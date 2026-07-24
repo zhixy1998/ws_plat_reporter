@@ -11,7 +11,7 @@ class TemplateDocBase(Model):
     origin_type = fields.SmallIntField(default=0, help_text="模板来源类型 常量 TemplateOriginType")
     create_datetime = fields.DatetimeField(auto_now_add=True)
     update_datetime = fields.DatetimeField(auto_now=True)
-    template_content = fields.TextField()  # Base64 存储doc内容
+    template_content = fields.BinaryField()  # Base64 存储doc内容（二进制，避免字符集转码）
     is_del = fields.SmallIntField(default=0)
 
 
