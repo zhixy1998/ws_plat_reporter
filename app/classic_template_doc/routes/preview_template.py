@@ -100,7 +100,14 @@ def _get_html_from_template(template) -> str:
     content_b64 = template.template_content
     if not content_b64:
         return ''
-    return base64.b64decode(content_b64).decode('utf-8')
+    raw_bytes = base64.b64decode(content_b64)
+    for enc in ('utf-8', 'gbk', 'gb2312', 'gb18030', 'latin-1'):
+        try:
+            return raw_bytes.decode(enc)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    print(f"[_get_html_from_template] 模板 {template.name}(id={template.id}) 无法解码，使用 utf-8 replace 兜底")
+    return raw_bytes.decode('utf-8', errors='replace')
 
 
 @router.post('/preview_template_download')

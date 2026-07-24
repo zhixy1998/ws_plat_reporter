@@ -468,7 +468,17 @@ def _get_html_from_template(template) -> str:
     content_b64 = template.template_content
     if not content_b64:
         return ''
-    return _b64.b64decode(content_b64).decode('utf-8')
+    # DEBUG: 打印原始数据 hex，对比两边是否一致
+    print(f"[DEBUG] template={template.name} id={template.id} content_b64 type={type(content_b64)} len={len(content_b64)} hex[:40]={content_b64[:20].hex() if isinstance(content_b64, bytes) else content_b64[:20].encode().hex()}")
+    raw_bytes = _b64.b64decode(content_b64)
+    print(f"[DEBUG] b64decode len={len(raw_bytes)} hex[:40]={raw_bytes[:20].hex()}")
+    for enc in ('utf-8', 'gbk', 'gb2312', 'gb18030', 'latin-1'):
+        try:
+            return raw_bytes.decode(enc)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    print(f"[_get_html_from_template] 模板 {template.name}(id={template.id}) 无法解码，使用 utf-8 replace 兜底")
+    return raw_bytes.decode('utf-8', errors='replace')
 
 
 def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header, footer, title_list=None, page_num=None, margin=None, orientation=None, line_height=None):
