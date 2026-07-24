@@ -24,7 +24,7 @@ ALGORITHM = "HS256"
 async def lifespan(app: FastAPI):
     await init_db()
     print("应用启动成功！")
-    print("UV-iNexus-1.0.1.260529-INS-REL")
+    print("UV-iNexus-1.0.1.260529-INS-REL_test")
     yield
 
 app = FastAPI(lifespan=lifespan)
