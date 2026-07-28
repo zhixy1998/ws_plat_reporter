@@ -56,7 +56,8 @@ class TableDataProcessor:
                     # 加载完成后移出缓存，确保下次调用时仍重新从磁盘读取最新内容
                     sys.modules.pop(full_module_name, None)
             else:
-                self.template_module = importlib.import_module(full_module_name)
+                from utils.template_utils import import_template_module
+                self.template_module = import_template_module(self.structure_path, self.template_name)
 
             # 检查是否有TableDataHandler类
             if hasattr(self.template_module, 'TableDataHandler'):

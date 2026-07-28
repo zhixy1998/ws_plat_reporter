@@ -55,11 +55,12 @@ async def get_template_content(template_id: int, measure_mode: int):
 
     # 获取私有文件
     if measure_mode == MeasureMode.classic.value:
-        module_name = config.classic_structure_module + "." + template.name  # 比如 name = "my_template"
+        structure_module = config.classic_structure_module
     else:
-        module_name = config.structure_module + "." + template.name  # 比如 name = "my_template"
+        structure_module = config.structure_module
     try:
-        private_mod = importlib.import_module(module_name)
+        from utils.template_utils import import_template_module
+        private_mod = import_template_module(structure_module, template.name)
         source_code = inspect.getsource(private_mod)
     except Exception as e:
         raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)

@@ -161,8 +161,8 @@ async def update_bookmark(data: InputSchema):
 
             # 从配置文件读取标题、页码、页眉页脚（前端传的会覆盖）
             try:
-                import importlib as _il
-                mod = _il.import_module(config.classic_structure_module + "." + template_name)
+                from utils.template_utils import import_template_module
+                mod = import_template_module(config.classic_structure_module, template_name)
                 if hasattr(mod, 'extra_info'):
                     ei = mod.extra_info
                     # 页码：前端 page_num_type 优先，否则用配置文件

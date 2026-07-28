@@ -25,9 +25,9 @@ async def get_m(template_id, task_id: str = None, sample_id: str = None, measure
         return {'code':400, 'message':'模板不存在'}
     
 
-    module_name = "template_structure." + template.name
     try:
-        private_mod = importlib.import_module(module_name)
+        from utils.template_utils import import_template_module
+        private_mod = import_template_module(config.structure_module, template.name)
     except Exception as e:
         pass
     

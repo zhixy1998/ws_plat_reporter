@@ -546,6 +546,63 @@ def has_wps():
     except Exception:
         return False
 
+def import_template_module(structure_module: str, template_name: str, reload: bool = False):
+    """
+    安全地导入模板配置模块，支持包含特殊字符（逗号、中文标点等）的模板名称。
+
+    与 importlib.import_module() 不同，此函数通过文件路径加载模块，
+    因此模板名称可以包含任意文件系统允许的字符。
+
+    Args:
+        structure_module: 父包的模块名，如 'template_structure' 或 'template_structure_classic'
+        template_name: 模板名称（也是 .py 文件名，不含扩展名）
+        reload: 是否强制重新加载（忽略缓存）
+
+    Returns:
+        加载的模块对象
+
+    Raises:
+        ModuleNotFoundError: 模块文件不存在时抛出
+    """
+    import importlib.util as _util
+    import sys as _sys
+
+    full_name = f"{structure_module}.{template_name}"
+
+    # reload 时清除缓存
+    if reload and full_name in _sys.modules:
+        del _sys.modules[full_name]
+
+    # 先从缓存取
+    if full_name in _sys.modules:
+        return _sys.modules[full_name]
+
+    # 确保父包已加载
+    if structure_module not in _sys.modules:
+        importlib.import_module(structure_module)
+
+    parent_pkg = _sys.modules[structure_module]
+    base_dir = parent_pkg.__path__[0]
+    file_path = os.path.join(base_dir, f"{template_name}.py")
+
+    if not os.path.isfile(file_path):
+        raise ModuleNotFoundError(f"No module named '{full_name}' (file not found: {file_path})")
+
+    spec = _util.spec_from_file_location(full_name, file_path)
+    if spec is None or spec.loader is None:
+        raise ModuleNotFoundError(f"No module named '{full_name}' (could not create spec)")
+
+    mod = _util.module_from_spec(spec)
+    mod.__package__ = structure_module  # 支持模板内的相对导入（如 from .common_data import ...）
+    _sys.modules[full_name] = mod
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        _sys.modules.pop(full_name, None)
+        raise
+    return mod
+
+
 def get_title_mapping(template_name, measure_mode=None):
     common_title_mapping = {}
     private_title_mapping = {}
@@ -553,10 +610,10 @@ def get_title_mapping(template_name, measure_mode=None):
     # 再尝试加载私有 title_mapping（优先级更高）
     try:
         if measure_mode == MeasureMode.classic.value:
-            private_module_path = config.classic_structure_module + "." + template_name
+            structure_module = config.classic_structure_module
         else:
-            private_module_path = config.structure_module + "." + template_name
-        private_mod = importlib.import_module(private_module_path)
+            structure_module = config.structure_module
+        private_mod = import_template_module(structure_module, template_name)
         if hasattr(private_mod, 'title_mapping'):
             private_title_mapping = private_mod.title_mapping
     except Exception as e:

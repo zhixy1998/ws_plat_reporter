@@ -249,8 +249,8 @@ class ClassicFillDataUtils():
 
         # 从配置文件的 extra_info 读取页眉页脚标题，注入 contexts
         try:
-            module_name = config.classic_structure_module + "." + self.name
-            private_mod = importlib.import_module(module_name)
+            from utils.template_utils import import_template_module
+            private_mod = import_template_module(config.classic_structure_module, self.name)
             if hasattr(private_mod, 'extra_info'):
                 ei = private_mod.extra_info
                 if 'header' in ei:
@@ -814,9 +814,9 @@ class ClassicFillDataUtils():
         doc_stream    模板文件流
         custom_info   自定义标签信息
         """
-        module_name = "template_structure." + self.name
         try:
-            private_mod = importlib.import_module(module_name)
+            from utils.template_utils import import_template_module
+            private_mod = import_template_module(config.structure_module, self.name)
         except Exception as e:
             private_mod = None
         if private_mod and hasattr(private_mod, 'custom_bookmark'):

@@ -87,14 +87,11 @@ class FillDataUtils():
         self.common_title_mapping = common_mod.title_mapping
         common_key = common_mod.data
         self.common_key = common_key
-        module_name = f"{structure_path}.{self.name}"  # 比如 name = "my_template"
         try:
-            if module_name in sys.modules:
-                private_mod = importlib.reload(sys.modules[module_name])
-            else:
-                private_mod = importlib.import_module(module_name)
+            from utils.template_utils import import_template_module
+            private_mod = import_template_module(structure_path, self.name, reload=True)
         except Exception as e:
-            print(f"导入私有模块 {module_name} 失败: {e}")
+            print(f"导入私有模块 {structure_path}.{self.name} 失败: {e}")
             raise APIException(error=ErrorCode.TEMPLATE_NOT_FOUND)
         self.private_mod = private_mod
         # 不是表格数据
@@ -1204,12 +1201,9 @@ class FillDataUtils():
         doc_stream    模板文件流
         custom_info   自定义标签信息
         """
-        module_name = "template_structure." + self.name
         try:
-            if module_name in sys.modules:
-                private_mod = importlib.reload(sys.modules[module_name])
-            else:
-                private_mod = importlib.import_module(module_name)
+            from utils.template_utils import import_template_module
+            private_mod = import_template_module(config.structure_module, self.name)
         except Exception as e:
             private_mod = None
         # if private_mod and hasattr(private_mod, 'custom_bookmark'):

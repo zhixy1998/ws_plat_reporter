@@ -83,14 +83,15 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
     # 读取 Python 配置文件的 extra_info（经典/新模式通用）
     template_name = template_instance.name
     if is_classic:
-        module_name = config.classic_structure_module + "." + template_name
+        structure_module = config.classic_structure_module
     else:
-        module_name = config.structure_module + "." + template_name
+        structure_module = config.structure_module
 
     try:
-        private_mod = importlib.import_module(module_name)
+        from utils.template_utils import import_template_module
+        private_mod = import_template_module(structure_module, template_name)
     except Exception as e:
-        print(f"[get_template_extra_info] import {module_name} failed: {e}")
+        print(f"[get_template_extra_info] import {structure_module}.{template_name} failed: {e}")
         private_mod = None
     if private_mod and hasattr(private_mod, 'extra_info'):
         extra_info_config = getattr(private_mod, 'extra_info')
