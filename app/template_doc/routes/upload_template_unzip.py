@@ -1,10 +1,11 @@
 import zipfile
 import shutil
-import io, os, json, base64
+import io
+import json
+import base64
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, HTTPException, Body
+from fastapi import APIRouter, UploadFile, File, Body
 from fastapi.responses import StreamingResponse
-from typing import List
 from exceptions.error import ErrorCode
 from exceptions.command_exception import APIException
 import unicodedata
@@ -12,9 +13,11 @@ import uuid
 
 # 导入创建模板的函数与模型以便在解压后直接创建
 from app.template_doc.routes.create_template_view import create_template, create_python_setting_file
+from app.classic_template_doc.routes.classic_create_template_view import create_template as classic_create_template
 from app.template_doc.model.template_doc import TemplateDoc
-from constants.template_constant import TemplateType, ExperimentType, TemplateOriginType
+from constants.template_constant import TemplateType, ExperimentType, TemplateOriginType, MeasureMode
 from config import config
+from tortoise import connections
 
 router = APIRouter()
 _BASE_DIR = Path(config.deploy_python_path) if config.deploy_python_path else Path(".")
@@ -25,7 +28,19 @@ EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post('/upload_template_unzip')
-async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = False):
+async def upload_template_unzip(
+    file: UploadFile = File(...),
+    save_zip: bool = False,
+    measure_mode: int = None,
+):
+    """
+    上传 zip 包并批量创建模板。
+
+    - 自动检测文件类型：.html/.htm → 经典模式，.docx → 向导模式
+    - 也可通过 measure_mode 参数强制指定：0=经典模式, 1=向导模式
+    """
+    if measure_mode is None:
+        measure_mode = MeasureMode.guide.value  # 默认向导模式，由文件扩展名覆盖
     if not file.filename or not file.filename.lower().endswith('.zip'):
         raise APIException(ErrorCode.ONLY_ZIP_FILES_SUPPORTED)
 
@@ -101,6 +116,7 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
 
         # 5. 收集文件列表 (增强稳定性)
         docx_files = []
+        html_files = []
         py_files = []
         json_info = None
         
@@ -116,6 +132,8 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
             suffix = p.suffix.lower()
             if suffix == '.docx':
                 docx_files.append(rel)
+            elif suffix in ('.html', '.htm'):
+                html_files.append(rel)
             elif suffix == '.py':
                 py_files.append(rel)
             elif suffix == '.json':
@@ -123,6 +141,32 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
 
         # 如果存在 config.json，尝试按配置自动调用 create_template 并替换 python 文件
         processed = []
+
+        # helper to resolve enum values from config (支持 decs 文本或 name 或直接数字)
+        def _resolve_enum(enum_cls, val):
+            if val is None:
+                return 0
+            if isinstance(val, int):
+                return val
+            if isinstance(val, str):
+                # 尝试按描述匹配
+                decs_map = enum_cls.generate_decs_value_map()
+                if val in decs_map:
+                    return decs_map[val]
+                # 按 name 匹配
+                name_map = enum_cls.generate_name_value_map()
+                if val in name_map:
+                    return name_map[val]
+                # 直接尝试去除空白后匹配
+                v2 = val.strip()
+                if v2 in decs_map:
+                    return decs_map[v2]
+                if v2 in name_map:
+                    return name_map[v2]
+            return 0
+
+        # 加载 config.json（如存在）
+        json_cfg = None
         if json_info:
             config_path = extract_to / json_info
             try:
@@ -135,104 +179,132 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
                 except Exception:
                     json_cfg = None
 
-            if isinstance(json_cfg, dict):
-                # helper to resolve enum values from config (支持 decs 文本或 name 或直接数字)
-                def _resolve_enum(enum_cls, val):
-                    if val is None:
-                        return 0
-                    if isinstance(val, int):
-                        return val
-                    if isinstance(val, str):
-                        # 尝试按描述匹配
-                        decs_map = enum_cls.generate_decs_value_map()
-                        if val in decs_map:
-                            return decs_map[val]
-                        # 按 name 匹配
-                        name_map = enum_cls.generate_name_value_map()
-                        if val in name_map:
-                            return name_map[val]
-                        # 直接尝试去除空白后匹配
-                        v2 = val.strip()
-                        if v2 in decs_map:
-                            return decs_map[v2]
-                        if v2 in name_map:
-                            return name_map[v2]
-                    return 0
+        if not isinstance(json_cfg, dict):
+            json_cfg = {}
 
-                for rel in docx_files:
-                    stem = Path(rel).stem
-                    cfg = json_cfg.get(stem)
-                    if not cfg:
-                        continue
-                    template_type_cfg = cfg.get('template_type')
-                    experiment_type_cfg = cfg.get('experiment_type')
-                    industry_type_cfg = cfg.get('industry_type', '')
+        # ---------- 处理 DOCX 文件（向导模式） ----------
+        for rel in docx_files:
+            stem = Path(rel).stem
+            cfg = json_cfg.get(stem, {})
+            # 可通过 config.json 中的 measure_mode 覆盖自动检测
+            file_measure_mode = cfg.get('measure_mode', None)
+            if file_measure_mode is not None:
+                try:
+                    file_measure_mode = int(file_measure_mode)
+                except (ValueError, TypeError):
+                    file_measure_mode = None
+            if file_measure_mode == MeasureMode.classic.value:
+                # config 中指定为经典模式，跳过 docx 处理（由 html 分支处理）
+                continue
 
-                    template_type_val = _resolve_enum(TemplateType, template_type_cfg)
-                    experiment_type_val = _resolve_enum(ExperimentType, experiment_type_cfg)
+            template_type_val = _resolve_enum(TemplateType, cfg.get('template_type'))
+            experiment_type_val = _resolve_enum(ExperimentType, cfg.get('experiment_type'))
+            industry_type_cfg = cfg.get('industry_type', '')
 
-                    # 读取 docx 内容并调用 create_template
+            try:
+                docx_path = extract_to / rel
+                with open(docx_path, 'rb') as df:
+                    doc_bytes = df.read()
+                content_b64 = base64.b64encode(doc_bytes).decode('utf-8')
+
+                # 先检查数据库是否已存在同名模板，若存在则更新，否则创建新模板
+                existing = await TemplateDoc.get_or_none(name=stem, is_del=0)
+                created_id = None
+                if existing:
                     try:
-                        docx_path = extract_to / rel
-                        with open(docx_path, 'rb') as df:
-                            doc_bytes = df.read()
-                        content_b64 = base64.b64encode(doc_bytes).decode('utf-8')
-
-                        # 先检查数据库是否已存在同名模板，若存在则更新，否则创建新模板
-                        existing = await TemplateDoc.get_or_none(name=stem, is_del=0)
-                        if existing:
-                            try:
-                                existing.template_content = content_b64
-                                existing.type = template_type_val
-                                existing.experiment_type = experiment_type_val
-                                existing.industry_type = industry_type_cfg
-                                existing.origin_type = TemplateOriginType.user_change.value
-                                await existing.save()
-                                # 重新生成 python 配置并保存（create_python_setting_file 内会更新数据库）
-                                try:
-                                    await create_python_setting_file(template_id=existing.id, name=stem, template_file_steam=io.BytesIO(doc_bytes), connection=None, title_mapping=None, old_template_name=None)
-                                except Exception:
-                                    pass
-                                processed.append({'name': stem, 'template_id': existing.id, 'action': 'updated'})
-                            except Exception:
-                                # 更新失败则继续尝试创建新模板
-                                template_id = await create_template(name=stem, content_base64=content_b64, content=doc_bytes,
-                                                                    template_type=template_type_val,
-                                                                    industry_type=industry_type_cfg,
-                                                                    experiment_type=experiment_type_val)
-                                processed.append({'name': stem, 'template_id': template_id, 'action': 'created'})
-                        else:
-                            template_id = await create_template(name=stem, content_base64=content_b64, content=doc_bytes,
-                                                                template_type=template_type_val,
-                                                                industry_type=industry_type_cfg,
-                                                                experiment_type=experiment_type_val)
-                            processed.append({'name': stem, 'template_id': template_id, 'action': 'created'})
-
-                        # 如果 ZIP 中包含与 docx 同名的 .py 文件，则覆盖生成的 template_structure/<name>.py 并更新数据库
-                        candidate_py = extract_to / f"{stem}.py"
-                        if candidate_py.exists():
-                            dest_py_folder = Path(config.structure_path)
-                            dest_py_folder.mkdir(parents=True, exist_ok=True)
-                            dest_py = dest_py_folder / f"{stem}.py"
-                            shutil.copy2(candidate_py, dest_py)
-                            # 读取新的 python 配置内容（尝试 utf-8，回退到 gbk）
-                            try:
-                                with open(dest_py, 'r', encoding='utf-8') as pf:
-                                    new_py_content = pf.read()
-                            except Exception:
-                                with open(dest_py, 'r', encoding='gbk', errors='ignore') as pf:
-                                    new_py_content = pf.read()
-                            try:
-                                template_doc = await TemplateDoc.get_or_none(id=template_id)
-                                if template_doc:
-                                    template_doc.python_config = new_py_content
-                                    await template_doc.save()
-                            except Exception:
-                                # 忽略数据库更新错误，但文件已替换
-                                pass
+                        existing.template_content = content_b64
+                        existing.type = template_type_val
+                        existing.experiment_type = experiment_type_val
+                        existing.industry_type = industry_type_cfg
+                        existing.origin_type = TemplateOriginType.user_change.value
+                        await existing.save()
+                        try:
+                            await create_python_setting_file(template_id=existing.id, name=stem, template_file_steam=io.BytesIO(doc_bytes), connection=None, title_mapping=None, old_template_name=None)
+                        except Exception:
+                            pass
+                        created_id = existing.id
+                        processed.append({'name': stem, 'template_id': existing.id, 'action': 'updated', 'mode': 'guide'})
                     except Exception:
-                        # 单个模板创建失败时继续处理下一个
-                        continue
+                        template_id = await create_template(name=stem, content_base64=content_b64, content=doc_bytes,
+                                                            template_type=template_type_val,
+                                                            industry_type=industry_type_cfg,
+                                                            experiment_type=experiment_type_val)
+                        created_id = template_id
+                        processed.append({'name': stem, 'template_id': template_id, 'action': 'created', 'mode': 'guide'})
+                else:
+                    template_id = await create_template(name=stem, content_base64=content_b64, content=doc_bytes,
+                                                        template_type=template_type_val,
+                                                        industry_type=industry_type_cfg,
+                                                        experiment_type=experiment_type_val)
+                    created_id = template_id
+                    processed.append({'name': stem, 'template_id': template_id, 'action': 'created', 'mode': 'guide'})
+
+                # 如果 ZIP 中包含与 docx 同名的 .py 文件，则覆盖生成的 template_structure/<name>.py
+                _copy_py_to_structure(extract_to, stem, Path(config.structure_path))
+                await _update_db_python_config(stem, created_id)
+            except Exception:
+                continue
+
+        # ---------- 处理 HTML 文件（经典模式） ----------
+        for rel in html_files:
+            stem = Path(rel).stem
+            cfg = json_cfg.get(stem, {})
+
+            template_type_val = _resolve_enum(TemplateType, cfg.get('template_type'))
+            experiment_type_val = _resolve_enum(ExperimentType, cfg.get('experiment_type'))
+
+            # 尝试读取同名的缩略图 .png 文件
+            thumbnail_base64 = None
+            for thumb_ext in ('.png', '.jpg', '.jpeg'):
+                thumb_path = extract_to / f"{stem}{thumb_ext}"
+                if thumb_path.exists():
+                    try:
+                        with open(thumb_path, 'rb') as tf:
+                            thumbnail_base64 = base64.b64encode(tf.read()).decode('utf-8')
+                    except Exception:
+                        pass
+                    break
+
+            try:
+                html_path = extract_to / rel
+                with open(html_path, 'rb') as hf:
+                    html_bytes = hf.read()
+                content_b64 = base64.b64encode(html_bytes)
+
+                class_db_con = connections.get('classic_db')
+                # 检查经典模式数据库中是否已存在同名模板
+                existing = await TemplateDoc.get_or_none(name=stem, is_del=0, using_db=class_db_con)
+                if existing:
+                    try:
+                        existing.template_content = content_b64
+                        existing.type = template_type_val
+                        existing.experiment_type = experiment_type_val
+                        existing.origin_type = TemplateOriginType.user_change.value
+                        if thumbnail_base64:
+                            existing.thumbnail_base64 = thumbnail_base64
+                        await existing.save(using_db=class_db_con)
+                        processed.append({'name': stem, 'template_id': existing.id, 'action': 'updated', 'mode': 'classic'})
+                    except Exception:
+                        template_id = await classic_create_template(
+                            name=stem, content_base64=content_b64,
+                            template_type=template_type_val,
+                            experiment_type=experiment_type_val,
+                            thumbnail_base64=thumbnail_base64,
+                        )
+                        processed.append({'name': stem, 'template_id': template_id, 'action': 'created', 'mode': 'classic'})
+                else:
+                    template_id = await classic_create_template(
+                        name=stem, content_base64=content_b64,
+                        template_type=template_type_val,
+                        experiment_type=experiment_type_val,
+                        thumbnail_base64=thumbnail_base64,
+                    )
+                    processed.append({'name': stem, 'template_id': template_id, 'action': 'created', 'mode': 'classic'})
+
+                # 如果 ZIP 中包含与 html 同名的 .py 文件，复制到 classic_structure_path
+                _copy_py_to_structure(extract_to, stem, Path(config.classic_structure_path))
+            except Exception:
+                continue
         # 上传处理完成：删除刚才创建的临时解压目录，避免占用磁盘空间
         try:
             if extract_to.exists():
@@ -246,6 +318,7 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
             "data": {
                 "extracted_dir": str(extract_to),
                 "docx": docx_files,
+                "html": html_files,
                 "py": py_files,
                 "json_info": json_info,
                 "processed": processed
@@ -261,23 +334,59 @@ async def upload_template_unzip(file: UploadFile = File(...), save_zip: bool = F
         return {"code": 500, "message": f"Error: {str(e)}"}
 
 
+def _copy_py_to_structure(extract_to: Path, stem: str, dest_py_folder: Path):
+    """将 ZIP 中与模板同名的 .py 文件复制到目标结构目录。"""
+    candidate_py = extract_to / f"{stem}.py"
+    if not candidate_py.exists():
+        return
+    dest_py_folder.mkdir(parents=True, exist_ok=True)
+    dest_py = dest_py_folder / f"{stem}.py"
+    shutil.copy2(candidate_py, dest_py)
+
+
+async def _update_db_python_config(stem: str, template_id: int):
+    """读取磁盘上的 .py 配置并写入数据库 python_config 字段。"""
+    dest_py = Path(config.structure_path) / f"{stem}.py"
+    if not dest_py.exists():
+        return
+    try:
+        with open(dest_py, 'r', encoding='utf-8') as pf:
+            new_py_content = pf.read()
+    except Exception:
+        with open(dest_py, 'r', encoding='gbk', errors='ignore') as pf:
+            new_py_content = pf.read()
+    try:
+        template_doc = await TemplateDoc.get_or_none(id=template_id)
+        if template_doc:
+            template_doc.python_config = new_py_content
+            await template_doc.save()
+    except Exception:
+        pass
+
+
 @router.post('/download_template_zip')
 async def download_template_zip(payload: dict = Body(...)):
     """
-    接收多个 template_id，打包对应的 .docx、.py（若存在）和 config.json 返回 zip 流。
-    返回的 config.json 内容格式为 {"template_name": {"template_type": "desc", "experiment_type": "desc", "industry_type": "..."}}
+    接收多个 template_id，打包对应的模板文件、.py（若存在）和 config.json 返回 zip 流。
+
+    payload 可包含:
+        template_ids / template_id: 模板 ID 列表
+        measure_mode: 0=经典模式(导出 .html), 1=向导模式(导出 .docx)，默认 1
+
+    返回的 config.json 内容格式为 {"template_name": {"template_type": "desc", "experiment_type": "desc", "industry_type": "...", "measure_mode": "..."}}
     """
     try:
         # 兼容前端多种传参方式：单 id、list 或 包含 template_id/template_ids 的对象
         template_ids = []
+        measure_mode = MeasureMode.guide.value  # 默认向导模式
         if isinstance(payload, dict):
             if 'template_ids' in payload:
                 template_ids = payload.get('template_ids') or []
             elif 'template_id' in payload:
                 template_ids = payload.get('template_id')
             else:
-                # 也可能带有其他字段（responseType 等），尝试读取常见字段名
                 template_ids = payload.get('ids') or payload.get('ids[]') or []
+            measure_mode = payload.get('measure_mode', MeasureMode.guide.value)
         elif isinstance(payload, list):
             template_ids = payload
         else:
@@ -297,11 +406,27 @@ async def download_template_zip(payload: dict = Body(...)):
         if not template_ids:
             raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
 
+        is_classic = int(measure_mode) == MeasureMode.classic.value
+
         files_to_add = []  # list of tuples (arcname, bytes)
         json_cfg = {}
         missing = []
+
+        # 根据模式选择数据库和结构路径
+        if is_classic:
+            db_conn = connections.get('classic_db')
+            structure_path = Path(config.classic_structure_path)
+            file_ext = '.html'
+        else:
+            db_conn = None  # 默认数据库
+            structure_path = Path(config.structure_path)
+            file_ext = '.docx'
+
         for tid in template_ids:
-            tpl = await TemplateDoc.get_or_none(id=tid, is_del=0)
+            if is_classic:
+                tpl = await TemplateDoc.get_or_none(id=tid, is_del=0, using_db=db_conn)
+            else:
+                tpl = await TemplateDoc.get_or_none(id=tid, is_del=0)
             if not tpl:
                 missing.append(tid)
                 continue
@@ -309,16 +434,15 @@ async def download_template_zip(payload: dict = Body(...)):
             name = tpl.name
             # decode base64 content
             try:
-                doc_bytes = base64.b64decode(tpl.template_content)
+                content_bytes = base64.b64decode(tpl.template_content)
             except Exception:
-                # 如果不是 base64 或出错，尝试直接使用 bytes
-                doc_bytes = tpl.template_content.encode('utf-8') if isinstance(tpl.template_content, str) else bytes(tpl.template_content)
+                content_bytes = tpl.template_content.encode('utf-8') if isinstance(tpl.template_content, str) else bytes(tpl.template_content)
 
-            docx_name = f"{name}.docx"
-            files_to_add.append((docx_name, doc_bytes))
+            file_name = f"{name}{file_ext}"
+            files_to_add.append((file_name, content_bytes))
 
-            # 尝试获取 .py: 优先使用磁盘上的 template_structure/<name>.py，其次使用 tpl.python_config
-            py_path = Path(config.structure_path) / f"{name}.py"
+            # 尝试获取 .py: 优先使用磁盘上的 <structure_path>/<name>.py，其次使用 tpl.python_config
+            py_path = structure_path / f"{name}.py"
             py_bytes = None
             if py_path.exists():
                 try:
@@ -335,6 +459,14 @@ async def download_template_zip(payload: dict = Body(...)):
             if py_bytes:
                 files_to_add.append((f"{name}.py", py_bytes))
 
+            # 经典模式：导出缩略图 thumbnail_base64 → .png 文件
+            if is_classic and tpl.thumbnail_base64:
+                try:
+                    thumb_bytes = base64.b64decode(tpl.thumbnail_base64)
+                    files_to_add.append((f"{name}.png", thumb_bytes))
+                except Exception:
+                    pass
+
             # 准备 config 映射（使用 desc 文本以便人可读）
             try:
                 t_desc = TemplateType.get_name_desc_by_value(int(tpl.type)) if tpl.type is not None else ''
@@ -347,7 +479,8 @@ async def download_template_zip(payload: dict = Body(...)):
             json_cfg[name] = {
                 'template_type': t_desc,
                 'experiment_type': e_desc,
-                'industry_type': tpl.industry_type or ''
+                'industry_type': tpl.industry_type or '',
+                'measure_mode': 'classic' if is_classic else 'guide',
             }
 
         # 生成 config.json
