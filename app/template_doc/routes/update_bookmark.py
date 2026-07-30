@@ -121,10 +121,18 @@ async def update_bookmark(data: InputSchema):
             # 创建 .py 配置文件（从原模板复制，更新 title_mapping、标题、页眉页脚、页码）
             page_num = None
             if data.page_num_type:
-                type_map_rev = {'左边展示': 'left', '居中展示': 'center', '右边展示': 'right'}
-                pos = type_map_rev.get(data.page_num_type)
-                if pos:
+                _VALUE_TO_POS = {
+                    TemplatePageNumType.left_page.value: 'left',
+                    TemplatePageNumType.center_page.value: 'center',
+                    TemplatePageNumType.right_page.value: 'right',
+                }
+                decs_value_map = TemplatePageNumType.generate_decs_value_map()
+                value = decs_value_map.get(data.page_num_type)
+                if value is not None and value != TemplatePageNumType.no_page.value:
+                    pos = _VALUE_TO_POS.get(value)
                     page_num = {'position': pos, 'font': '宋体', 'font_size': 9}
+                elif value == TemplatePageNumType.no_page.value:
+                    page_num = {}  # 空 dict 表示删除页码配置
             _save_classic_config_file(template_name, new_name, merged_title_mapping, data.header, data.footer, title_list, page_num, data.margin, data.orientation, data.line_height)
         else:
             await create_template(data.name, content_base64, content=content, template_type=template.type, 
@@ -175,11 +183,21 @@ async def update_bookmark(data: InputSchema):
             except Exception:
                 pass
 
-            # 前端传的覆盖配置文件
+            # 前端传的覆盖配置文件（使用 TemplatePageNumType 常量映射）
             if data.page_num_type:
-                type_map = {'左边展示': 'left', '居中展示': 'center', '右边展示': 'right'}
-                pos = type_map.get(data.page_num_type, 'center')
-                contexts.setdefault('__page_num__', {})['position'] = pos
+                _VALUE_TO_POS = {
+                    TemplatePageNumType.left_page.value: 'left',
+                    TemplatePageNumType.center_page.value: 'center',
+                    TemplatePageNumType.right_page.value: 'right',
+                }
+                decs_value_map = TemplatePageNumType.generate_decs_value_map()
+                value = decs_value_map.get(data.page_num_type)
+                if value is not None and value != TemplatePageNumType.no_page.value:
+                    pos = _VALUE_TO_POS.get(value, 'center')
+                    contexts.setdefault('__page_num__', {})['position'] = pos
+                else:
+                    # 不展示页码：清除配置文件中的默认值
+                    contexts.pop('__page_num__', None)
             if data.header and data.header.value:
                 contexts['__header__'] = {'value': data.header.value, 'font': data.header.font or '宋体', 'font_size': data.header.font_size or 10}
             if data.footer and data.footer.value:
@@ -542,6 +560,9 @@ def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict,
     if page_num:
         pn_block = f"'page_num': {{'position': '{page_num['position']}', 'font': '{page_num.get('font', '宋体')}', 'font_size': {page_num.get('font_size', 9)}}}"
         content = re.sub(r"'page_num'\s*:\s*\{[^}]*\}", pn_block, content)
+    elif page_num is not None:
+        # 不展示页码：从 extra_info 中删除 page_num 条目
+        content = re.sub(r"\s*'page_num'\s*:\s*\{[^}]*\},?\s*\n?", '\n', content)
 
     # 5. 更新 extra_info 中 margin（动态边距）
     if margin is not None:

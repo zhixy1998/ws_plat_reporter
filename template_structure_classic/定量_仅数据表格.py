@@ -43,7 +43,6 @@ title_mapping = {
 # 字段渲染表格
 extra_info = {
     'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
-    'page_num_type': 0,
     'header': {'value': '', 'font': '宋体', 'font_size': 10},
     'footer': {'value': '', 'font': '宋体', 'font_size': 9},
     'page_num': {'position': 'left', 'font': '宋体', 'font_size': 9},

@@ -71,7 +71,10 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
         header_and_footer_info['title_list'] = title_content_value_list
 
     # 设置默认值
-    header_and_footer_info.setdefault('page_num_type', TemplatePageNumType.get_name_desc_by_value(0))
+    if is_classic:
+        header_and_footer_info.setdefault('page_num_type', TemplatePageNumType.no_page.decs)
+    else:
+        header_and_footer_info.setdefault('page_num_type', TemplatePageNumType.get_name_desc_by_value(0))
     header_and_footer_info.setdefault('header', {})
     header_and_footer_info.setdefault('footer', {})
     header_and_footer_info.setdefault('remark', {})
@@ -111,11 +114,15 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
         if is_classic:
             if 'page_num' in extra_info_config:
                 pos = extra_info_config['page_num'].get('position', '')
-                if pos:
-                    type_map = {'left': 2, 'center': 1, 'right': 0}
-                    header_and_footer_info['page_num_type'] = TemplatePageNumType.get_name_desc_by_value(
-                        type_map.get(pos, 3)
-                    )
+                # 使用 TemplatePageNumType 常量映射 position 字符串 → value → desc
+                _POS_TO_VALUE = {
+                    'left': TemplatePageNumType.left_page.value,
+                    'center': TemplatePageNumType.center_page.value,
+                    'right': TemplatePageNumType.right_page.value,
+                }
+                value = _POS_TO_VALUE.get(pos)
+                if value is not None:
+                    header_and_footer_info['page_num_type'] = TemplatePageNumType.get_name_desc_by_value(value)
                 else:
                     header_and_footer_info['page_num_type'] = TemplatePageNumType.no_page.decs
 
