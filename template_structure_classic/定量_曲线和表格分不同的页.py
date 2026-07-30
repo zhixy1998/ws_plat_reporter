@@ -44,8 +44,8 @@ title_mapping = {
 # 字段渲染表格
 extra_info = {
     'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
-    'header': {'value': '', 'font': '宋体', 'font_size': 10},
-    'footer': {'value': '', 'font': '宋体', 'font_size': 9},
+    'header': {'value': '', 'font': '宋体', 'font_size': 10, 'position': 'left'},
+    'footer': {'value': '', 'font': '宋体', 'font_size': 9, 'position': 'left'},
     'page_num': {'position': 'left', 'font': '宋体', 'font_size': 9},
     'title_list': [
         {'name': '报告名称', 'value': '定量测定原始数据', 'font': '黑体', 'font_size': 15},

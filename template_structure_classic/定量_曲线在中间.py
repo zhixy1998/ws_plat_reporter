@@ -45,8 +45,8 @@ title_mapping = {
 extra_info = {
     'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
     # 页眉页脚（经典模式 HTML 渲染用）
-    'header': {'value': '', 'font': '宋体', 'font_size': 10},
-    'footer': {'value': '', 'font': '宋体', 'font_size': 9},
+    'header': {'value': '', 'font': '宋体', 'font_size': 10, 'position': 'left'},
+    'footer': {'value': '', 'font': '宋体', 'font_size': 9, 'position': 'left'},
     # 页码（position: left / center / right）
     'page_num': {'position': 'left', 'font': '宋体', 'font_size': 9},
     # 报告标题

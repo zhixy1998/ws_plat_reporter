@@ -52,7 +52,7 @@ title_mapping = {
 extra_info = {
     'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
     'header': {'value': '', 'font': '宋体', 'font_size': 10, 'position': 'left'},
-    'footer': {'value': '', 'font': '宋体', 'font_size': 9, 'position': 'center'},
+    'footer': {'value': '', 'font': '宋体', 'font_size': 9, 'position': 'left'},
     'page_num': {'position': 'left', 'font': '宋体', 'font_size': 9},
     'title_list': [
         {'name': '报告名称', 'value': '时间扫描原始数据', 'font': '黑体', 'font_size': 15},
