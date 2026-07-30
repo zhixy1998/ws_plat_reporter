@@ -12,10 +12,24 @@ from utils.template_utils import get_doc_obj_by_template_id
 from utils.get_bookmark_text import get_bookmark_text
 from utils.handle_header_footer import get_header_footer_font_info
 from utils.log_decorator import log_response
-from constants.template_constant import TemplatePageNumType, MeasureMode
+from constants.template_constant import TemplatePageNumType, MeasureMode, TemplateFootAndHeaderType
 from config import config
 
 router = APIRouter()
+
+
+def _position_to_desc(position: str) -> str:
+    """将 CSS position ('left'/'center'/'right') 转为 TemplateFootAndHeaderType 描述文本。"""
+    _POS_TO_VALUE = {
+        'left': TemplateFootAndHeaderType.left.value,
+        'center': TemplateFootAndHeaderType.center.value,
+        'right': TemplateFootAndHeaderType.right.value,
+    }
+    value = _POS_TO_VALUE.get(position)
+    if value is not None:
+        return TemplateFootAndHeaderType.get_name_desc_by_value(value)
+    return '居中展示'
+
 
 class InputSchema(BaseModel):
     id: int = Field(..., description='模板id')
@@ -25,9 +39,13 @@ class DataSchema(BaseModel):
     title_list: Optional[List[Dict[str, Union[str, int]]]] = Field(None, description='报告名称')
     header: Dict[str, Union[str, int, float, None]] = Field(None, description='页眉')
     footer: Dict[str, Union[str, int, float, None]] = Field(None, description='页脚')
+    header_position: Optional[str] = Field(None, description='页眉位置: 左边展示/居中展示/右边展示')
+    footer_position: Optional[str] = Field(None, description='页脚位置: 左边展示/居中展示/右边展示')
     remark: Dict[str, Union[str, int, float, None]] = Field(None, description='备注')
     page_num_type: str = Field(..., description='页码类型')
     page_num_type_list: List[str] = Field(..., description='页码类型列表')
+    header_type_list: List[str] = Field(..., description='页码类型列表')
+    footer_type_list: List[str] = Field(..., description='页码类型列表')
     margin: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='动态边距(mm)')
     orientation: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='横向/纵向')
     line_height: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='行边距')
@@ -77,6 +95,8 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
         header_and_footer_info.setdefault('page_num_type', TemplatePageNumType.get_name_desc_by_value(0))
     header_and_footer_info.setdefault('header', {})
     header_and_footer_info.setdefault('footer', {})
+    header_and_footer_info.setdefault('header_position', '居中展示')
+    header_and_footer_info.setdefault('footer_position', '居中展示')
     header_and_footer_info.setdefault('remark', {})
     header_and_footer_info.setdefault('title_list', [])
     header_and_footer_info.setdefault('margin', {'value': '20'})
@@ -129,8 +149,13 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
             # 页眉/页脚/标题 从配置文件取
             if 'header' in extra_info_config:
                 header_and_footer_info['header'] = extra_info_config['header']
+                # 同时以 TemplatePageNumType desc 格式暴露 position
+                _pos = extra_info_config['header'].get('position', '')
+                header_and_footer_info['header_position'] = _position_to_desc(_pos)
             if 'footer' in extra_info_config:
                 header_and_footer_info['footer'] = extra_info_config['footer']
+                _pos = extra_info_config['footer'].get('position', '')
+                header_and_footer_info['footer_position'] = _position_to_desc(_pos)
             if 'title_list' in extra_info_config:
                 header_and_footer_info['title_list'] = extra_info_config['title_list']
         else:
@@ -140,4 +165,8 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
                 )
 
     header_and_footer_info['page_num_type_list'] = [k for k, v in TemplatePageNumType.generate_decs_value_map().items()]
+    header_and_footer_info['header_type_list'] = [k for k, v in TemplateFootAndHeaderType.generate_decs_value_map().items()]
+    header_and_footer_info['footer_type_list'] = [k for k, v in TemplateFootAndHeaderType.generate_decs_value_map().items()]
+
+
     return {'code': 200, 'message': '获取页眉页脚标题成功', 'data': header_and_footer_info}

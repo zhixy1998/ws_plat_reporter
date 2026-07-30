@@ -197,32 +197,34 @@ class ClassicHtmlBuilder:
             hdr_pos = header_info.get('position', 'left')
             header_tpl = (
                 f'<div style="font-family:{hdr_font};font-size:{hdr_size}pt;'
-                f'text-align:{hdr_pos};width:100%;">'
+                f'text-align:{hdr_pos};width:100%;padding:3mm 5mm;">'
                 f'{header_info["value"]}</div>'
             )
 
-        # 构建 Playwright 页脚模板（含页码）
+        # 构建 Playwright 页脚模板（含页码）：页脚文字在上，页码在下
         footer_tpl = None
         if footer_info.get('value') or page_num_info:
-            ftr_parts = []
+            ftr_parts = ['<div style="display:flex;flex-direction:column;width:100%;padding:3mm 5mm;">']
             if footer_info.get('value'):
                 ftr_font = footer_info.get('font', '宋体')
                 ftr_size = footer_info.get('font_size', 9)
+                ftr_pos = footer_info.get('position', 'center')
                 ftr_parts.append(
-                    f'<div style="font-family:{ftr_font};font-size:{ftr_size}pt;">'
+                    f'<div style="font-family:{ftr_font};font-size:{ftr_size}pt;'
+                    f'text-align:{ftr_pos};width:100%;">'
                     f'{footer_info["value"]}</div>'
                 )
             if page_num_info:
                 pn_pos = page_num_info.get('position', 'center')
                 pn_size = page_num_info.get('font_size', 9)
                 pn_font = page_num_info.get('font', '宋体')
-                pn_padding = 'padding-left:5mm;' if pn_pos == 'left' else ('padding-right:5mm;' if pn_pos == 'right' else '')
                 ftr_parts.append(
                     f'<div style="font-family:{pn_font};font-size:{pn_size}pt;'
-                    f'text-align:{pn_pos};width:100%;{pn_padding}">'
+                    f'text-align:{pn_pos};width:100%;">'
                     f'第 <span class="pageNumber"></span> 页 / 共 <span class="totalPages"></span> 页'
                     f'</div>'
                 )
+            ftr_parts.append('</div>')
             footer_tpl = ''.join(ftr_parts)
 
         use_header_footer = bool(header_tpl or footer_tpl)

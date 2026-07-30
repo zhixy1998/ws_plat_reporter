@@ -28,7 +28,7 @@ from exceptions.command_exception import APIException
 from utils.handle_header_footer import set_header_footer
 from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
 from utils.doc_converter import get_libreoffice_command, get_libreoffice_subprocess_kwargs, explain_libreoffice_returncode, get_libreoffice_timeout_seconds
-from constants.template_constant import TemplatePageNumType, MeasureMode
+from constants.template_constant import TemplatePageNumType, MeasureMode, TemplateFootAndHeaderType
 from config import config
 from utils.EditDocxXML import fill_word_bookmark
 from utils.classic_html_builder import ClassicHtmlBuilder
@@ -54,6 +54,8 @@ class InputSchema(BaseModel):
     remark: Optional[BookmarkItem]= Field(None, description='备注')
     project_name: Optional[BookmarkItem] = Field(None, description='动态项目名称')
     page_num_type: str = Field(TemplatePageNumType.no_page.value, description='页码类型')
+    header_position: Optional[str] = Field(None, description='页眉位置: 左边展示/居中展示/右边展示')
+    footer_position: Optional[str] = Field(None, description='页脚位置: 左边展示/居中展示/右边展示')
     measure_mode: int = Field(None, description='测量模式 1:默认 2:仅测量标签位置不修改标签字体大小')
     margin: Optional[str] = Field(None, description='动态边距(mm)')
     orientation: Optional[int] = Field(None, description='横向/纵向 0=纵向 1=横向')
@@ -63,6 +65,20 @@ class InputSchema(BaseModel):
 
 class DataSchema(BaseModel):
     file_base64: str = Field(..., description='文件base64')
+
+
+def _desc_to_position(desc: Optional[str]) -> str:
+    """将 TemplateFootAndHeaderType 描述文本映射为 CSS position 值（'left'/'center'/'right'）。"""
+    if not desc:
+        return 'center'
+    _VALUE_TO_POS = {
+        TemplateFootAndHeaderType.left.value: 'left',
+        TemplateFootAndHeaderType.center.value: 'center',
+        TemplateFootAndHeaderType.right.value: 'right',
+    }
+    decs_value_map = TemplateFootAndHeaderType.generate_decs_value_map()
+    value = decs_value_map.get(desc)
+    return _VALUE_TO_POS.get(value, 'center')
 
 
 @router.post('/update_bookmark')
@@ -133,7 +149,9 @@ async def update_bookmark(data: InputSchema):
                     page_num = {'position': pos, 'font': '宋体', 'font_size': 9}
                 elif value == TemplatePageNumType.no_page.value:
                     page_num = {}  # 空 dict 表示删除页码配置
-            _save_classic_config_file(template_name, new_name, merged_title_mapping, data.header, data.footer, title_list, page_num, data.margin, data.orientation, data.line_height)
+            _save_classic_config_file(template_name, new_name, merged_title_mapping, data.header, data.footer, title_list, page_num, data.margin, data.orientation, data.line_height,
+                header_position=_desc_to_position(data.header_position) if data.header_position else None,
+                footer_position=_desc_to_position(data.footer_position) if data.footer_position else None)
         else:
             await create_template(data.name, content_base64, content=content, template_type=template.type, 
         industry_type=template.industry_type, experiment_type=template.experiment_type, 
@@ -199,9 +217,19 @@ async def update_bookmark(data: InputSchema):
                     # 不展示页码：清除配置文件中的默认值
                     contexts.pop('__page_num__', None)
             if data.header and data.header.value:
-                contexts['__header__'] = {'value': data.header.value, 'font': data.header.font or '宋体', 'font_size': data.header.font_size or 10}
+                contexts['__header__'] = {
+                    'value': data.header.value,
+                    'font': data.header.font or '宋体',
+                    'font_size': data.header.font_size or 10,
+                    'position': _desc_to_position(data.header_position),
+                }
             if data.footer and data.footer.value:
-                contexts['__footer__'] = {'value': data.footer.value, 'font': data.footer.font or '宋体', 'font_size': data.footer.font_size or 9}
+                contexts['__footer__'] = {
+                    'value': data.footer.value,
+                    'font': data.footer.font or '宋体',
+                    'font_size': data.footer.font_size or 9,
+                    'position': _desc_to_position(data.footer_position),
+                }
             # 边距 / 横向纵向 / 行边距（前端传的覆盖配置文件）
             if data.margin is not None:
                 contexts['__margin__'] = {'value': data.margin}
@@ -499,9 +527,10 @@ def _get_html_from_template(template) -> str:
     return raw_bytes.decode('utf-8', errors='replace')
 
 
-def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header, footer, title_list=None, page_num=None, margin=None, orientation=None, line_height=None):
+def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header, footer, title_list=None, page_num=None, margin=None, orientation=None, line_height=None, header_position=None, footer_position=None):
     """
     经典模式另存为：从原 .py 配置文件复制，更新 title_mapping / 标题 / 页眉页脚 / 页码。
+    header_position / footer_position: 'left' / 'center' / 'right'
     """
     import shutil
 
@@ -538,11 +567,13 @@ def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict,
     if header and header.value:
         hf = header.font or "宋体"
         hs = header.font_size or 10
-        content = re.sub(r"'header'\s*:\s*\{[^}]*\}", f"'header': {{'value': '{header.value}', 'font': '{hf}', 'font_size': {hs}}}", content)
+        hp = header_position or 'left'
+        content = re.sub(r"'header'\s*:\s*\{[^}]*\}", f"'header': {{'value': '{header.value}', 'font': '{hf}', 'font_size': {hs}, 'position': '{hp}'}}", content)
     if footer and footer.value:
         ff = footer.font or "宋体"
         fs = footer.font_size or 9
-        content = re.sub(r"'footer'\s*:\s*\{[^}]*\}", f"'footer': {{'value': '{footer.value}', 'font': '{ff}', 'font_size': {fs}}}", content)
+        fp = footer_position or 'center'
+        content = re.sub(r"'footer'\s*:\s*\{[^}]*\}", f"'footer': {{'value': '{footer.value}', 'font': '{ff}', 'font_size': {fs}, 'position': '{fp}'}}", content)
 
     # 3. 更新 extra_info 中 title_list
     if title_list:
