@@ -110,50 +110,50 @@
       {{ __title_list__[0].value if __title_list__ else '定量测定原始记录' }}
     </h1>
 
-    <div class="sep">仪器性能</div>
-    <div class="hr"></div>
-
-    {% if 仪器型号_t %}
-    <div class="row">
-      <span
-        class="lbl"
-        style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}{% if 仪器型号_font %}font-family: '{{ 仪器型号_font }}';{% endif %}"
-        >{{ 仪器型号_t }}：</span
-      ><span
-        class="val"
-        style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}"
-        >{{ 仪器型号 or '' }}</span
-      >
-      <span
-        class="lbl"
-        style="{% if 仪器序号_fs %}font-size: {{ 仪器序号_fs }}pt;{% endif %}{% if 仪器序号_font %}font-family: '{{ 仪器序号_font }}';{% endif %}"
-        >{{ 仪器序号_t }}：</span
-      ><span
-        class="val"
-        style="{% if 仪器序号_fs %}font-size: {{ 仪器序号_fs }}pt;{% endif %}"
-        >{{ 仪器序号 or '' }}</span
-      >
-    </div>
-    {% endif %} {% if 光谱带宽_t %}
-    <div class="row single">
-      <span
-        class="lbl"
-        style="{% if 光谱带宽_fs %}font-size: {{ 光谱带宽_fs }}pt;{% endif %}{% if 光谱带宽_font %}font-family: '{{ 光谱带宽_font }}';{% endif %}"
-        >{{ 光谱带宽_t }}：</span
-      ><span
-        class="val"
-        style="{% if 光谱带宽_fs %}font-size: {{ 光谱带宽_fs }}pt;{% endif %}"
-        >{{ 光谱带宽 or '' }}</span
-      >
-    </div>
-    {% endif %}
-
     <div class="two-col">
-      <!-- ====== 左列：图片 + 条件字段 + 文件信息 ====== -->
+      <!-- ====== 左列：图片 + 仪器性能 + 文件信息 ====== -->
       <div class="col">
         {% if 定量分析图片 %}
         <div class="chart">
           <img src="{{ 定量分析图片 }}" alt="校正曲线" />
+        </div>
+        {% endif %}
+
+        <div class="sep">仪器性能</div>
+        <div class="hr"></div>
+
+        {% if 仪器型号_t %}
+        <div class="row">
+          <span
+            class="lbl"
+            style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}{% if 仪器型号_font %}font-family: '{{ 仪器型号_font }}';{% endif %}"
+            >{{ 仪器型号_t }}：</span
+          ><span
+            class="val"
+            style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}"
+            >{{ 仪器型号 or '' }}</span
+          >
+          <span
+            class="lbl"
+            style="{% if 仪器序号_fs %}font-size: {{ 仪器序号_fs }}pt;{% endif %}{% if 仪器序号_font %}font-family: '{{ 仪器序号_font }}';{% endif %}"
+            >{{ 仪器序号_t }}：</span
+          ><span
+            class="val"
+            style="{% if 仪器序号_fs %}font-size: {{ 仪器序号_fs }}pt;{% endif %}"
+            >{{ 仪器序号 or '' }}</span
+          >
+        </div>
+        {% endif %} {% if 光谱带宽_t %}
+        <div class="row single">
+          <span
+            class="lbl"
+            style="{% if 光谱带宽_fs %}font-size: {{ 光谱带宽_fs }}pt;{% endif %}{% if 光谱带宽_font %}font-family: '{{ 光谱带宽_font }}';{% endif %}"
+            >{{ 光谱带宽_t }}：</span
+          ><span
+            class="val"
+            style="{% if 光谱带宽_fs %}font-size: {{ 光谱带宽_fs }}pt;{% endif %}"
+            >{{ 光谱带宽 or '' }}</span
+          >
         </div>
         {% endif %}
 
