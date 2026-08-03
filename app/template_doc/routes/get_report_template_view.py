@@ -1,4 +1,5 @@
 from typing import List, Optional, Union
+from datetime import timedelta
 from fastapi import APIRouter, Query
 from ..model.template_doc import TemplateDoc
 from pydantic import BaseModel, Field
@@ -103,8 +104,8 @@ async def get_report_template(
     {
         **{k: v for k, v in item.items() if k not in ['type', 'create_datetime', 'update_datetime']},
         'type_decs': TemplateType.get_name_desc_by_value(item['type']),
-        'create_datetime': item['create_datetime'].strftime('%Y-%m-%d %H:%M:%S') if item['create_datetime'] else None,
-        'update_datetime': item['update_datetime'].strftime('%Y-%m-%d %H:%M:%S') if item['update_datetime'] else None,
+        'create_datetime': (item['create_datetime'] + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S') if item['create_datetime'] else None,
+        'update_datetime': (item['update_datetime'] + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M:%S') if item['update_datetime'] else None,
         'experiment_type_decs': ExperimentType.get_name_desc_by_value(item['experiment_type']),
         'origin_type_decs': TemplateOriginType.get_name_desc_by_value(item['origin_type']),
     }
