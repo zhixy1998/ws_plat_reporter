@@ -147,8 +147,8 @@ async def update_bookmark(data: InputSchema):
                 if value is not None and value != TemplatePageNumType.no_page.value:
                     pos = _VALUE_TO_POS.get(value)
                     page_num = {'position': pos, 'font': '宋体', 'font_size': 9}
-                elif value == TemplatePageNumType.no_page.value:
-                    page_num = {}  # 空 dict 表示删除页码配置
+                else:
+                    page_num = {'position': '', 'font': '宋体', 'font_size': 9}  # 不展示页码时 position 为空
             _save_classic_config_file(template_name, new_name, merged_title_mapping, data.header, data.footer, title_list, page_num, data.margin, data.orientation, data.line_height,
                 header_position=_desc_to_position(data.header_position) if data.header_position else None,
                 footer_position=_desc_to_position(data.footer_position) if data.footer_position else None)
@@ -587,13 +587,10 @@ def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict,
         tl_block = ''.join(tl_lines)
         content = re.sub(r"'title_list'\s*:\s*\[[\s\S]*?\]", tl_block, content)
 
-    # 4. 更新 extra_info 中 page_num
-    if page_num:
-        pn_block = f"'page_num': {{'position': '{page_num['position']}', 'font': '{page_num.get('font', '宋体')}', 'font_size': {page_num.get('font_size', 9)}}}"
+    # 4. 更新 extra_info 中 page_num（始终写入，position 为空表示不展示）
+    if page_num is not None:
+        pn_block = f"'page_num': {{'position': '{page_num.get('position', '')}', 'font': '{page_num.get('font', '宋体')}', 'font_size': {page_num.get('font_size', 9)}}}"
         content = re.sub(r"'page_num'\s*:\s*\{[^}]*\}", pn_block, content)
-    elif page_num is not None:
-        # 不展示页码：从 extra_info 中删除 page_num 条目
-        content = re.sub(r"\s*'page_num'\s*:\s*\{[^}]*\},?\s*\n?", '\n', content)
 
     # 5. 更新 extra_info 中 margin（动态边距）
     if margin is not None:

@@ -214,8 +214,8 @@ class ClassicHtmlBuilder:
                     f'text-align:{ftr_pos};width:100%;">'
                     f'{footer_info["value"]}</div>'
                 )
-            if page_num_info:
-                pn_pos = page_num_info.get('position', 'center')
+            if page_num_info and page_num_info.get('position'):
+                pn_pos = page_num_info['position']
                 pn_size = page_num_info.get('font_size', 9)
                 pn_font = page_num_info.get('font', '宋体')
                 ftr_parts.append(
