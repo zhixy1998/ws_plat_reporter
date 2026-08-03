@@ -38,7 +38,10 @@ title_mapping = {
     '数据文件_t': {'name': '数据文件', 'font': '宋体', 'font_size': 12},
     '强制过零点_t': {'name': '强制过零点', 'font': '宋体', 'font_size': 12},
     '测量波长_t': {'name': '测量波长', 'font': '宋体', 'font_size': 12},
-    '方法名称_t': {'name': '方法名称', 'font': '宋体', 'font_size': 12}
+    '方法名称_t': {'name': '方法名称', 'font': '宋体', 'font_size': 12},
+    '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
+    '仪器序号_t': {'name': '仪器序号', 'font': '宋体', 'font_size': 12},
+    '光谱带宽_t': {'name': '光谱带宽', 'font': '宋体', 'font_size': 12},
 }
 
 # 字段渲染表格

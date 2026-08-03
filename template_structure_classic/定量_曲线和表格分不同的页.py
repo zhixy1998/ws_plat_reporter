@@ -39,6 +39,9 @@ title_mapping = {
     '校正方法_t': {'name': '校正方法', 'font': '宋体', 'font_size': 12},
     '数据文件_t': {'name': '数据文件', 'font': '宋体', 'font_size': 12},
     '方程次数_t': {'name': '方程次数', 'font': '宋体', 'font_size': 12},
+    '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
+    '仪器序号_t': {'name': '仪器序号', 'font': '宋体', 'font_size': 12},
+    '光谱带宽_t': {'name': '光谱带宽', 'font': '宋体', 'font_size': 12},
 }
 
 # 字段渲染表格

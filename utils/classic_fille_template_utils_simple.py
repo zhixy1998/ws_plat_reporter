@@ -68,6 +68,9 @@ common_data_mapping = {
     },
     # 定量测定
     MeasureType.quantitative_determination.decs: {
+        '仪器型号': 'instrumentModel',
+        '仪器序号': 'instrumentSerialNumber',
+        '光谱带宽': 'spectrumBandwidth',
         '切换样品池' : 'autoChangeSamplePool',
         '零点插入': 'insertZeroPoint', 
         '测量波长': 'instrumentWavelength',

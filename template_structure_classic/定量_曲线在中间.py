@@ -38,7 +38,10 @@ title_mapping = {
     '重复测量_t': {'name': '重复测量', 'font': '宋体', 'font_size': 12},
     '校正方法_t': {'name': '校正方法', 'font': '宋体', 'font_size': 12},
     '方程次数_t': {'name': '方程次数', 'font': '宋体', 'font_size': 12},
-    '数据类型_t': {'name': '数据类型', 'font': '宋体', 'font_size': 12}
+    '数据类型_t': {'name': '数据类型', 'font': '宋体', 'font_size': 12},
+    '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
+    '仪器序号_t': {'name': '仪器序号', 'font': '宋体', 'font_size': 12},
+    '光谱带宽_t': {'name': '光谱带宽', 'font': '宋体', 'font_size': 12},
 }
 
 # 字段渲染表格
