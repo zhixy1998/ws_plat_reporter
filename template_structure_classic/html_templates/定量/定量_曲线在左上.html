@@ -123,7 +123,7 @@
         <div class="hr"></div>
 
         {% if 仪器型号_t %}
-        <div class="row">
+        <div class="row single">
           <span
             class="lbl"
             style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}{% if 仪器型号_font %}font-family: '{{ 仪器型号_font }}';{% endif %}"
@@ -133,6 +133,9 @@
             style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}"
             >{{ 仪器型号 or '' }}</span
           >
+        </div>
+        {% endif %} {% if 仪器序号_t %}
+        <div class="row single">
           <span
             class="lbl"
             style="{% if 仪器序号_fs %}font-size: {{ 仪器序号_fs }}pt;{% endif %}{% if 仪器序号_font %}font-family: '{{ 仪器序号_font }}';{% endif %}"
