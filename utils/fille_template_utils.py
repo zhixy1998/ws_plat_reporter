@@ -277,7 +277,11 @@ class FillDataUtils():
             private_title_mapping = self.table_data_processor.template_module.title_mapping
             self.title_mapping = private_title_mapping
         doc_stream.seek(0)
-        doc = DocxTemplate(doc_stream)
+        try:
+            doc = DocxTemplate(doc_stream)
+        except Exception as e:
+            print(f"ERROR fill_common_data_title: 无法打开docx流: {e}, stream前100字节: {doc_stream.getvalue()[:100]}")
+            raise APIException(ErrorCode.TEMPLATE_NOT_FOUND, f"模板文件已损坏或格式不正确。错误: {e}")
         context_vars = doc.get_undeclared_template_variables()
         if self.new_title_mapping:
             for t in self.new_title_mapping:
@@ -1523,7 +1527,7 @@ class FillDataUtils():
             response = requests.get(template_common_url)
             res_json = response.json()
             # print(res_json)
-            return res_json.get('data')
+            return res_json.get('data') or {}
         except requests.exceptions.Timeout:
             print(f"请求超时，跳过: {template_common_url}")
             return {}
@@ -1533,6 +1537,8 @@ class FillDataUtils():
 
     def get_stand_real_header_from_endpoint_data(self, m):
         real_header = None
+        if not self.end_point_header_and_data:
+            return ''
         stand_head_list = self.end_point_header_and_data.get('standHeadList')
         for stand_head_info in stand_head_list:
             if stand_head_info.get('identity') == m:
@@ -1540,7 +1546,8 @@ class FillDataUtils():
         return real_header or ''
     
     def get_stand_data_list(self, m):
-
+        if not self.end_point_header_and_data:
+            return []
         stand_head_list = self.end_point_header_and_data.get('standDataList')
         data = []
         for stand_data_info in stand_head_list:

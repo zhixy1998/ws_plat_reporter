@@ -21,6 +21,8 @@ except Exception:  # pragma: no cover
     pywintypes = None
 
 from config import config
+from exceptions.error import ErrorCode
+from exceptions.command_exception import APIException
 from app.db import execute_safe_sql
 from utils.doc_converter import get_libreoffice_command, get_libreoffice_timeout_seconds
 from app.template_doc.model.template_doc import TemplateDoc
@@ -37,7 +39,11 @@ async def get_doc_obj_by_template_id(template_id: int, classic_db=None):
     # 2. base64 解码成二进制
     content_bytes = base64.b64decode(template.template_content)
     doc_stream = BytesIO(content_bytes)
-    doc = Document(doc_stream)
+    try:
+        doc = Document(doc_stream)
+    except Exception as e:
+        print(f"ERROR get_doc_obj_by_template_id: 模板 {template_id} 无法作为docx打开: {e}, content前100字节: {content_bytes[:100]}")
+        raise APIException(ErrorCode.TEMPLATE_NOT_FOUND, f"模板文件已损坏或格式不正确，请联系管理员重新上传。模板ID: {template_id}")
     return doc
 
 async def get_doc_name_and_doc_stream_obj(template_id: int, conn=None):
