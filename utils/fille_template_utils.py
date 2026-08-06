@@ -277,10 +277,18 @@ class FillDataUtils():
             private_title_mapping = self.table_data_processor.template_module.title_mapping
             self.title_mapping = private_title_mapping
         doc_stream.seek(0)
+        import tempfile
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix='.docx')
+        with os.fdopen(tmp_fd, 'wb') as f:
+            f.write(doc_stream.read())
         try:
-            doc = DocxTemplate(doc_stream)
+            doc = DocxTemplate(tmp_path)
         except Exception as e:
             print(f"ERROR fill_common_data_title: 无法打开docx流: {e}, stream前100字节: {doc_stream.getvalue()[:100]}")
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
             raise APIException(ErrorCode.TEMPLATE_NOT_FOUND, f"模板文件已损坏或格式不正确。错误: {e}")
         context_vars = doc.get_undeclared_template_variables()
         if self.new_title_mapping:
