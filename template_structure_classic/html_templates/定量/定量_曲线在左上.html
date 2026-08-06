@@ -117,12 +117,10 @@
         <div class="chart">
           <img src="{{ 定量分析图片 }}" alt="校正曲线" />
         </div>
-        {% endif %}
-
+        {% endif %} {% if 仪器型号 or 仪器序号 or 光谱带宽 %}
         <div class="sep">仪器性能</div>
         <div class="hr"></div>
-
-        {% if 仪器型号_t %}
+        {% endif %} {% if 仪器型号_t %}
         <div class="row single">
           <span
             class="lbl"
@@ -158,12 +156,10 @@
             >{{ 光谱带宽 or '' }}</span
           >
         </div>
-        {% endif %}
-
+        {% endif %} {% if 数据文件 or 分析时间 or 方法名称 or 数据类型_t %}
         <div class="sep">文件信息</div>
         <div class="hr"></div>
-
-        {% if 数据文件_t %}
+        {% endif %} {% if 数据文件_t %}
         <div class="row single">
           <span
             class="lbl"
@@ -216,10 +212,12 @@
 
       <!-- ====== 右列：校正曲线信息 ====== -->
       <div class="col">
+        {% if 曲线方程 or 方程次数 or 公式 or 切换样品池 or 零点插入 or 测量波长
+        or 强制过零点 or k_values or r or r2 or 重复测量 or 校正方法_t or
+        自动切换样品池_t %}
         <div class="sep">校正曲线</div>
         <div class="hr"></div>
-
-        {% if 曲线方程_t %}
+        {% endif %} {% if 曲线方程_t %}
         <div class="row single">
           <span
             class="lbl"

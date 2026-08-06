@@ -107,10 +107,11 @@
     <div class="two-col">
       <!-- ====== 左列：光谱扫描参数设置 ====== -->
       <div class="col">
+        {% if 扫描范围 or 光度模式 or 增益 or 波长间隔 or 扫描间隔 or 扫描速度
+        or 能量灯 or 数据文件 or 分析时间 or 方法名称 or 数据类型_t %}
         <div class="sep">光谱扫描参数设置</div>
         <div class="hr"></div>
-
-        {% if 扫描范围_t %}
+        {% endif %} {% if 扫描范围_t %}
         <div class="row single">
           <span
             class="lbl"
@@ -287,12 +288,10 @@
         <div class="chart">
           <img src="{{ 光谱扫描图片 }}" alt="光谱扫描图片" />
         </div>
-        {% endif %}
-
+        {% endif %} {% if 分析员 or 审核员 or 备注 %}
         <div class="sep">分析记录</div>
         <div class="hr"></div>
-
-        {% if 分析员_t %}
+        {% endif %} {% if 分析员_t %}
         <div class="row single">
           <span
             class="lbl"
@@ -328,12 +327,10 @@
             >{{ 备注 or '' }}</span
           >
         </div>
-        {% endif %}
-
+        {% endif %} {% if 仪器型号 or 仪器序号 or 光谱带宽 %}
         <div class="sep">仪器性能</div>
         <div class="hr"></div>
-
-        {% if 仪器型号_t %}
+        {% endif %} {% if 仪器型号_t %}
         <div class="row">
           <span
             class="lbl"

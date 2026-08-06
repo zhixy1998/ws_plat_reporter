@@ -85,10 +85,10 @@
       {{ __title_list__[0].value if __title_list__ else '光度测量原始记录' }}
     </h1>
 
+    {% if 仪器型号 or 仪器序号 or 光谱带宽 %}
     <div class="sep">仪器性能</div>
     <div class="hr"></div>
-
-    {% if 仪器型号_t %}
+    {% endif %} {% if 仪器型号_t %}
     <div class="row">
       <span
         class="lbl"
@@ -121,12 +121,10 @@
         >{{ 光谱带宽 or '' }}</span
       >
     </div>
-    {% endif %}
-
+    {% endif %} {% if 数据文件 or 分析时间 or 方法名称 or 数据类型_t %}
     <div class="sep">文件信息</div>
     <div class="hr"></div>
-
-    {% if 数据文件_t %}
+    {% endif %} {% if 数据文件_t %}
     <div class="row single">
       <span
         class="lbl"
@@ -175,12 +173,10 @@
       >
     </div>
     {% endif %} {% if table_data and table_data.headers and table_data.row_data
-    %}
-
+    %} {% if 分析员 or 审核员 or 注释 %}
     <div class="sep">分析记录</div>
     <div class="hr"></div>
-
-    {% if 分析员_t %}
+    {% endif %} {% if 分析员_t %}
     <div class="row single">
       <span
         class="lbl"

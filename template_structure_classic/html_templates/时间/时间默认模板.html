@@ -111,12 +111,10 @@
         <div class="chart">
           <img src="{{ 时间扫描图片 }}" alt="时间扫描图片" />
         </div>
-        {% endif %}
-
+        {% endif %} {% if 分析员 or 审核员 or 备注 %}
         <div class="sep">分析记录</div>
         <div class="hr"></div>
-
-        {% if 分析员_t %}
+        {% endif %} {% if 分析员_t %}
         <div class="row single">
           <span
             class="lbl"
@@ -157,10 +155,10 @@
 
       <!-- ====== 右列：仪器性能 + 时间扫描参数设置 ====== -->
       <div class="col">
+        {% if 仪器型号 or 仪器序号 or 光谱带宽 %}
         <div class="sep">仪器性能</div>
         <div class="hr"></div>
-
-        {% if 仪器型号_t %}
+        {% endif %} {% if 仪器型号_t %}
         <div class="row single">
           <span
             class="lbl"
@@ -196,12 +194,12 @@
             >{{ 光谱带宽 or '' }}</span
           >
         </div>
-        {% endif %}
-
+        {% endif %} {% if 光度模式 or 增益 or 时间单位 or 扫描时间 or 时间间隔
+        or 扫描速度 or 能量灯 or 采样数 or 测量波长 or 数据文件 or 分析时间 or
+        方法名称 or 数据类型_t %}
         <div class="sep">时间扫描参数设置</div>
         <div class="hr"></div>
-
-        {% if 光度模式_t %}
+        {% endif %} {% if 光度模式_t %}
         <div class="row single">
           <span
             class="lbl"
