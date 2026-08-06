@@ -67,6 +67,17 @@ async def export_docx(data: InputSchema):
         image_base64=data.image_base64
     )
 
+    # 计算各区块是否有字段
+    for _flag, _keys in [
+        ('__has_instrument__',   ['仪器型号_t', '仪器序号_t', '光谱带宽_t', '激发狭缝_t', '发射狭缝_t', '激发滤光片_t', '发射滤光片_t', '灵敏度_t', '发射波长_t']),
+        ('__has_file_info__',    ['数据文件_t', '分析时间_t', '数据类型_t', '方法名称_t']),
+        ('__has_calibration__',  ['曲线方程_t', '方程次数_t', '公式_t', '校正方法_t', '自动切换样品池_t', '零点插入_t', '测量波长_t', '强制过零点_t', '扫描模式_t', '激发波长_t', '发射波长_t', '重复测量_t']),
+        ('__has_spectrum_scan__',['扫描范围_t', '光度模式_t', '增益_t', '波长间隔_t', '扫描间隔_t', '扫描速度_t', '能量灯_t', '数据文件_t', '分析时间_t', '数据类型_t', '方法名称_t']),
+        ('__has_time_scan__',    ['光度模式_t', '增益_t', '时间单位_t', '扫描时间_t', '时间间隔_t', '扫描速度_t', '能量灯_t', '采样数_t', '测量波长_t', '数据文件_t', '分析时间_t', '数据类型_t', '方法名称_t']),
+        ('__has_analysis_record__',['分析员_t', '审核员_t', '备注_t', '注释_t']),
+    ]:
+        contexts[_flag] = any(contexts.get(k) for k in _keys)
+
     builder = ClassicHtmlBuilder(template_html=html_template_str)
     pdf_bytes = builder.build_pdf(contexts)
 
