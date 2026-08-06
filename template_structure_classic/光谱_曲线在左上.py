@@ -45,7 +45,10 @@ title_mapping = {
     '备注_t': {'name': '备注', 'font': '宋体', 'font_size': 12},
     '分析员_t': {'name': '分析员', 'font': '宋体', 'font_size': 12},
     '方法名称_t': {'name': '方法名称', 'font': '宋体', 'font_size': 12},
-    '扫描速度_t': {'name': '扫描速度', 'font': '宋体', 'font_size': 12}
+    '扫描速度_t': {'name': '扫描速度', 'font': '宋体', 'font_size': 12},
+    '仪器型号_t': {'name': '仪器型号', 'font': '宋体', 'font_size': 12},
+    '仪器序号_t': {'name': '仪器序号', 'font': '宋体', 'font_size': 12},
+    '光谱带宽_t': {'name': '光谱带宽', 'font': '宋体', 'font_size': 12},
 }
 
 # 字段渲染表格

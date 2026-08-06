@@ -111,20 +111,14 @@
         <div class="chart">
           <img src="{{ 光谱扫描图片 }}" alt="光谱扫描图片" />
         </div>
-        {% endif %}
-
-        {% if __has_analysis_record__ is not defined or __has_analysis_record__ %}
-
+        {% endif %} {% if __has_analysis_record__ is not defined or
+        __has_analysis_record__ %}
 
         <div class="sep">分析记录</div>
 
-
         <div class="hr"></div>
 
-
-        {% endif %}
-
-        {% if 分析员_t %}
+        {% endif %} {% if 分析员_t %}
         <div class="row single">
           <span
             class="lbl"
@@ -160,21 +154,15 @@
             >{{ 备注 or '' }}</span
           >
         </div>
-        {% endif %}
-
-        {% if __has_instrument__ is not defined or __has_instrument__ %}
-
+        {% endif %} {% if __has_instrument__ is not defined or
+        __has_instrument__ %}
 
         <div class="sep">仪器性能</div>
 
-
         <div class="hr"></div>
 
-
-        {% endif %}
-
-        {% if 仪器型号_t %}
-        <div class="row">
+        {% endif %} {% if 仪器型号_t %}
+        <div class="row single">
           <span
             class="lbl"
             style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}{% if 仪器型号_font %}font-family: '{{ 仪器型号_font }}';{% endif %}"
@@ -184,6 +172,9 @@
             style="{% if 仪器型号_fs %}font-size: {{ 仪器型号_fs }}pt;{% endif %}"
             >{{ 仪器型号 or '' }}</span
           >
+        </div>
+        {% endif %} {% if 仪器序号_t %}
+        <div class="row single">
           <span
             class="lbl"
             style="{% if 仪器序号_fs %}font-size: {{ 仪器序号_fs }}pt;{% endif %}{% if 仪器序号_font %}font-family: '{{ 仪器序号_font }}';{% endif %}"
@@ -217,9 +208,7 @@
 
         <div class="hr"></div>
 
-        {% endif %}
-
-        {% if 扫描范围_t %}
+        {% endif %} {% if 扫描范围_t %}
         <div class="row single">
           <span
             class="lbl"
