@@ -271,10 +271,19 @@ async def update_bookmark(data: InputSchema):
                 },
             )
 
-        # ---- 新模式：沿用原有 DOCX + LibreOffice 流程 ----
+        # ---- 向导模式：沿用原有 DOCX + LibreOffice 流程 ----
         # doc = await get_doc_obj_by_template_id(template_id=data.template_id)
 
         content_bytes = base64.b64decode(template.template_content)
+        # DEBUG: 判断数据库取出的模板内容是 HTML 还是 DOCX
+        _head_hex = content_bytes[:4].hex()
+        _head_text = content_bytes[:100]
+        if content_bytes[:2] == b'PK':
+            print(f"[向导模式] 模板 id={template.id} name={template.name} → DOCX (ZIP头), size={len(content_bytes)}")
+        elif content_bytes[:15].lower().startswith(b'<!doctype html') or content_bytes[:6].lower().startswith(b'<html'):
+            print(f"[向导模式] 模板 id={template.id} name={template.name} → ⚠️ HTML! 数据库数据可能错误! head={_head_text[:80]}")
+        else:
+            print(f"[向导模式] 模板 id={template.id} name={template.name} → 未知格式 hex={_head_hex} head={_head_text[:80]}")
         doc_stream = BytesIO(content_bytes)
         doc = Document(doc_stream)
 
