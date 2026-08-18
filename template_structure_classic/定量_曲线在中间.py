@@ -47,9 +47,13 @@ title_mapping = {
 # 字段渲染表格
 extra_info = {
     'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
-    # 页眉页脚（经典模式 HTML 渲染用）
-    'header': {'value': '', 'font': '宋体', 'font_size': 10, 'position': 'left'},
-    'footer': {'value': '', 'font': '宋体', 'font_size': 9, 'position': 'left'},
+    # 页眉页脚：左中右三段，type=0 关联 title_mapping 字段（value 为字段名），type=1 自定义文本，value 为空不展示
+    'left_header': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 10, 'position': 'left'},
+    'mid_header': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 10, 'position': 'center'},
+    'right_header': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 10, 'position': 'right'},
+    'left_footer': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 9, 'position': 'left'},
+    'mid_footer': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 9, 'position': 'center'},
+    'right_footer': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 9, 'position': 'right'},
     # 页码（position: left / center / right）
     'page_num': {'position': 'left', 'font': '宋体', 'font_size': 9},
     # 报告标题

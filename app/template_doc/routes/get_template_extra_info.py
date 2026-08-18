@@ -41,6 +41,15 @@ class DataSchema(BaseModel):
     footer: Dict[str, Union[str, int, float, None]] = Field(None, description='页脚')
     header_position: Optional[str] = Field(None, description='页眉位置: 左边展示/居中展示/右边展示')
     footer_position: Optional[str] = Field(None, description='页脚位置: 左边展示/居中展示/右边展示')
+    # 左中右页眉页脚（type: 0=关联title_mapping字段 1=自定义文本）
+    left_header: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='左页眉')
+    mid_header: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='中页眉')
+    right_header: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='右页眉')
+    left_footer: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='左页脚')
+    mid_footer: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='中页脚')
+    right_footer: Optional[Dict[str, Union[str, int, float, None]]] = Field(None, description='右页脚')
+    # 可选择关联的字段名列表（来自 title_mapping 的 name）
+    title_mapping_name_list: List[str] = Field([], description='title_mapping 字段名列表')
     remark: Dict[str, Union[str, int, float, None]] = Field(None, description='备注')
     page_num_type: str = Field(..., description='页码类型')
     page_num_type_list: List[str] = Field(..., description='页码类型列表')
@@ -130,6 +139,10 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
         # 行边距
         if 'line_height' in extra_info_config:
             header_and_footer_info['line_height'] = extra_info_config['line_height']
+        # 左中右页眉页脚（新格式）
+        for _key in ['left_header', 'mid_header', 'right_header', 'left_footer', 'mid_footer', 'right_footer']:
+            if _key in extra_info_config:
+                header_and_footer_info[_key] = extra_info_config[_key]
         # 页码类型：经典模式从 page_num.position 映射，非经典从 page_num_type
         if is_classic:
             if 'page_num' in extra_info_config:
@@ -163,6 +176,16 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
                 header_and_footer_info['page_num_type'] = TemplatePageNumType.get_name_desc_by_value(
                     extra_info_config.get('page_num_type')
                 )
+
+    # 读取 title_mapping 的所有 name，供前端选择关联字段
+    title_mapping_name_list = []
+    if private_mod and hasattr(private_mod, 'title_mapping'):
+        _tm = getattr(private_mod, 'title_mapping')
+        if isinstance(_tm, dict):
+            for _t_key, _t_desc in _tm.items():
+                if isinstance(_t_desc, dict) and _t_desc.get('name'):
+                    title_mapping_name_list.append(_t_desc['name'])
+    header_and_footer_info['title_mapping_name_list'] = title_mapping_name_list
 
     header_and_footer_info['page_num_type_list'] = [k for k, v in TemplatePageNumType.generate_decs_value_map().items()]
     header_and_footer_info['header_type_list'] = [k for k, v in TemplateFootAndHeaderType.generate_decs_value_map().items()]

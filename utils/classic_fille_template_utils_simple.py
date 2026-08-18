@@ -250,16 +250,14 @@ class ClassicFillDataUtils():
                 if t_desc.get('font'):
                     contexts[base + '_font'] = t_desc['font']
 
-        # 从配置文件的 extra_info 读取页眉页脚标题，注入 contexts
+        # 从配置文件的 extra_info 读取标题/页码/边距（页眉页脚稍后等数据填充完再处理）
+        _extra_info_cache = {}
         try:
             from utils.template_utils import import_template_module
             private_mod = import_template_module(config.classic_structure_module, self.name)
             if hasattr(private_mod, 'extra_info'):
                 ei = private_mod.extra_info
-                if 'header' in ei:
-                    contexts['__header__'] = ei['header']
-                if 'footer' in ei:
-                    contexts['__footer__'] = ei['footer']
+                _extra_info_cache = ei
                 if 'title_list' in ei:
                     contexts['__title_list__'] = ei['title_list']
                 if 'page_num_type' in ei:
@@ -283,6 +281,20 @@ class ClassicFillDataUtils():
             contexts = await self.get_quantitative_determination_context(tpl=None, contexts=contexts)
         if self.measure_type == MeasureType.photometric_measurement.decs:
             contexts = await self.photometric_measurement_context(tpl=None, contexts=contexts)
+
+        # 数据填充完成后构建左中右页眉页脚（type=0 关联字段从 contexts 取真实值）
+        if _extra_info_cache:
+            try:
+                from utils.template_utils import build_header_footer_context
+                _hdr = build_header_footer_context(_extra_info_cache, 'header', contexts=contexts)
+                if _hdr:
+                    contexts['__header__'] = _hdr
+                _ftr = build_header_footer_context(_extra_info_cache, 'footer', contexts=contexts)
+                if _ftr:
+                    contexts['__footer__'] = _ftr
+            except Exception as e:
+                print(f"[get_html_contexts] 构建页眉页脚失败: {e}")
+
         self.for_html = False
         return contexts
     

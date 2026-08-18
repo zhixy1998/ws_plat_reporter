@@ -1,37 +1,37 @@
 # 标准库导入
-import io
-import os
-import time
 import base64
-import tempfile
-import subprocess
+import io
 from io import BytesIO
+import os
+import subprocess
+import tempfile
+import time
 from typing import List, Optional, Union
+from urllib.parse import quote
 
 # 第三方库导入
 from docx import Document
 from fastapi import APIRouter
-from urllib.parse import quote
-from tortoise import connections
-from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from tortoise import connections
 
 # 本地应用导入
-from exceptions.error import ErrorCode
-from utils.log_decorator import log_response
-from ..model.template_doc import TemplateDoc
 from ..model.template_bookmark import TemplateBookmark
-from app.classic_template_doc.routes.classic_create_template_view import create_template as classic_create_template
+from ..model.template_doc import TemplateDoc
 from .create_template_view import create_template
-from utils.fille_template_utils import FillDataUtils
-from exceptions.command_exception import APIException
-from utils.handle_header_footer import set_header_footer
-from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
-from utils.doc_converter import get_libreoffice_command, get_libreoffice_subprocess_kwargs, explain_libreoffice_returncode, get_libreoffice_timeout_seconds
-from constants.template_constant import TemplatePageNumType, MeasureMode, TemplateFootAndHeaderType
+from app.classic_template_doc.routes.classic_create_template_view import create_template as classic_create_template
 from config import config
+from constants.template_constant import TemplatePageNumType, MeasureMode, TemplateFootAndHeaderType
+from exceptions.command_exception import APIException
+from exceptions.error import ErrorCode
 from utils.EditDocxXML import fill_word_bookmark
 from utils.classic_html_builder import ClassicHtmlBuilder
+from utils.doc_converter import get_libreoffice_command, get_libreoffice_subprocess_kwargs, explain_libreoffice_returncode, get_libreoffice_timeout_seconds
+from utils.fille_template_utils import FillDataUtils
+from utils.handle_header_footer import set_header_footer
+from utils.log_decorator import log_response
+from utils.template_utils import get_doc_obj_by_template_id, get_title_mapping
 
 router = APIRouter()
 
@@ -43,24 +43,34 @@ class BookmarkItem(BaseModel):
     value: Optional[str] = Field(None, description="书签内容")
 
 
+class FootHeaderItem(BaseModel):
+    value: Optional[str] = Field(None, description="书签内容")
+    font: Optional[str] = Field(None, description="字体")
+    font_size: Optional[Union[int, float]] = Field(None, description="字号")
+    position: Optional[str] = Field(None, description="0,1,2分别对应右,中,左, 和 TemplateFootAndHeaderType保持一致")
+    type: Optional[int] = Field(None, description="0=关联title_mapping字段 1=自定义文本")
+
+
+
 class InputSchema(BaseModel):
     template_id: int = Field(..., description='模板id')
     bookmark_list: List[BookmarkItem] = Field(None, description='标签名称列表')
     title_list: List[BookmarkItem] = Field(None, description='报告名称')
-    header: Optional[BookmarkItem] = Field(None, description='页眉')
-    footer: Optional[BookmarkItem] = Field(None, description='页脚')
     operation_type: int = Field(None, description='操作类型 0: 预览 1:另存为 2: 保存')
     name: str = Field(None, description='模板名称 当另存为的时候传入')
     remark: Optional[BookmarkItem]= Field(None, description='备注')
     project_name: Optional[BookmarkItem] = Field(None, description='动态项目名称')
     page_num_type: str = Field(TemplatePageNumType.no_page.value, description='页码类型')
-    header_position: Optional[str] = Field(None, description='页眉位置: 左边展示/居中展示/右边展示')
-    footer_position: Optional[str] = Field(None, description='页脚位置: 左边展示/居中展示/右边展示')
     measure_mode: int = Field(None, description='测量模式 1:默认 2:仅测量标签位置不修改标签字体大小')
     margin: Optional[str] = Field(None, description='动态边距(mm)')
     orientation: Optional[int] = Field(None, description='横向/纵向 0=纵向 1=横向')
     line_height: Optional[str] = Field(None, description='行边距')
-
+    left_header: Optional[FootHeaderItem] = Field(None, description='左页眉')
+    mid_header: Optional[FootHeaderItem] = Field(None, description='中页眉')
+    right_header: Optional[FootHeaderItem] = Field(None, description='右页眉')
+    left_footer: Optional[FootHeaderItem] = Field(None, description='左页脚')
+    mid_footer: Optional[FootHeaderItem] = Field(None, description='中页脚')
+    right_footer: Optional[FootHeaderItem] = Field(None, description='右页脚')
 
 
 class DataSchema(BaseModel):
@@ -79,6 +89,130 @@ def _desc_to_position(desc: Optional[str]) -> str:
     decs_value_map = TemplateFootAndHeaderType.generate_decs_value_map()
     value = decs_value_map.get(desc)
     return _VALUE_TO_POS.get(value, 'center')
+
+
+def _collect_header_footer_configs(data: InputSchema, side: str) -> dict:
+    """把前端传的 6 个 FootHeaderItem 转成配置 dict，供 resolve_header_footer_items 使用。"""
+    from utils.template_utils import normalize_position
+    side_items = {
+        'header': ['left_header', 'mid_header', 'right_header'],
+        'footer': ['left_footer', 'mid_footer', 'right_footer'],
+    }
+    configs = {}
+    for key in side_items.get(side, []):
+        item = getattr(data, key, None)
+        if not item:
+            continue
+        configs[key] = {
+            'type': item.type if item.type is not None else 1,
+            'value': item.value,
+            'font': item.font,
+            'font_size': item.font_size,
+            'position': normalize_position(item.position),
+        }
+    return configs
+
+
+def _set_header_footer_three_parts(doc, hdr_items=None, ftr_items=None):
+    """
+    向导模式（DOCX）：左中右三段页眉页脚。
+    用一行三列的无边框表格实现左中右分布（比制表符方案可靠），缺位留空。
+    """
+    from docx.shared import Pt
+    from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.oxml.ns import qn as _qn
+    from docx.oxml import OxmlElement
+
+    def _fill(container, items, default_size):
+        # 先删除所有旧段落，再加占位段落（保证 add_table 有锚点），
+        # 表格插入后再删除占位段落，页眉页脚只剩无边框表格
+        for para in container.paragraphs[:]:
+            para._element.getparent().remove(para._element)
+        container.add_paragraph()
+
+        # 计算可用宽度：页面宽度 - 左右边距（边距可能为 None，给默认值）
+        try:
+            from docx.shared import Cm
+            _section = container.part.document.sections[0]
+            _page_w = _section.page_width if _section.page_width is not None else Cm(21)
+            _left_m = _section.left_margin if _section.left_margin is not None else Cm(2.54)
+            _right_m = _section.right_margin if _section.right_margin is not None else Cm(2.54)
+            _usable = _page_w - _left_m - _right_m
+        except Exception:
+            from docx.shared import Cm
+            _usable = Cm(15.9)
+        if _usable is None or _usable <= 0:
+            from docx.shared import Cm
+            _usable = Cm(15.9)
+
+        _col_w = _usable // 3
+        widths = [_col_w, _col_w, _usable - 2 * _col_w]
+
+        table = container.add_table(rows=1, cols=3, width=_usable)
+        table.autofit = False
+        for i in range(3):
+            table.columns[i].width = widths[i]
+            table.rows[0].cells[i].width = widths[i]
+
+        slots = {it.get('position', 'left'): it for it in items}
+        _align_map = {
+            'left': WD_PARAGRAPH_ALIGNMENT.LEFT,
+            'center': WD_PARAGRAPH_ALIGNMENT.CENTER,
+            'right': WD_PARAGRAPH_ALIGNMENT.RIGHT,
+        }
+        for i, pos in enumerate(('left', 'center', 'right')):
+            cell = table.rows[0].cells[i]
+            it = slots.get(pos)
+            text = it.get('value', '') if it else ''
+            p = cell.paragraphs[0]
+            p.alignment = _align_map[pos]
+            p.paragraph_format.first_line_indent = None
+            p.paragraph_format.left_indent = None
+            p.paragraph_format.right_indent = None
+            if not text:
+                continue
+            run = p.add_run(text)
+            if it:
+                _font = it.get('font') or '宋体'
+                run.font.name = _font
+                if it.get('font_size'):
+                    run.font.size = Pt(it['font_size'])
+                _rPr = run._element.get_or_add_rPr()
+                _rFonts = _rPr.get_or_add_rFonts()
+                _rFonts.set(_qn('w:eastAsia'), _font)
+
+        # 去表格边框和单元格边距
+        _tbl = table._tbl
+        _tblPr = _tbl.tblPr
+        _borders = OxmlElement('w:tblBorders')
+        for edge in ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'):
+            _el = OxmlElement(f'w:{edge}')
+            _el.set(_qn('w:val'), 'none')
+            _el.set(_qn('w:sz'), '0')
+            _el.set(_qn('w:space'), '0')
+            _borders.append(_el)
+        _tblPr.append(_borders)
+        _cell_mar = OxmlElement('w:tblCellMar')
+        for side in ('top', 'left', 'bottom', 'right'):
+            _el = OxmlElement(f'w:{side}')
+            _el.set(_qn('w:w'), '0')
+            _el.set(_qn('w:type'), 'dxa')
+            _cell_mar.append(_el)
+        _tblPr.append(_cell_mar)
+
+        # 删除表格后面的占位段落
+        for para in container.paragraphs[:]:
+            para._element.getparent().remove(para._element)
+
+    for section in doc.sections:
+        if hdr_items:
+            header = section.header
+            header.is_linked_to_previous = False
+            _fill(header, hdr_items, 10)
+        if ftr_items:
+            footer = section.footer
+            footer.is_linked_to_previous = False
+            _fill(footer, ftr_items, 9)
 
 
 @router.post('/update_bookmark')
@@ -114,14 +248,24 @@ async def update_bookmark(data: InputSchema):
         thumbnail_base64 = template.thumbnail_base64
 
         is_classic_save = data.measure_mode == MeasureMode.classic.value
-        if not is_classic_save and (data.header or data.footer):
-            # 非经典模式：DOCX 里插入页眉页脚
+        # 收集左中右页眉页脚配置（经典模式写入 .py 配置，非经典模式写进 DOCX）
+        from utils.template_utils import resolve_header_footer_items
+        _hdr_configs = _collect_header_footer_configs(data, 'header')
+        _ftr_configs = _collect_header_footer_configs(data, 'footer')
+        # 字段名 → 模板变量名 映射（如 {'样品状态': 'sample_status'}），DOCX 关联字段写成 jinja 变量
+        _name_to_var = {
+            info.get('name'): key[:-2]
+            for key, info in origin_title_mapping.items()
+            if isinstance(info, dict) and info.get('name') and key.endswith('_t')
+        }
+        _hdr_items = resolve_header_footer_items(_hdr_configs, 'header', name_to_var=_name_to_var, for_docx=not is_classic_save)
+        _ftr_items = resolve_header_footer_items(_ftr_configs, 'footer', name_to_var=_name_to_var, for_docx=not is_classic_save)
+
+        if not is_classic_save and (_hdr_items or _ftr_items):
+            # 非经典模式：DOCX 里插入页眉页脚（左中右三段，tab stops 对齐）
             doc_stream = BytesIO(content)
             doc = Document(doc_stream)
-            if data.header:
-                set_header_footer(doc, header_text=data.header.value, header_font_name=data.header.font, header_font_size=data.header.font_size)
-            if data.footer:
-                set_header_footer(doc, footer_text=data.footer.value, footer_font_name=data.footer.font, footer_font_size=data.footer.font_size)
+            _set_header_footer_three_parts(doc, hdr_items=_hdr_items or None, ftr_items=_ftr_items or None)
 
             if title_list:
                 doc_stream = await insert_title(title_list, doc, data.template_id, data.measure_mode)
@@ -149,9 +293,7 @@ async def update_bookmark(data: InputSchema):
                     page_num = {'position': pos, 'font': '宋体', 'font_size': 9}
                 else:
                     page_num = {'position': '', 'font': '宋体', 'font_size': 9}  # 不展示页码时 position 为空
-            _save_classic_config_file(template_name, new_name, merged_title_mapping, data.header, data.footer, title_list, page_num, data.margin, data.orientation, data.line_height,
-                header_position=_desc_to_position(data.header_position) if data.header_position else None,
-                footer_position=_desc_to_position(data.footer_position) if data.footer_position else None)
+            _save_classic_config_file(template_name, new_name, merged_title_mapping, _hdr_configs, _ftr_configs, title_list, page_num, data.margin, data.orientation, data.line_height)
         else:
             await create_template(data.name, content_base64, content=content, template_type=template.type, 
         industry_type=template.industry_type, experiment_type=template.experiment_type, 
@@ -187,7 +329,7 @@ async def update_bookmark(data: InputSchema):
 
             # 从配置文件读取标题、页码、页眉页脚（前端传的会覆盖）
             try:
-                from utils.template_utils import import_template_module
+                from utils.template_utils import import_template_module, build_header_footer_context
                 mod = import_template_module(config.classic_structure_module, template_name)
                 if hasattr(mod, 'extra_info'):
                     ei = mod.extra_info
@@ -196,8 +338,8 @@ async def update_bookmark(data: InputSchema):
                         contexts['__page_num__'] = dict(ei['page_num'])
                     # 配置文件默认值（会被前端覆盖）
                     contexts.setdefault('__title_list__', ei.get('title_list', []))
-                    contexts.setdefault('__header__', ei.get('header', {}))
-                    contexts.setdefault('__footer__', ei.get('footer', {}))
+                    contexts.setdefault('__header__', build_header_footer_context(ei, 'header', contexts=contexts))
+                    contexts.setdefault('__footer__', build_header_footer_context(ei, 'footer', contexts=contexts))
             except Exception:
                 pass
 
@@ -216,20 +358,17 @@ async def update_bookmark(data: InputSchema):
                 else:
                     # 不展示页码：清除配置文件中的默认值
                     contexts.pop('__page_num__', None)
-            if data.header and data.header.value:
-                contexts['__header__'] = {
-                    'value': data.header.value,
-                    'font': data.header.font or '宋体',
-                    'font_size': data.header.font_size or 10,
-                    'position': _desc_to_position(data.header_position),
-                }
-            if data.footer and data.footer.value:
-                contexts['__footer__'] = {
-                    'value': data.footer.value,
-                    'font': data.footer.font or '宋体',
-                    'font_size': data.footer.font_size or 9,
-                    'position': _desc_to_position(data.footer_position),
-                }
+
+            # 左中右页眉页脚（前端传的覆盖配置文件）
+            from utils.template_utils import resolve_header_footer_items
+            _hdr_configs = _collect_header_footer_configs(data, 'header')
+            _hdr_items = resolve_header_footer_items(_hdr_configs, 'header', contexts=contexts)
+            if _hdr_items:
+                contexts['__header__'] = {'items': _hdr_items}
+            _ftr_configs = _collect_header_footer_configs(data, 'footer')
+            _ftr_items = resolve_header_footer_items(_ftr_configs, 'footer', contexts=contexts)
+            if _ftr_items:
+                contexts['__footer__'] = {'items': _ftr_items}
             # 边距 / 横向纵向 / 行边距（前端传的覆盖配置文件）
             if data.margin is not None:
                 contexts['__margin__'] = {'value': data.margin}
@@ -287,13 +426,12 @@ async def update_bookmark(data: InputSchema):
         doc_stream = BytesIO(content_bytes)
         doc = Document(doc_stream)
 
-        # 处理页眉页脚
-        header_info = data.header
-        if header_info:
-            set_header_footer(doc, header_text=header_info.value, header_font_name=header_info.font, header_font_size=header_info.font_size)
-        footer_info = data.footer
-        if footer_info:
-            set_header_footer(doc, footer_text=footer_info.value, footer_font_name=footer_info.font, footer_font_size=footer_info.font_size)
+        # 处理页眉页脚（左中右三段，tab stops 对齐）
+        from utils.template_utils import resolve_header_footer_items
+        _hdr_items = resolve_header_footer_items(_collect_header_footer_configs(data, 'header'), 'header')
+        _ftr_items = resolve_header_footer_items(_collect_header_footer_configs(data, 'footer'), 'footer')
+        if _hdr_items or _ftr_items:
+            _set_header_footer_three_parts(doc, hdr_items=_hdr_items or None, ftr_items=_ftr_items or None)
         if title_list:
             doc_stream = await insert_title(title_list, doc, data.template_id, data.measure_mode)
             doc = Document(doc_stream)
@@ -387,8 +525,8 @@ def apply_font_and_size(doc, font=None, font_size=None):
     - font:      对所有 run 生效（中英文字体均修改）
     - font_size: 跳过标题段落（样式名含 'heading' 或 '标题'）
     """
-    from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
 
     HEADING_KEYWORDS = ('heading', '标题')
 
@@ -547,10 +685,10 @@ def _get_html_from_template(template) -> str:
     return raw_bytes.decode('utf-8', errors='replace')
 
 
-def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header, footer, title_list=None, page_num=None, margin=None, orientation=None, line_height=None, header_position=None, footer_position=None):
+def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header_configs: dict, footer_configs: dict, title_list=None, page_num=None, margin=None, orientation=None, line_height=None):
     """
     经典模式另存为：从原 .py 配置文件复制，更新 title_mapping / 标题 / 页眉页脚 / 页码。
-    header_position / footer_position: 'left' / 'center' / 'right'
+    header_configs / footer_configs: {'left_header': {...}, 'mid_header': {...}, ...} 六字段配置
     """
     import shutil
 
@@ -583,17 +721,30 @@ def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict,
     lines.append("}\n")
     content = re.sub(r'title_mapping = \{[\s\S]*?\n\}\n', ''.join(lines), content)
 
-    # 2. 更新 extra_info 中 header / footer
-    if header and header.value:
-        hf = header.font or "宋体"
-        hs = header.font_size or 10
-        hp = header_position or 'left'
-        content = re.sub(r"'header'\s*:\s*\{[^}]*\}", f"'header': {{'value': '{header.value}', 'font': '{hf}', 'font_size': {hs}, 'position': '{hp}'}}", content)
-    if footer and footer.value:
-        ff = footer.font or "宋体"
-        fs = footer.font_size or 9
-        fp = footer_position or 'center'
-        content = re.sub(r"'footer'\s*:\s*\{[^}]*\}", f"'footer': {{'value': '{footer.value}', 'font': '{ff}', 'font_size': {fs}, 'position': '{fp}'}}", content)
+    # 2. 更新 extra_info 中左中右页眉页脚（先删旧行再插入新块）
+    _HF_KEYS = ['left_header', 'mid_header', 'right_header', 'left_footer', 'mid_footer', 'right_footer']
+    _kept_lines = []
+    for _line in content.split('\n'):
+        _stripped = _line.strip()
+        if any(_stripped.startswith(f"'{k}':") for k in _HF_KEYS):
+            continue
+        _kept_lines.append(_line)
+    content = '\n'.join(_kept_lines)
+
+    hf_lines = []
+    for key in _HF_KEYS:
+        cfg = (header_configs if 'header' in key else footer_configs).get(key)
+        if not cfg or not cfg.get('value'):
+            continue
+        hf_lines.append(
+            f"    '{key}': {{'type': {cfg.get('type', 1)}, 'value': '{cfg.get('value', '')}', "
+            f"'font': '{cfg.get('font', '宋体')}', 'font_size': {cfg.get('font_size', 10)}, "
+            f"'position': '{cfg.get('position', '')}'}},"
+        )
+    if hf_lines:
+        hf_block = '\n'.join(hf_lines) + '\n'
+        # 插入到 extra_info = { 之后
+        content = re.sub(r"(extra_info\s*=\s*\{\n)", r"\1" + hf_block, content, count=1)
 
     # 3. 更新 extra_info 中 title_list
     if title_list:

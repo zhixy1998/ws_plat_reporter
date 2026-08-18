@@ -2,3 +2,17 @@
 tortoise_orm = "app.db.TORTOISE_ORM"
 location = "./migrations"
 src_folder = "./."
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# 只检查真正的错误（E=pycodestyle错误, F=pyflakes错误）
+# 关闭 UP(类型注解现代化)/I(import排序)/S(安全)/BLE(盲except) 等风格类规则
+select = ["E", "F"]
+ignore = [
+    "E501",  # 行太长
+    "E722",  # 裸 except
+    "F401",  # 未使用的导入
+    "F841",  # 未使用的变量
+]

@@ -191,7 +191,23 @@ class ClassicHtmlBuilder:
 
         # 构建 Playwright 页眉模板
         header_tpl = None
-        if header_info.get('value'):
+        header_items = header_info.get('items')
+        if header_items:
+            # 新格式：固定左中右三槽位（缺位留白，避免 flex space-between 把内容挤偏）
+            slots = {it.get('position', 'left'): it for it in header_items}
+            parts = ['<div style="display:flex;width:100%;padding:3mm 5mm;">']
+            for pos in ('left', 'center', 'right'):
+                it = slots.get(pos)
+                if it:
+                    parts.append(
+                        f'<div style="flex:1;font-family:{it.get("font", "宋体")};font-size:{it.get("font_size", 10)}pt;'
+                        f'text-align:{pos};">{it.get("value", "")}</div>'
+                    )
+                else:
+                    parts.append('<div style="flex:1;"></div>')
+            parts.append('</div>')
+            header_tpl = ''.join(parts)
+        elif header_info.get('value'):
             hdr_font = header_info.get('font', '宋体')
             hdr_size = header_info.get('font_size', 10)
             hdr_pos = header_info.get('position', 'left')
@@ -203,9 +219,25 @@ class ClassicHtmlBuilder:
 
         # 构建 Playwright 页脚模板（含页码）：页脚文字在上，页码在下
         footer_tpl = None
-        if footer_info.get('value') or page_num_info:
+        footer_items = footer_info.get('items')
+        if footer_items or page_num_info:
             ftr_parts = ['<div style="display:flex;flex-direction:column;width:100%;padding:3mm 5mm;">']
-            if footer_info.get('value'):
+            if footer_items:
+                # 新格式：固定左中右三槽位（缺位留白）
+                _slots = {it.get('position', 'left'): it for it in footer_items}
+                row_parts = ['<div style="display:flex;width:100%;">']
+                for _pos in ('left', 'center', 'right'):
+                    _it = _slots.get(_pos)
+                    if _it:
+                        row_parts.append(
+                            f'<div style="flex:1;font-family:{_it.get("font", "宋体")};font-size:{_it.get("font_size", 9)}pt;'
+                            f'text-align:{_pos};">{_it.get("value", "")}</div>'
+                        )
+                    else:
+                        row_parts.append('<div style="flex:1;"></div>')
+                row_parts.append('</div>')
+                ftr_parts.append(''.join(row_parts))
+            elif footer_info.get('value'):
                 ftr_font = footer_info.get('font', '宋体')
                 ftr_size = footer_info.get('font_size', 9)
                 ftr_pos = footer_info.get('position', 'center')

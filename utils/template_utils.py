@@ -26,7 +26,104 @@ from exceptions.command_exception import APIException
 from app.db import execute_safe_sql
 from utils.doc_converter import get_libreoffice_command, get_libreoffice_timeout_seconds
 from app.template_doc.model.template_doc import TemplateDoc
-from constants.template_constant import MeasureMode
+from constants.template_constant import MeasureMode, TemplateFootAndHeaderType
+
+
+# ==================== 左中右页眉页脚 ====================
+
+HEADER_KEYS = ['left_header', 'mid_header', 'right_header']
+FOOTER_KEYS = ['left_footer', 'mid_footer', 'right_footer']
+
+# TemplateFootAndHeaderType: left=2 center=1 right=0
+_POS_VALUE_TO_CSS = {0: 'right', 1: 'center', 2: 'left'}
+
+
+def normalize_position(position) -> str:
+    """把各种 position 表示统一成 'left'/'center'/'right'。
+
+    兼容：CSS 字符串（'left'）、描述文本（'左边展示'）、int value（0右/1中/2左）。
+    无法识别返回空字符串。
+    """
+    if position is None:
+        return ''
+    if isinstance(position, bool):
+        return ''
+    if isinstance(position, int):
+        return _POS_VALUE_TO_CSS.get(position, '')
+    if isinstance(position, str):
+        s = position.strip()
+        if s in ('left', 'center', 'right'):
+            return s
+        decs_map = TemplateFootAndHeaderType.generate_decs_value_map()
+        if s in decs_map:
+            return _POS_VALUE_TO_CSS.get(decs_map[s], '')
+    return ''
+
+
+def resolve_header_footer_items(configs: dict, side: str, contexts: dict = None, name_to_var: dict = None, for_docx: bool = False) -> list:
+    """
+    把 6 个页眉页脚配置（left/mid/right）组装成渲染 list。
+
+    side: 'header' | 'footer'
+    contexts: 渲染上下文。type=0（关联字段）时从 contexts 取真实值；
+              contexts=None 表示预览模式，取不到真实值就用 [字段名] 占位。
+    name_to_var: {'字段名': '模板变量名'} 映射（如 {'样品状态': 'sample_status'}）。
+    for_docx: True 时 type=0 关联字段写成 jinja 变量（{{ 变量 }}），供 DOCX 模板渲染时替换真实值。
+
+    返回: [{'value': str, 'font': str, 'font_size': float, 'position': str}, ...]
+    空配置/空值不返回。
+    """
+    items = []
+    keys = HEADER_KEYS if side == 'header' else FOOTER_KEYS
+    for key in keys:
+        cfg = (configs or {}).get(key)
+        if not isinstance(cfg, dict):
+            continue
+        value = cfg.get('value')
+        if not value:
+            continue
+        _type = cfg.get('type')
+        _type = 1 if _type is None else int(_type)
+        if _type == 0:
+            if for_docx and name_to_var and value in name_to_var:
+                # DOCX 模板：写 jinja 变量，导出渲染时替换真实值
+                display = '{{ ' + str(name_to_var[value]) + ' }}'
+            else:
+                # 从 contexts 取真实值，取不到用 [字段名] 占位（预览模式）
+                real = (contexts or {}).get(value)
+                display = str(real) if real not in (None, '') else f'[{value}]'
+        else:
+            display = str(value)
+        if not display:
+            continue
+        default_pos = 'left' if 'left' in key else ('center' if 'mid' in key else 'right')
+        pos = normalize_position(cfg.get('position'))
+        items.append({
+            'value': display,
+            'font': cfg.get('font') or '宋体',
+            'font_size': cfg.get('font_size') or 10,
+            'position': pos or default_pos,
+        })
+    return items
+
+
+def build_header_footer_context(extra_info: dict, side: str, contexts: dict = None) -> dict:
+    """
+    从 extra_info 构建 __header__ / __footer__ 渲染配置，兼容新旧两种格式。
+
+    - 新格式：extra_info 有 left/mid/right 六个字段（list 形式渲染左中右三段）
+    - 旧格式：只有单个 header/footer dict
+    """
+    configs = extra_info or {}
+    items = resolve_header_footer_items(configs, side, contexts=contexts)
+    if items:
+        return {'value': '', 'font': '宋体', 'font_size': 10, 'position': 'left', 'items': items}
+    # 旧格式回退
+    old_key = 'header' if side == 'header' else 'footer'
+    old_cfg = configs.get(old_key)
+    if isinstance(old_cfg, dict) and old_cfg.get('value'):
+        return dict(old_cfg)
+    return {}
 
 
 async def get_doc_obj_by_template_id(template_id: int, classic_db=None):
