@@ -245,13 +245,21 @@ async def upload_template_unzip(
             except Exception:
                 continue
 
-        # ---------- 处理 HTML 文件（经典模式） ----------
+        # ---------- 处理 HTML 文件（经典模式 / 向导模式） ----------
         for rel in html_files:
             stem = Path(rel).stem
             cfg = json_cfg.get(stem, {})
 
             template_type_val = _resolve_enum(TemplateType, cfg.get('template_type'))
             experiment_type_val = _resolve_enum(ExperimentType, cfg.get('experiment_type'))
+
+            # config.json 可指定 measure_mode=1 走向导模式（HTML 模板存 default 库）
+            file_measure_mode = cfg.get('measure_mode', None)
+            if file_measure_mode is not None:
+                try:
+                    file_measure_mode = int(file_measure_mode)
+                except (ValueError, TypeError):
+                    file_measure_mode = None
 
             # 尝试读取同名的缩略图 .png 文件
             thumbnail_base64 = None
@@ -270,6 +278,21 @@ async def upload_template_unzip(
                 with open(html_path, 'rb') as hf:
                     html_bytes = hf.read()
                 content_b64 = base64.b64encode(html_bytes)
+
+                if file_measure_mode == MeasureMode.guide.value:
+                    # ---- 向导模式 HTML 模板：存 default 库 ----
+                    from app.template_doc.routes.create_template_view import create_guide_html_template
+                    industry_type_cfg = cfg.get('industry_type') or ''
+                    template_id = await create_guide_html_template(
+                        name=stem, content_base64=content_b64, content=html_bytes,
+                        template_type=template_type_val,
+                        industry_type=industry_type_cfg,
+                        experiment_type=experiment_type_val,
+                    )
+                    _copy_py_to_structure(extract_to, stem, Path(config.structure_path))
+                    await _update_db_python_config(stem, template_id)
+                    processed.append({'name': stem, 'template_id': template_id, 'action': 'created', 'mode': 'guide_html'})
+                    continue
 
                 class_db_con = connections.get('classic_db')
                 # 检查经典模式数据库中是否已存在同名模板

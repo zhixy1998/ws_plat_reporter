@@ -185,6 +185,16 @@ def handle_endpoint_data_to_table_row(table_fields: list, common_table_val) -> l
 
 class BaseTableDataHandler():
 
+    # 如果只想合并特定列：
+    # MERGE_COLUMNS = ['t2', 't3']  # 只合并 t2，t3
+
+    # NO_MERGE_COLUMNS	黑名单，排除这些字段
+    # NO_MERGE_COLUMNS = ['t1']  # t1 不合并
+
+    # TABLE_COL_SPANS 代表每列宽度 不写就等宽
+    # TABLE_COL_SPANS = {'t1': 2, 't3': 3, 't4': 3, 't5': 2}
+
+
     def get_standard_head_and_data(self, data, m):
         header = None
         result_standard_data_list = []

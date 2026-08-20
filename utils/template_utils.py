@@ -156,6 +156,20 @@ async def get_doc_name_and_doc_stream_obj(template_id: int, conn=None):
     return template.name, doc_stream
 
 
+def decode_template_html(template) -> str:
+    """从 TemplateDoc 记录提取 HTML 模板字符串（base64 → 按常见编码解码）。"""
+    content_b64 = template.template_content if template else None
+    if not content_b64:
+        return ''
+    raw_bytes = base64.b64decode(content_b64)
+    for enc in ('utf-8', 'gbk', 'gb2312', 'gb18030', 'latin-1'):
+        try:
+            return raw_bytes.decode(enc)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    return raw_bytes.decode('utf-8', errors='replace')
+
+
 def add_section_page_break(document):
     """
     在文档最后加一个分页的 section break，避免空白页。

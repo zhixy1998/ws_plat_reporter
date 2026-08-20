@@ -53,6 +53,7 @@ class FillDataUtils():
         self.template_type = None
         self.template = template
         self.title_mapping = None
+        self.for_html = False  # HTML 渲染模式：跳过 DOCX 操作，子表格生成 HTML 字符串
 
 
     def convert_tel_val_data_to_rows(self, tel_val_data_list):
@@ -189,6 +190,195 @@ class FillDataUtils():
         return doc_stream
 
     
+    async def build_html_contexts(self, task_id=None, analysis_id=None, remark=None, image_base64=None, all_display=False):
+        """
+        向导模式 HTML 渲染：构建 contexts 字典（替代 docxtpl 渲染）。
+        - _t 变量 → title_mapping 的 name（标签名）
+        - 值变量 → 通用数据接口（非 fake 时）
+        - 表格数据 → endpoint 数据（t*_h 表头 + table_n_rows 行数据）
+        """
+        self.for_html = True
+        self.contexts = {}
+        template_type = self.template.type
+        self.template_type = template_type
+        self.experiment_type = self.template.experiment_type
+        self.measure_type = ExperimentType.get_name_desc_by_value(self.experiment_type)
+
+        # 0. 非 fake：请求通用数据和表格数据
+        if not self.fake and task_id:
+            self.common_val = self.get_common_data_by_endpoint(task_id, analysis_id=analysis_id)
+            self.end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id, all_display)
+
+        # 1. 标题映射：_t 标签 + _fs 字号
+        title_mapping = self.private_mod.title_mapping if hasattr(self.private_mod, 'title_mapping') else {}
+        for key, info in title_mapping.items():
+            if isinstance(info, dict):
+                self.contexts[key] = info.get('name', '')
+                if info.get('font_size') and key.endswith('_t'):
+                    self.contexts[key[:-2] + '_fs'] = info['font_size']
+
+        # 2. 值字段（通用数据）
+        await self.fill_common_data_v()
+
+        # 3. 表格数据
+        if self.template_type == TemplateType.report_template.value:
+            if self.measure_type == MeasureType.quantitative_determination.decs and self.table_data_processor.handler_instance:
+                self.HEADER_M_MAPPING_LIST = self.table_data_processor.handler_instance.HEADER_M_MAPPING_LIST
+                self.TABLE_HEADER_MAP = self.table_data_processor.handler_instance.TABLE_HEADER_MAP
+            temp_context = await self._get_quantitative_context_for_html(task_id=task_id, analysis_id=analysis_id)
+            self.contexts.update(temp_context)
+        elif self.template_type == TemplateType.original_records.value:
+            classic_fill_data_utils = ClassicFillDataUtils(self.name, self.template.id, self.measure_type, single_sample=self.single_sample)
+            classic_fill_data_utils.for_html = True
+            if self.common_val:
+                classic_fill_data_utils.common_val = self.common_val
+            if self.end_point_header_and_data:
+                classic_fill_data_utils.end_point_header_and_data = self.end_point_header_and_data
+            contexts = await classic_fill_data_utils.get_html_contexts(image_base64=image_base64)
+            self.contexts.update(contexts)
+
+        # 3.5 动态表格列元数据（供 HTML 模板循环渲染未知样表格）
+        _handler = getattr(self.table_data_processor, 'handler_instance', None)
+        if _handler and hasattr(_handler, 'TABLE_HEADER_MAP'):
+            _thm = _handler.TABLE_HEADER_MAP
+            _cols = []
+            _headers = {}
+            for _key, _name in _thm.items():
+                _col = _key.replace('_h', '')
+                _cols.append(_col)
+                _headers[_col] = _name
+            self.contexts['__table_columns__'] = _cols
+            self.contexts['__table_headers__'] = _headers
+            # TABLE_COL_SPANS 是比例，按比例分配总宽度 12，保证对齐
+            _ratios = getattr(_handler, 'TABLE_COL_SPANS', {c: 1 for c in _cols})
+            _total_ratio = sum(_ratios.get(c, 1) for c in _cols) or 1
+            _GRID = 12
+            _raw = [_ratios.get(c, 1) / _total_ratio * _GRID for c in _cols]
+            # 四舍五入取整，把误差补到最后一个最大的列上，保证总和 = 12
+            _int_spans = [round(x) for x in _raw]
+            _diff = _GRID - sum(_int_spans)
+            if _diff != 0:
+                _max_idx = _int_spans.index(max(_int_spans))
+                _int_spans[_max_idx] += _diff
+            self.contexts['__table_col_spans__'] = dict(zip(_cols, _int_spans))
+            self.contexts['__table_col_count__'] = len(_cols)
+            print(f"[DEBUG] __table_columns__={_cols}")
+            print(f"[DEBUG] __table_col_spans__={self.contexts['__table_col_spans__']} (ratios={_ratios}, total_ratio={_total_ratio})")
+
+        # 4. 备注
+        if remark:
+            await self.fill_remark(remark)
+
+        # 5. 从 .py extra_info 读标题/页码/页眉页脚（report_template 类型也需要；original_records 已由 get_html_contexts 设置，这里 setdefault 不覆盖）
+        try:
+            ei = getattr(self.private_mod, 'extra_info', None) or {}
+            if 'title_list' in ei:
+                self.contexts.setdefault('__title_list__', ei['title_list'])
+            if 'page_num' in ei:
+                self.contexts.setdefault('__page_num__', ei['page_num'])
+            # 向导 page_num_type：0=不展示 1=左 2=中 3=右
+            if 'page_num_type' in ei and not self.contexts.get('__page_num__'):
+                _pn = ei.get('page_num_type')
+                try:
+                    _pn = int(_pn)
+                except (ValueError, TypeError):
+                    _pn = 0
+                _pn_pos = {1: 'left', 2: 'center', 3: 'right'}.get(_pn)
+                if _pn_pos:
+                    self.contexts['__page_num__'] = {'position': _pn_pos, 'font': '宋体', 'font_size': 9}
+            from utils.template_utils import build_header_footer_context
+            _hdr = build_header_footer_context(ei, 'header', contexts=self.contexts)
+            if _hdr:
+                self.contexts.setdefault('__header__', _hdr)
+            _ftr = build_header_footer_context(ei, 'footer', contexts=self.contexts)
+            if _ftr:
+                self.contexts.setdefault('__footer__', _ftr)
+        except Exception as e:
+            print(f"[build_html_contexts] 读取 extra_info 页眉页脚失败: {e}")
+
+        self.for_html = False
+        return self.contexts
+
+    async def _get_quantitative_context_for_html(self, task_id=None, analysis_id=None):
+        """
+        HTML 模式：构建定量报告模板的表格 contexts。
+        已知样品 → known_sample_sub_table（HTML 字符串）；未知样品 → t*_h 表头 + table_n_rows。
+        """
+        temp_context = {}
+        self.known_sample_jinja_v = self.table_data_processor.get_known_sample_jinja_v()
+
+        handler = self.table_data_processor.handler_instance
+        if handler:
+            stand = getattr(handler, 'STAND', [])
+            if stand:
+                # 已知样品子表格 → HTML 字符串
+                head = []
+                row = []
+                if not self.fake:
+                    for s in stand:
+                        real_header = self.get_stand_real_header_from_endpoint_data(s)
+                        head.append(real_header)
+                        data = self.get_stand_data_list(s)
+                        row.append(data)
+                    for index, row_data in enumerate(row):
+                        row_data.insert(0, head[index])
+                else:
+                    for index, s in enumerate(stand):
+                        head.append(f'已知样-{index}')
+                        data = ['样品' + str(i + 1) for i in range(6)]
+                        row.append(data)
+                    for index, row_data in enumerate(row):
+                        row_data.insert(0, head[index])
+
+                if row:
+                    # 子表格：不设外边框（外边框由外层表格的 td 提供），只画内部网格线（靠 CSS .sub-table td）
+                    html_parts = ['<table class="sub-table" style="width:100%;border-collapse:collapse;">']
+                    for row_data in row:
+                        cells = ''.join(
+                            f'<td style="padding:1px 3px;text-align:center;">{c or ""}</td>'
+                            for c in row_data
+                        )
+                        html_parts.append(f'<tr>{cells}</tr>')
+                    html_parts.append('</table>')
+                    temp_context[self.known_sample_jinja_v] = ''.join(html_parts)
+
+            # 未知样品表格：优先 handler 自定义，否则走 HEADER_M_MAPPING_LIST 通用逻辑
+            if hasattr(handler, 'handle_unknown_sample_table'):
+                private_context = handler.handle_unknown_sample_table(fake=self.fake, end_point_header_and_data=self.end_point_header_and_data)
+                if private_context:
+                    self.contexts.update(private_context)
+            else:
+                for index, origin_header_map in enumerate(self.HEADER_M_MAPPING_LIST):
+                    table_name = 'table_' + str(index + 1)
+                    table_origin_header_data_mapping = {}
+                    for jinja_header_value, m in origin_header_map.items():
+                        table_title_k = jinja_header_value + '_h'
+                        if table_title_k not in self.TABLE_HEADER_MAP:
+                            print(f'数据字段{jinja_header_value}没有在TABLE_HEADER_MAP中定义，跳过该字段。 应该定义{table_title_k}')
+                            continue
+                        if not self.fake:
+                            real_header, identity = self.get_unknown_sample_header(m)
+                            temp_context[table_title_k] = real_header if real_header else ''
+                            if identity:
+                                data = self.get_unknown_sample_data(identity)
+                                table_origin_header_data_mapping[jinja_header_value] = data
+                        else:
+                            temp_context[table_title_k] = self.TABLE_HEADER_MAP.get(table_title_k)
+                            table_origin_header_data_mapping[jinja_header_value] = ['*', '*', '*', '*']
+
+                    if table_origin_header_data_mapping:
+                        rows = self.columns_to_rows(table_origin_header_data_mapping)
+                        # 纵向合并：相邻行值相同 → rowspan（可配 MERGE_COLUMNS / NO_MERGE_COLUMNS 控制）
+                        rows = self.add_rowspan(
+                            rows,
+                            merge_columns=getattr(handler, 'MERGE_COLUMNS', None),
+                            no_merge=getattr(handler, 'NO_MERGE_COLUMNS', None),
+                        )
+                        rows_name = table_name + '_rows'
+                        temp_context[rows_name] = rows
+
+        return temp_context
+
     async def handle_measure_type(self, task_id=None):
         measure_type = None
         measure_type = await self.get_measure_type(task_id)
@@ -1627,7 +1817,51 @@ class FillDataUtils():
         keys = list(data.keys())
         columns = [data[k] for k in keys]
         return [dict(zip(keys, row)) for row in zip(*columns)]
-    
+
+    @staticmethod
+    def add_rowspan(rows: List[Dict], merge_columns=None, no_merge=None) -> List[Dict]:
+        """
+        未知样表格纵向合并：相邻行值相同 → 合并成一个单元格（rowspan）。
+
+        覆盖两种常见场景：
+          - 整列合并：某列所有行值都相同 → 自动合并成一个单元格（rowspan=总行数）
+          - 两行合并：相邻两行值相同 → 自动合并成 rowspan=2
+
+        输出每格结构：{'v': 值, 'rs': rowspan}
+          - rs >= 1：渲染该单元格，rs > 1 时带 rowspan
+          - rs == 0：该格被上面的单元格合并，渲染时跳过
+
+        Args:
+            rows: columns_to_rows 的结果，[{'t1':..,'t2':..}, ...]
+            merge_columns: 参与合并的字段白名单（None = 全部字段）
+            no_merge: 不参与合并的字段黑名单
+        """
+        if not rows:
+            return []
+        all_keys = list(rows[0].keys())
+        merge_keys = all_keys
+        if merge_columns is not None:
+            merge_keys = [k for k in all_keys if k in merge_columns]
+        if no_merge is not None:
+            merge_keys = [k for k in merge_keys if k not in no_merge]
+
+        n = len(rows)
+        # 每格默认 rowspan=1，值为原值
+        cells = [{k: {'v': row.get(k, ''), 'rs': 1} for k in all_keys} for row in rows]
+
+        for k in merge_keys:
+            i = 0
+            while i < n:
+                j = i + 1
+                while j < n and str(rows[j].get(k, '')) == str(rows[i].get(k, '')):
+                    j += 1
+                if j - i > 1:
+                    cells[i][k]['rs'] = j - i
+                    for x in range(i + 1, j):
+                        cells[x][k]['rs'] = 0
+                i = j
+        return cells
+
     # ==================== 表格样式辅助方法 ====================
     @staticmethod
     def _remove_outer_borders_only(table):

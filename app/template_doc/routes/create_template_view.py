@@ -162,6 +162,28 @@ async def create_template(name: str, content_base64: bytes, content: bytes, temp
         return 0
 
 
+async def create_guide_html_template(name: str, content_base64: bytes, content: bytes, template_type: int = 0,
+    industry_type: str = '', experiment_type: int = 0) -> int:
+    """
+    向导模式 HTML 模板：模板内容为 HTML（base64），不解析 Word 书签。
+    存 default 库。.py 配置文件由上传流程负责复制到 structure_path。
+    """
+    if template_type in [TemplateType.report_template.value, TemplateType.original_records.value, TemplateType.calibration_template.value, TemplateType.installation_acceptance_template.value]:
+        async with in_transaction('default') as connection:
+            create_info = {
+                'name': name,
+                'template_content': content_base64,
+                'experiment_type': experiment_type,
+                'type': template_type,
+                'industry_type': industry_type,
+            }
+            template_base_instance = await TemplateDocBase.create(**create_info)
+            create_info['base_template_id'] = template_base_instance.id
+            template = await TemplateDoc.create(**create_info)
+            return template.id
+    return 0
+
+
 async def recursion_create_bookmark(bookmark, template_id, parent_id=None):
     if bookmark.get('name') and bookmark.get('id') and bookmark.get('type') is not None:
         create_info = {

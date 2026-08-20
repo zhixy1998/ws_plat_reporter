@@ -94,7 +94,7 @@ def _html_to_pdf(html_str: str, header_template: str = None, footer_template: st
             pdf_kwargs = dict(
                 format='A4',
                 print_background=True,
-                margin=pdf_margin or {"top": "0", "bottom": "0", "left": "0", "right": "0"},
+                margin=pdf_margin or {"top": "12mm", "bottom": "10mm", "left": "18mm", "right": "18mm"},
             )
             if header_template or footer_template:
                 pdf_kwargs['display_header_footer'] = True
@@ -175,6 +175,25 @@ class ClassicHtmlBuilder:
         line_height_info = contexts.pop('__line_height__', None) or {}
 
         html_str = self.render_html(contexts)
+        return self.build_pdf_from_rendered(
+            html_str, header_info=header_info, footer_info=footer_info,
+            page_num_info=page_num_info, margin_info=margin_info,
+            orientation_info=orientation_info, line_height_info=line_height_info,
+        )
+
+    def build_pdf_from_rendered(self, html_str: str, header_info: dict = None, footer_info: dict = None,
+                                page_num_info: dict = None, margin_info: dict = None,
+                                orientation_info: dict = None, line_height_info: dict = None) -> bytes:
+        """
+        将已渲染的 HTML 字符串直接转 PDF（页眉页脚/页码/边距由参数控制）。
+        header_info/footer_info 支持 {'items': [...]}（左中右）或 {'value': ...}（单段）。
+        """
+        header_info = header_info or {}
+        footer_info = footer_info or {}
+        page_num_info = page_num_info or {}
+        margin_info = margin_info or {}
+        orientation_info = orientation_info or {}
+        line_height_info = line_height_info or {}
         print(f"[ClassicHtmlBuilder] HTML 渲染完成，长度: {len(html_str)}")
 
         # 注入动态样式：边距 / 横向 / 行边距
@@ -260,7 +279,7 @@ class ClassicHtmlBuilder:
             footer_tpl = ''.join(ftr_parts)
 
         use_header_footer = bool(header_tpl or footer_tpl)
-        pdf_margin = {"top": "15mm", "bottom": "15mm", "left": "18mm", "right": "18mm"} if use_header_footer else {"top": "0", "bottom": "0", "left": "0", "right": "0"}
+        pdf_margin = {"top": "15mm", "bottom": "15mm", "left": "18mm", "right": "18mm"} if use_header_footer else {"top": "12mm", "bottom": "10mm", "left": "18mm", "right": "18mm"}
 
         pdf_bytes = _html_to_pdf(html_str, header_template=header_tpl, footer_template=footer_tpl, pdf_margin=pdf_margin)
         print(f"[ClassicHtmlBuilder] PDF 生成完成，大小: {len(pdf_bytes)} bytes")

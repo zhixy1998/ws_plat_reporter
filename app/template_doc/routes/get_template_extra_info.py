@@ -82,20 +82,11 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
     header_and_footer_info: dict = {}
 
     if is_classic:
-        # 经典模式（HTML 模板）：从头读取，后面从配置文件的 extra_info 取值
+        # 经典模式（HTML 模板）：从配置文件的 extra_info 取值
         header_and_footer_info: dict = {}
     else:
-        # 新模式（DOCX 模板）：读 DOCX 取页眉页脚和标题
-        doc = await get_doc_obj_by_template_id(template_id)
-        header_and_footer_info = get_header_footer_font_info(doc)
-
-        title_content_value_list = []
-        title_bookmark_instances = await TemplateBookmark.filter(template_doc_id=template_id, name__contains='标题', is_del=0)
-        title_bookmark_info_list = [{'bm_id': i.id, 'font': i.font, 'font_size': i.font_size, 'name': i.name} for i in title_bookmark_instances]
-        for title_bookmark_info in title_bookmark_info_list:
-            title_content = get_bookmark_text(doc, title_bookmark_info.get('name'))
-            title_content_value_list.append({**title_bookmark_info, 'value': title_content})
-        header_and_footer_info['title_list'] = title_content_value_list
+        # 向导模式（HTML 模板）：从 .py 配置文件的 extra_info 取值（不再解析 DOCX）
+        header_and_footer_info: dict = {}
 
     # 设置默认值
     if is_classic:
@@ -176,6 +167,9 @@ async def get_template_extra_info(template_id: int, measure_mode: Optional[int] 
                 header_and_footer_info['page_num_type'] = TemplatePageNumType.get_name_desc_by_value(
                     extra_info_config.get('page_num_type')
                 )
+            # 标题列表（向导 HTML 模板用 __title_list__）
+            if 'title_list' in extra_info_config:
+                header_and_footer_info['title_list'] = extra_info_config['title_list']
 
     # 读取 title_mapping 的所有 name，供前端选择关联字段
     title_mapping_name_list = []

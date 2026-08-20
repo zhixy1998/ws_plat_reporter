@@ -248,33 +248,9 @@ async def update_bookmark(data: InputSchema):
         thumbnail_base64 = template.thumbnail_base64
 
         is_classic_save = data.measure_mode == MeasureMode.classic.value
-        # 收集左中右页眉页脚配置（经典模式写入 .py 配置，非经典模式写进 DOCX）
-        from utils.template_utils import resolve_header_footer_items
+        # 收集左中右页眉页脚配置（写入 .py 配置的 extra_info）
         _hdr_configs = _collect_header_footer_configs(data, 'header')
         _ftr_configs = _collect_header_footer_configs(data, 'footer')
-        # 字段名 → 模板变量名 映射（如 {'样品状态': 'sample_status'}），DOCX 关联字段写成 jinja 变量
-        _name_to_var = {
-            info.get('name'): key[:-2]
-            for key, info in origin_title_mapping.items()
-            if isinstance(info, dict) and info.get('name') and key.endswith('_t')
-        }
-        _hdr_items = resolve_header_footer_items(_hdr_configs, 'header', name_to_var=_name_to_var, for_docx=not is_classic_save)
-        _ftr_items = resolve_header_footer_items(_ftr_configs, 'footer', name_to_var=_name_to_var, for_docx=not is_classic_save)
-
-        if not is_classic_save and (_hdr_items or _ftr_items):
-            # 非经典模式：DOCX 里插入页眉页脚（左中右三段，tab stops 对齐）
-            doc_stream = BytesIO(content)
-            doc = Document(doc_stream)
-            _set_header_footer_three_parts(doc, hdr_items=_hdr_items or None, ftr_items=_ftr_items or None)
-
-            if title_list:
-                doc_stream = await insert_title(title_list, doc, data.template_id, data.measure_mode)
-
-            doc = Document(doc_stream)
-            content_stream = BytesIO()
-            doc.save(content_stream)
-            content = content_stream.getvalue()
-            content_base64 = base64.b64encode(content)
 
         if data.measure_mode == MeasureMode.classic.value:
             await classic_create_template(new_name, content_base64, template_type=template.type, thumbnail_base64=thumbnail_base64, experiment_type=template.experiment_type)
@@ -295,9 +271,19 @@ async def update_bookmark(data: InputSchema):
                     page_num = {'position': '', 'font': '宋体', 'font_size': 9}  # 不展示页码时 position 为空
             _save_classic_config_file(template_name, new_name, merged_title_mapping, _hdr_configs, _ftr_configs, title_list, page_num, data.margin, data.orientation, data.line_height)
         else:
-            await create_template(data.name, content_base64, content=content, template_type=template.type, 
-        industry_type=template.industry_type, experiment_type=template.experiment_type, 
-        title_mapping=merged_title_mapping, old_template_name=template_name)
+            # 向导 HTML 模板另存为：复制 HTML 模板 + 复制更新 .py 配置
+            from app.template_doc.routes.create_template_view import create_guide_html_template
+            await create_guide_html_template(
+                data.name, content_base64, content=content,
+                template_type=template.type,
+                industry_type=template.industry_type,
+                experiment_type=template.experiment_type,
+            )
+            _save_classic_config_file(
+                template_name, new_name, merged_title_mapping, _hdr_configs, _ftr_configs,
+                title_list, None, None, None, None,
+                py_dir=str(config.structure_path),
+            )
         return {'code': 200, 'message': '模板另存为成功', 'data': {'file_base64': ''}}
 
     else:  # 预览
@@ -410,91 +396,75 @@ async def update_bookmark(data: InputSchema):
                 },
             )
 
-        # ---- 向导模式：沿用原有 DOCX + LibreOffice 流程 ----
-        # doc = await get_doc_obj_by_template_id(template_id=data.template_id)
+        # ---- 向导模式（HTML）：Jinja2 + Playwright 渲染 ----
 
-        content_bytes = base64.b64decode(template.template_content)
-        # DEBUG: 判断数据库取出的模板内容是 HTML 还是 DOCX
-        _head_hex = content_bytes[:4].hex()
-        _head_text = content_bytes[:100]
-        if content_bytes[:2] == b'PK':
-            print(f"[向导模式] 模板 id={template.id} name={template.name} → DOCX (ZIP头), size={len(content_bytes)}")
-        elif content_bytes[:15].lower().startswith(b'<!doctype html') or content_bytes[:6].lower().startswith(b'<html'):
-            print(f"[向导模式] 模板 id={template.id} name={template.name} → ⚠️ HTML! 数据库数据可能错误! head={_head_text[:80]}")
-        else:
-            print(f"[向导模式] 模板 id={template.id} name={template.name} → 未知格式 hex={_head_hex} head={_head_text[:80]}")
-        doc_stream = BytesIO(content_bytes)
-        doc = Document(doc_stream)
+        # 从 DB 获取 HTML 模板字符串
+        html_template_str = _get_html_from_template(template)
+        if not html_template_str.strip():
+            print(f"[向导模式] 模板 {template.name}(id={template.id}) 的 template_content 为空或非 HTML")
+            raise APIException(ErrorCode.TEMPLATE_NOT_FOUND, "向导模板内容为空，请重新上传 HTML 模板")
+        print(f"[向导模式] 模板 id={template.id} name={template.name} → HTML 渲染")
 
-        # 处理页眉页脚（左中右三段，tab stops 对齐）
-        from utils.template_utils import resolve_header_footer_items
-        _hdr_items = resolve_header_footer_items(_collect_header_footer_configs(data, 'header'), 'header')
-        _ftr_items = resolve_header_footer_items(_collect_header_footer_configs(data, 'footer'), 'footer')
-        if _hdr_items or _ftr_items:
-            _set_header_footer_three_parts(doc, hdr_items=_hdr_items or None, ftr_items=_ftr_items or None)
+        # contexts：title_mapping 标签 + 值 + 表格数据
+        fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path=config.structure_module)
+        contexts = await fill_data_utils.build_html_contexts(
+            remark=data.remark.value if data.remark else None,
+        )
+
+        # 前端传的标签名覆盖
+        for key, info in new_title_mapping.items():
+            if key.endswith('_t') and info.get('name'):
+                contexts[key] = info['name']
+                base = key[:-2]
+                if info.get('font_size'):
+                    contexts[base + '_fs'] = info['font_size']
+                if info.get('font'):
+                    contexts[base + '_font'] = info['font']
+
+        # 标题列表
         if title_list:
-            doc_stream = await insert_title(title_list, doc, data.template_id, data.measure_mode)
-            doc = Document(doc_stream)
-        
-        print(f"Section 0 Header Paragraphs: {len(doc.sections[0].header.paragraphs)}") 
-        output_stream = BytesIO()
-        doc.save(output_stream)
-        output_stream.seek(0)
+            contexts['__title_list__'] = [
+                {'name': getattr(t, 'desc_t', ''), 'value': t.value, 'font': t.font, 'font_size': t.font_size}
+                for t in title_list
+            ]
 
-        # 先获取原始字节数据
-        doc_raw_bytes = output_stream.getvalue()
-    
-        # 为显示创建流（处理docxtpl标识）
-        show_output_stream = BytesIO(doc_raw_bytes)
-        if data.measure_mode == MeasureMode.classic.value:
-            fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path=config.classic_structure_module)
-        else:
-            fill_data_utils = FillDataUtils(template_name, fake=True, new_title_mapping=new_title_mapping, template=template, structure_path=config.structure_module)
-        # DEBUG: inspect show_output_stream before preview
-        try:
-            show_output_stream.seek(0)
-            size_before = len(show_output_stream.getvalue())
-        except Exception:
-            size_before = None
-        print(f"DEBUG: before preview_view, show_output_stream type={type(show_output_stream)}, size={size_before}")
-        doc_stream = await fill_data_utils.preview_view(doc_stream=show_output_stream, remark=data.remark.value if data.remark else None)
-        # DEBUG: inspect returned doc_stream
-        if doc_stream is None:
-            print("ERROR: preview_view returned None")
-            raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
-        try:
-            doc_stream.seek(0)
-            size_after = len(doc_stream.getvalue())
-        except Exception:
-            size_after = None
-        print(f"DEBUG: after preview_view, doc_stream type={type(doc_stream)}, size={size_after}")
-        # 根据页码类型处理
-        # 从字符串描述转换为对应的value值
-        template_desc_value_map = TemplatePageNumType.generate_decs_value_map()
-        page_num_value = template_desc_value_map.get(data.page_num_type)
-        
-        if page_num_value != TemplatePageNumType.no_page.value:
-            doc_stream = fill_data_utils.insert_header_page_number(doc_stream, alignment=page_num_value)
+        # 页码类型（desc 文本 → position）
+        if data.page_num_type:
+            _VALUE_TO_POS = {
+                TemplatePageNumType.left_page.value: 'left',
+                TemplatePageNumType.center_page.value: 'center',
+                TemplatePageNumType.right_page.value: 'right',
+            }
+            decs_value_map = TemplatePageNumType.generate_decs_value_map()
+            value = decs_value_map.get(data.page_num_type)
+            if value is not None and value != TemplatePageNumType.no_page.value:
+                contexts['__page_num__'] = {'position': _VALUE_TO_POS.get(value, 'center'), 'font': '宋体', 'font_size': 9}
 
-        # 获取 Word 字节内容
-        doc_stream.seek(0)
-        word_bytes = doc_stream.read()
+        # 左中右页眉页脚
+        from utils.template_utils import resolve_header_footer_items
+        _hdr_items = resolve_header_footer_items(_collect_header_footer_configs(data, 'header'), 'header', contexts=contexts)
+        if _hdr_items:
+            contexts['__header__'] = {'items': _hdr_items}
+        _ftr_items = resolve_header_footer_items(_collect_header_footer_configs(data, 'footer'), 'footer', contexts=contexts)
+        if _ftr_items:
+            contexts['__footer__'] = {'items': _ftr_items}
 
+        # 边距 / 横向纵向 / 行边距
+        if data.margin is not None:
+            contexts['__margin__'] = {'value': data.margin}
+        if data.orientation is not None:
+            contexts['__orientation__'] = {'value': data.orientation}
+        if data.line_height is not None:
+            contexts['__line_height__'] = {'value': data.line_height}
+
+        builder = ClassicHtmlBuilder(template_html=html_template_str)
         try:
-            pdf_bytes = convert_docx_to_pdf(word_bytes)
+            pdf_bytes = builder.build_pdf(contexts)
         except Exception as e:
-            print(f"ERROR: convert_docx_to_pdf failed: {e}")
+            print(f"ERROR: ClassicHtmlBuilder 渲染失败: {e}")
+            import traceback
+            traceback.print_exc()
             raise APIException(ErrorCode.CONVERT_PDF_FAILED)
-
-        # ========== DEBUG 模式：保存中间文件到硬盘（需要时取消注释） ==========
-        # debug_word_path = os.path.join(os.getcwd(), "debug_template.docx")
-        # with open(debug_word_path, "wb") as f:
-        #     f.write(word_bytes)
-        # print(f"DEBUG: Word已保存到 {debug_word_path}，文件大小：{len(word_bytes)} bytes")
-        # ====================================================================
-
-        # 直接从内存转换为 PDF
-
 
         filename = f"{template_name}_filled.pdf"
         safe_name = quote(filename)
@@ -685,14 +655,15 @@ def _get_html_from_template(template) -> str:
     return raw_bytes.decode('utf-8', errors='replace')
 
 
-def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header_configs: dict, footer_configs: dict, title_list=None, page_num=None, margin=None, orientation=None, line_height=None):
+def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict, header_configs: dict, footer_configs: dict, title_list=None, page_num=None, margin=None, orientation=None, line_height=None, py_dir: str = None):
     """
-    经典模式另存为：从原 .py 配置文件复制，更新 title_mapping / 标题 / 页眉页脚 / 页码。
+    另存为：从原 .py 配置文件复制，更新 title_mapping / 标题 / 页眉页脚 / 页码。
     header_configs / footer_configs: {'left_header': {...}, 'mid_header': {...}, ...} 六字段配置
+    py_dir: 结构目录，默认经典模式 classic_structure_path（向导模式传 structure_path）
     """
     import shutil
 
-    py_dir = str(config.classic_structure_path)
+    py_dir = py_dir or str(config.classic_structure_path)
     old_path = os.path.join(py_dir, f"{old_name}.py")
     new_path = os.path.join(py_dir, f"{new_name}.py")
 

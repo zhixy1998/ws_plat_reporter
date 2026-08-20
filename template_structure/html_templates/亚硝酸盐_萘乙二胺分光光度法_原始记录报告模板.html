@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>亚硝酸盐 萘乙二胺分光光度法测定原始记录</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 12mm 15mm 10mm 15mm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "宋体", SimSun, "Noto Sans SC", sans-serif;
+        font-size: 11pt;
+        color: #000;
+        line-height: 1.6;
+        background: #fff;
+      }
+      h1 {
+        text-align: center;
+        font-size: 15pt;
+        font-weight: bold;
+        margin-bottom: 4mm;
+        font-family: "黑体", SimHei, "Noto Sans SC", sans-serif;
+      }
+      .mt {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 4mm;
+        font-size: 10.5pt;
+      }
+      .mt td,
+      .mt th {
+        border: 1px solid #000;
+        padding: 2px 4px;
+        vertical-align: middle;
+      }
+      .mt .lbl {
+        font-weight: bold;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .mt .val {
+        text-align: left;
+      }
+      .mt th {
+        font-weight: bold;
+        text-align: center;
+      }
+      .sub-table {
+        width: 100%;
+        height: 100%;
+        border-collapse: collapse;
+        font-size: 10.5pt;
+      }
+      .sub-host {
+        position: relative;
+        vertical-align: top;
+        padding: 0 !important;
+      }
+      .sub-wrap {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+      }
+      .sub-table td {
+        border-top: none;
+        border-left: none;
+        border-right: 1px solid #000;
+        border-bottom: 1px solid #000;
+        padding: 1px 3px;
+        text-align: center;
+      }
+      .sub-table tr:last-child td {
+        border-bottom: none;
+      }
+      .sub-table td:last-child {
+        border-right: none;
+      }
+      .page-break {
+        page-break-after: always;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      {{ __title_list__[0].value if __title_list__ else
+      '紫外/可见分光光度法测定原始记录' }}
+    </h1>
+
+    <!-- ====== 第一页：主记录表（12 列网格） ====== -->
+    <table class="mt">
+      <tr>
+        <td
+          class="lbl"
+          style="{% if project_t_fs %}font-size: {{ project_t_fs }}pt;{% endif %}"
+        >
+          {{ project_t }}
+        </td>
+        <td class="val" colspan="3">{{ project or '' }}</td>
+        <td
+          class="lbl"
+          style="{% if detection_time_t_fs %}font-size: {{ detection_time_t_fs }}pt;{% endif %}"
+        >
+          {{ detection_time_t }}
+        </td>
+        <td class="val" colspan="2">{{ detection_time or '' }}</td>
+        <td
+          class="lbl"
+          colspan="3"
+          style="{% if trh_t_fs %}font-size: {{ trh_t_fs }}pt;{% endif %}"
+        >
+          {{ trh_t }}
+        </td>
+        <td class="val" colspan="2">
+          温度：{{ t or '' }}，湿度：{{ rh or '' }}
+        </td>
+      </tr>
+      <tr>
+        <td
+          class="lbl"
+          style="{% if instrument_name_t_fs %}font-size: {{ instrument_name_t_fs }}pt;{% endif %}"
+        >
+          {{ instrument_name_t }}
+        </td>
+        <td class="val" colspan="3">{{ instrument_name or '' }}</td>
+        <td
+          class="lbl"
+          style="{% if instrument_num_t_fs %}font-size: {{ instrument_num_t_fs }}pt;{% endif %}"
+        >
+          {{ instrument_num_t }}
+        </td>
+        <td class="val" colspan="2">{{ instrument_num or '' }}</td>
+        <td
+          class="lbl"
+          colspan="3"
+          style="{% if storage_condition_t_fs %}font-size: {{ storage_condition_t_fs }}pt;{% endif %}"
+        >
+          {{ storage_condition_t }}
+        </td>
+        <td class="val" colspan="2">{{ storage_condition or '' }}</td>
+      </tr>
+      <tr>
+        <td
+          class="lbl"
+          style="{% if detection_basis_t_fs %}font-size: {{ detection_basis_t_fs }}pt;{% endif %}"
+        >
+          {{ detection_basis_t }}
+        </td>
+        <td class="val" colspan="4">{{ detection_basis or '' }}</td>
+        <td
+          class="lbl"
+          colspan="2"
+          style="{% if sample_status_t_fs %}font-size: {{ sample_status_t_fs }}pt;{% endif %}"
+        >
+          {{ sample_status_t }}
+        </td>
+        <td class="val" colspan="5">{{ sample_status or '' }}</td>
+      </tr>
+      <tr>
+        <td
+          class="lbl"
+          style="{% if standard_solution_number_t_fs %}font-size: {{ standard_solution_number_t_fs }}pt;{% endif %}"
+        >
+          {{ standard_solution_number_t }}
+        </td>
+        <td class="val" colspan="4">{{ standard_solution_number or '' }}</td>
+        <td
+          class="lbl"
+          colspan="2"
+          style="{% if solution_concentration_t_fs %}font-size: {{ solution_concentration_t_fs }}pt;{% endif %}"
+        >
+          {{ solution_concentration_t }}
+        </td>
+        <td class="val" colspan="5">{{ solution_concentration or '' }}</td>
+      </tr>
+      <tr>
+        <td
+          class="lbl"
+          style="{% if sample_preparation_t_fs %}font-size: {{ sample_preparation_t_fs }}pt;{% endif %}"
+        >
+          {{ sample_preparation_t }}
+        </td>
+        <td class="val" colspan="11">{{ sample_preparation or '' }}</td>
+      </tr>
+      <tr>
+        <td class="val sub-host" colspan="8" rowspan="2">
+          {% if known_sample_sub_table %}
+          <div class="sub-wrap">{{ known_sample_sub_table | safe }}</div>
+          {% endif %}
+        </td>
+        <td
+          class="lbl"
+          colspan="2"
+          style="{% if regression_equation_t_fs %}font-size: {{ regression_equation_t_fs }}pt;{% endif %}"
+        >
+          {{ regression_equation_t }}
+        </td>
+        <td class="val" colspan="2">{{ regression_equation or '' }}</td>
+      </tr>
+      <tr>
+        <td class="val" colspan="4">
+          a={{ a or '' }}&nbsp;&nbsp;b={{ b or '' }}&nbsp;&nbsp;r={{ r or '' }}
+        </td>
+      </tr>
+      <tr>
+        {% for col in __table_columns__ %}
+        <th {% if __table_col_spans__[col]>
+          1 %}colspan="{{ __table_col_spans__[col] }}"{% endif %}>{{
+          __table_headers__[col] }}
+        </th>
+        {% endfor %}
+      </tr>
+      {% for row in table_1_rows %}
+      <tr>
+        {% for col in __table_columns__ %} {% if row[col].rs > 0 %}
+        <td style="text-align: center" {% if __table_col_spans__[col]>
+          1 %}colspan="{{ __table_col_spans__[col] }}"{% endif %} {% if
+          row[col].rs > 1 %}rowspan="{{ row[col].rs }}"{% endif %}>{{ row[col].v
+          }}
+        </td>
+        {% endif %} {% endfor %}
+      </tr>
+      {% endfor %}
+      <tr>
+        <td
+          class="lbl"
+          colspan="2"
+          style="{% if calculation_formula_t_fs %}font-size: {{ calculation_formula_t_fs }}pt;{% endif %}"
+        >
+          {{ calculation_formula_t }}
+        </td>
+        <td class="val" colspan="10">{{ calculation_formula or '' }}</td>
+      </tr>
+      <tr>
+        <td
+          class="lbl"
+          colspan="2"
+          style="{% if remark_t_fs %}font-size: {{ remark_t_fs }}pt;{% endif %}"
+        >
+          {{ remark_t }}
+        </td>
+        <td class="val" colspan="10">{{ remark or '' }}</td>
+      </tr>
+    </table>
+
+    <div class="page-break"></div>
+
+    <!-- ====== 第二页：附页（6 列） ====== -->
+    <h1>
+      {{ __title_list__[1].value if __title_list__ and __title_list__|length > 1
+      else '紫外/可见分光光度法测定原始记录--附页' }}
+    </h1>
+
+    <table class="mt">
+      <tr>
+        {% for col in __table_columns__ %}
+        <th>{{ __table_headers__[col] }}</th>
+        {% endfor %}
+      </tr>
+      {% for row in table_1_rows %}
+      <tr>
+        {% for col in __table_columns__ %} {% if row[col].rs > 0 %}
+        <td style="text-align: center" {% if row[col].rs>
+          1 %}rowspan="{{ row[col].rs }}"{% endif %}>{{ row[col].v }}
+        </td>
+        {% endif %} {% endfor %}
+      </tr>
+      {% endfor %}
+      <tr>
+        <td
+          class="lbl"
+          style="{% if remark_t_fs %}font-size: {{ remark_t_fs }}pt;{% endif %}"
+        >
+          {{ remark_t }}
+        </td>
+        <td class="val" colspan="{{ __table_col_count__ - 1 }}">
+          {{ remark or '' }}
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
