@@ -190,7 +190,11 @@
         <td class="val" colspan="11">{{ sample_preparation or '' }}</td>
       </tr>
       <tr>
-        <td class="val sub-host" colspan="8" rowspan="2">
+        <td
+          class="val sub-host"
+          colspan="8"
+          rowspan="{{ __known_sample_rows__ or 2 }}"
+        >
           {% if known_sample_sub_table %}
           <div class="sub-wrap">{{ known_sample_sub_table | safe }}</div>
           {% endif %}
@@ -209,6 +213,12 @@
           a={{ a or '' }}&nbsp;&nbsp;b={{ b or '' }}&nbsp;&nbsp;r={{ r or '' }}
         </td>
       </tr>
+      {% if __known_sample_rows__ and __known_sample_rows__ > 2 %}{% for _ in
+      range(__known_sample_rows__ - 2) %}
+      <tr>
+        <td class="val" colspan="4">&nbsp;</td>
+      </tr>
+      {% endfor %}{% endif %}
       <tr>
         {% for col in __table_columns__ %}
         <th {% if __table_col_spans__[col]>

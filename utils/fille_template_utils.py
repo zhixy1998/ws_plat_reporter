@@ -341,6 +341,7 @@ class FillDataUtils():
                         html_parts.append(f'<tr>{cells}</tr>')
                     html_parts.append('</table>')
                     temp_context[self.known_sample_jinja_v] = ''.join(html_parts)
+                    temp_context['__known_sample_rows__'] = len(row)
 
             # 未知样品表格：优先 handler 自定义，否则走 HEADER_M_MAPPING_LIST 通用逻辑
             if hasattr(handler, 'handle_unknown_sample_table'):

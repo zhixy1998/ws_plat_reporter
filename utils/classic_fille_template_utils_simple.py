@@ -300,6 +300,8 @@ class ClassicFillDataUtils():
     
     async def get_spectral_scanning_context(self, tpl, image_base64, contexts):
         spectral_scanning_mapping = common_data_mapping.get(self.measure_type)
+        if not self.common_val:
+            self.common_val = {}
         for jinja_val, common_val_key in spectral_scanning_mapping.items():
             if jinja_val == '光谱扫描图片':
                 contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64) or ''
@@ -321,7 +323,8 @@ class ClassicFillDataUtils():
                 else:
                     contexts[jinja_val] = ''
             else:
-                contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
+                if self.common_val:
+                    contexts[jinja_val] = self.common_val.get(common_val_key) if self.common_val.get(common_val_key) else ''
         if self.common_val.get('isRepeat'):
             contexts['is_repeat'] = True
             contexts['重复模式'] = '单池重复'
@@ -383,6 +386,8 @@ class ClassicFillDataUtils():
     
     async def get_time_scanning_context(self, tpl, image_base64, contexts):
         time_scanning_mapping = common_data_mapping.get(self.measure_type)
+        if not self.common_val:
+            self.common_val = {}
         for jinja_val, common_val_key in time_scanning_mapping.items():
             if jinja_val == '时间扫描图片':
                 contexts[jinja_val] = await self.decode_base64_image(tpl, image_base64) or ''
@@ -1073,6 +1078,8 @@ class ClassicFillDataUtils():
         return name_cm_mapping.get(self.name, 16)
     
     def handle_spectral_scanning_table(self, end_point_header_and_data):
+        if not end_point_header_and_data:
+            return {'header': [], 'row_data': []}
         head_list = end_point_header_and_data.get('headList')
         data_list = end_point_header_and_data.get('dataList')
         if self.single_sample:
@@ -1129,6 +1136,8 @@ class ClassicFillDataUtils():
         return {'header': header, 'row_data': row_data}
     
     def handle_time_scanning_table(self, end_point_header_and_data):
+        if not end_point_header_and_data:
+            return {'header': [], 'row_data': []}
         head_list = end_point_header_and_data.get('headList')
         data_list = end_point_header_and_data.get('dataList')
         if self.single_sample:

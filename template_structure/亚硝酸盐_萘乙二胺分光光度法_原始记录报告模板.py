@@ -1,5 +1,5 @@
 # 模板字段定义
-# fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段 
+# fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
@@ -55,6 +55,8 @@ title_mapping = {
 # 字段渲染表格
 extra_info = {
     'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
+    'page_num_type': 0,
+
     # 页眉页脚：左中右三段，type=0 关联 title_mapping 字段（value 为字段名），type=1 自定义文本，value 为空不展示
     'left_header': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 10, 'position': 'left'},
     'mid_header': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 10, 'position': 'center'},
@@ -85,19 +87,16 @@ class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
 
     # 标准样的字段，按顺序横向展示
-    STAND = ['sampleNumber', 'sampleType']
-
-    TABLE_COL_SPANS = {'t1': 1, 't3': 1, 't4': 1, 't5': 1, 't6': 1, 't7': 15}
+    STAND = ['normalConcentration', 'Abs', 'sumAbs']
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING_LIST = [{
         "t1": "sampleName",
-        "t2": "sampleType",
+        "t2": "2191OJP",
         "t3": "Abs",
-        "t4": "sampleType",
-        "t5": "fitConcentration",
-        "t6": "samplingTime",
-        "t7": "samplingTime"
+        "t4": "574-1",
+        "t5": "sumAbs",
+        "t6": "2191OJP"
     }]
 
     TABLE_HEADER_MAP = {
@@ -107,7 +106,6 @@ class TableDataHandler(BaseTableDataHandler):
         't4_h': '试份溶液吸光度A',
         't5_h': '亚硝酸盐',
         't6_h': '平均值（   ）',
-        't7_h': '平均值2（   ）',
     }
 
 

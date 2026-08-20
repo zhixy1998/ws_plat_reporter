@@ -1,5 +1,5 @@
 # 模板字段定义
-# fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段 
+# fill_type: 0 表示从模板中提取的字段, fill_type: 1 表示表格截取的字段
 
 # get_type: 0: 表示从通用数据中取, 1: 表示从接口中取 2: 表从数据库中取
 
@@ -55,7 +55,27 @@ title_mapping = {
 # 字段渲染表格
 extra_info = {
     'remark': {'value': '', 'font_size': 12, 'font': '宋体'},  # 备注
-    'page_num_type': 0
+    'page_num_type': 0,
+
+    # 页眉页脚：左中右三段，type=0 关联 title_mapping 字段（value 为字段名），type=1 自定义文本，value 为空不展示
+    'left_header': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 10, 'position': 'left'},
+    'mid_header': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 10, 'position': 'center'},
+    'right_header': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 10, 'position': 'right'},
+    'left_footer': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 9, 'position': 'left'},
+    'mid_footer': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 9, 'position': 'center'},
+    'right_footer': {'type': 1, 'value': '', 'font': '宋体', 'font_size': 9, 'position': 'right'},
+    # 页码（position: left / center / right）
+    'page_num': {'position': 'left', 'font': '宋体', 'font_size': 9},
+    # 报告标题
+    'title_list': [
+        {'name': '报告名称', 'value': '定量测定原始数据', 'font': '黑体', 'font_size': 15},
+    ],
+    # 动态边距（mm），前端自由输入
+    'margin': {'value': '20'},
+    # 横向/纵向：0=纵向（portrait）| 1=横向（landscape）
+    'orientation': {'value': 0},
+    # 行边距（line-height 倍数）
+    'line_height': {'value': '1.5'},
 }
 
 table_fields = []
@@ -67,16 +87,16 @@ class TableDataHandler(BaseTableDataHandler):
     """表格数据处理类，用于处理数据映射和处理逻辑"""
 
     # 标准样的字段，按顺序横向展示
-    STAND = ['sampleName']
+    STAND = ['normalConcentration', 'Abs', 'sumAbs']
     
     # 简单字段映射：表头名称 -> 数据库字段名
     HEADER_M_MAPPING_LIST = [{
         "t1": "sampleName",
-        "t2": "sampleType",
+        "t2": "2191OJP",
         "t3": "Abs",
-        "t4": "680-1",
-        "t5": "fitConcentration",
-        "t6": "samplingTime"
+        "t4": "574-1",
+        "t5": "sumAbs",
+        "t6": "2191OJP"
     }]
 
     TABLE_HEADER_MAP = {

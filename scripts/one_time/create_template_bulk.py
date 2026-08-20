@@ -1,25 +1,25 @@
 
 import asyncio
 import os
+import random
 import sys
 
 from tortoise.fields import base
 from tortoise.transactions import in_transaction
 
-""""
-要在项目根目录执行 python scripts/one_time/chang_industry_type.py  类似这样
-"""
-# 加入项目根目录到 sys.path，确保可以导入 app.o
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
-from app.db import init_db  #  导入你现有的数据库初始化方法
+
+from app.db import init_db
 from app.template_doc.model.template_doc import TemplateDoc
 from app.template_doc.model.template_doc_base import TemplateDocBase
-# from app.template_doc.model.bookmark_data import BookmarkData
 from app.template_doc.model.template_bookmark import TemplateBookmark
 from app.template_doc.model.template_extra_info import TemplateExtraInfo
 from config import config
+
+# ====== 可修改配置 ======
+# 行业列表
+INDUSTRY_LIST = ["环境监测", "水质检测", "土壤分析", "大气检测", "食品安全"]
 
 async def run():
     await init_db()  # 初始化数据库连接
@@ -80,8 +80,10 @@ async def run():
         if not k.startswith('_') and k != 'id'
     }
     for name in template_name_list:
+        industry = random.choice(INDUSTRY_LIST)
         async with in_transaction('default'):
             base_data['name'] = name
+            base_data['industry_type'] = industry
             new_template_base = await TemplateDocBase.create(**base_data)
 
             doc_data = {
@@ -90,6 +92,7 @@ async def run():
             }
             doc_data['base_template_id'] = new_template_base.id
             doc_data['name'] = name
+            doc_data['industry_type'] = industry
             template_doc_instance = await TemplateDoc.create(**doc_data)
 
             for bookmark in old_template_bookmark_list:
@@ -100,14 +103,9 @@ async def run():
                 bookmark_info['template_doc_id'] = template_doc_instance.id
                 await TemplateBookmark.create(**bookmark_info)
 
-            py_folders = config.structure_path
-            old_py_path = os.path.join(py_folders, f"{base_template_name}.py")
-            with open(old_py_path, "r", encoding="utf-8") as f:
-                old_content = f.read()
-            new_py_path = os.path.join(py_folders, f"{name}.py")
-            # 如果新文件已存在，先备份
-            with open(new_py_path, "w", encoding="utf-8", newline='\n') as f:
-                    f.write(old_content)
+            print(f"  ✓ {name} → {industry}")
+
+    print(f"\n完成，共创建 {len(template_name_list)} 个模板")
 
 
     
