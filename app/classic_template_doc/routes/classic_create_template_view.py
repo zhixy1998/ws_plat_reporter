@@ -97,6 +97,10 @@ async def create_template_view(
 async def create_template(name: str, content_base64: bytes, template_type: int = 0, thumbnail_base64: str = None, experiment_type=0, title_mapping=None, old_template_name=None) -> int:
     """创建经典模式 HTML 模板。"""
 
+    # BinaryField 要求 bytes，确保类型正确
+    if isinstance(content_base64, str):
+        content_base64 = content_base64.encode('utf-8')
+
     class_db_con = connections.get('classic_db')
     async with in_transaction('classic_db') as connection:
         create_info = {
