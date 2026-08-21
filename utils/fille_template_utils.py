@@ -1392,66 +1392,6 @@ class FillDataUtils():
         
         return all_children
     
-    def fill_template_jinja_custom_info(self,doc_stream, custom_info=None, additional_context=None):
-        """
-        doc_stream    模板文件流
-        custom_info   自定义标签信息
-        """
-        try:
-            from utils.template_utils import import_template_module
-            private_mod = import_template_module(config.structure_module, self.name)
-        except Exception as e:
-            private_mod = None
-        # if private_mod and hasattr(private_mod, 'custom_bookmark'):
-        #     custom_bookmark=private_mod.custom_bookmark
-        # else:
-        #     custom_bookmark = {'note': '备注', 'project_name': '项目名称'}
-
-        try:
-            from docxtpl import DocxTemplate
-            from io import BytesIO
-
-            # 创建DocxTemplate对象
-            doc_stream.seek(0)
-            tpl = DocxTemplate(doc_stream)
-
-            # 获取模板中所有未声明的变量
-            undeclared_vars = tpl.get_undeclared_template_variables()
-
-            blank_context = {}
-            for var in undeclared_vars:
-                blank_context[var] = ""
-            # if custom_info:
-            #     for i in undeclared_vars:
-            #         if i in custom_bookmark['project_name']:
-            #             blank_context[i] = custom_info.get('project_name')
-            #         if i in custom_bookmark['note']:
-            #             blank_context[i] = custom_info.get('note')
-
-            # 为所有未声明的变量创建空字符串映射
-
-            # 如果没有未声明的变量，直接返回原文档
-            if not blank_context:
-                doc_stream.seek(0)
-                return doc_stream
-            if additional_context:
-                blank_context.update(additional_context)
-            # 使用空字符串上下文渲染模板
-            tpl.render(blank_context)
-
-            # 保存到新的BytesIO流
-            output_stream = BytesIO()
-            tpl.save(output_stream)
-            output_stream.seek(0)
-
-            return output_stream
-
-        except Exception as e:
-            # 出错时返回原文档
-            doc_stream.seek(0)
-            return doc_stream
-    
-    
     @staticmethod
     async def get_measure_type(task_id):
         if not task_id:
