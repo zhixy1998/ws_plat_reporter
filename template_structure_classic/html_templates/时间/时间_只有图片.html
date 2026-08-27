@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>时间扫描原始记录</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 12mm 18mm 10mm 18mm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "宋体", SimSun, "Noto Sans SC", sans-serif;
+        font-size: 11pt;
+        color: #000;
+        line-height: 2;
+        background: #fff;
+      }
+      h1 {
+        text-align: center;
+        font-size: 15pt;
+        font-weight: bold;
+        margin-bottom: 5mm;
+        font-family: "黑体", SimHei, "Noto Sans SC", sans-serif;
+      }
+      .chart {
+        text-align: center;
+      }
+      .chart img {
+        max-width: 95%;
+        max-height: 250mm;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      {{ __title_list__[0].value if __title_list__ else '时间扫描原始记录' }}
+    </h1>
+
+    {% if 时间扫描图片 %}
+    <div class="chart">
+      <img src="{{ 时间扫描图片 }}" alt="时间扫描图片" />
+    </div>
+    {% endif %}
+  </body>
+</html>
