@@ -190,7 +190,7 @@ class FillDataUtils():
         return doc_stream
 
     
-    async def build_html_contexts(self, task_id=None, analysis_id=None, remark=None, image_base64=None, all_display=False, show_type=''):
+    async def build_html_contexts(self, task_id=None, analysis_id=None, remark=None, image_base64=None, all_display=False, show_type='', is_one_sample=None):
         """
         向导模式 HTML 渲染：构建 contexts 字典（替代 docxtpl 渲染）。
         - _t 变量 → title_mapping 的 name（标签名）
@@ -207,7 +207,7 @@ class FillDataUtils():
         # 0. 非 fake：请求通用数据和表格数据
         if not self.fake and task_id:
             self.common_val = self.get_common_data_by_endpoint(task_id, analysis_id=analysis_id)
-            self.end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id, all_display, show_type=show_type)
+            self.end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id, all_display, show_type=show_type, is_one_sample=is_one_sample)
 
         # 1. 标题映射：_t 标签 + _fs 字号
         title_mapping = self.private_mod.title_mapping if hasattr(self.private_mod, 'title_mapping') else {}
@@ -262,6 +262,14 @@ class FillDataUtils():
                 _int_spans[_max_idx] += _diff
             self.contexts['__table_col_spans__'] = dict(zip(_cols, _int_spans))
             self.contexts['__table_col_count__'] = len(_cols)
+            # 补齐表格行缺失的列，避免模板 row[col] 访问不存在的键（真实数据某列无 identity 时整列缺失）
+            for _k in list(self.contexts.keys()):
+                if _k.endswith('_rows') and isinstance(self.contexts[_k], list):
+                    for _row in self.contexts[_k]:
+                        if isinstance(_row, dict):
+                            for _c in _cols:
+                                if _c not in _row:
+                                    _row[_c] = {'v': '', 'rs': 1}
             print(f"[DEBUG] __table_columns__={_cols}")
             print(f"[DEBUG] __table_col_spans__={self.contexts['__table_col_spans__']} (ratios={_ratios}, total_ratio={_total_ratio})")
 
@@ -1645,17 +1653,18 @@ class FillDataUtils():
                 return origin_header_real_header_mapping, tpl_context
 
     
-    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None, show_type=''):
+    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None, show_type='', is_one_sample=None):
         if all_display:
             all_display=True
         else:
             all_display=False
-            
+
         show_type_suffix = '&showType=' + urllib.parse.quote(str(show_type), safe='') if show_type else ''
+        is_one_sample_suffix = '&isOneSample=' + ('true' if is_one_sample else 'false') if is_one_sample is not None else ''
         if digit is not None:
-            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='') + show_type_suffix
+            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='') + show_type_suffix + is_one_sample_suffix
         else:
-            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + show_type_suffix
+            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + show_type_suffix + is_one_sample_suffix
 
         try:
             response = requests.get(template_common_url)
