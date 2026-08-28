@@ -27,6 +27,24 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _resolve_measure_mode(val) -> int:
+    """解析 measure_mode：0=经典模式, 1=向导模式；无法识别时返回 None。
+
+    兼容 int、字符串数字、'classic'/'guide'、'经典模式'/'向导模式' 等写法。
+    """
+    if val is None:
+        return None
+    if isinstance(val, int):
+        return val
+    if isinstance(val, str):
+        v = val.strip().lower()
+        if v in ('0', 'classic', '经典模式'):
+            return MeasureMode.classic.value
+        if v in ('1', 'guide', '向导模式'):
+            return MeasureMode.guide.value
+    return None
+
+
 @router.post('/upload_template_unzip')
 async def upload_template_unzip(
     file: UploadFile = File(...),
@@ -36,11 +54,12 @@ async def upload_template_unzip(
     """
     上传 zip 包并批量创建模板。
 
-    - 自动检测文件类型：.html/.htm → 经典模式，.docx → 向导模式
-    - 也可通过 measure_mode 参数强制指定：0=经典模式, 1=向导模式
+    - 向导模式与经典模式均使用 HTML 模板（.html/.htm）
+    - measure_mode 参数指定模式：0=经典模式, 1=向导模式（默认向导模式）
+    - 兼容旧的 .docx（向导模式 Word 模板），按向导模式处理
     """
     if measure_mode is None:
-        measure_mode = MeasureMode.guide.value  # 默认向导模式，由文件扩展名覆盖
+        measure_mode = MeasureMode.guide.value  # 默认向导模式
     if not file.filename or not file.filename.lower().endswith('.zip'):
         raise APIException(ErrorCode.ONLY_ZIP_FILES_SUPPORTED)
 
@@ -182,19 +201,16 @@ async def upload_template_unzip(
         if not isinstance(json_cfg, dict):
             json_cfg = {}
 
-        # ---------- 处理 DOCX 文件（向导模式） ----------
+        # ---------- 处理 DOCX 文件（向导模式，兼容旧 Word 模板） ----------
         for rel in docx_files:
             stem = Path(rel).stem
             cfg = json_cfg.get(stem, {})
-            # 可通过 config.json 中的 measure_mode 覆盖自动检测
-            file_measure_mode = cfg.get('measure_mode', None)
-            if file_measure_mode is not None:
-                try:
-                    file_measure_mode = int(file_measure_mode)
-                except (ValueError, TypeError):
-                    file_measure_mode = None
+            # 模式：config.json 单文件配置优先，其次用表单 measure_mode
+            file_measure_mode = _resolve_measure_mode(cfg.get('measure_mode'))
+            if file_measure_mode is None:
+                file_measure_mode = measure_mode
             if file_measure_mode == MeasureMode.classic.value:
-                # config 中指定为经典模式，跳过 docx 处理（由 html 分支处理）
+                # 指定为经典模式，跳过 docx 处理（由 html 分支处理）
                 continue
 
             template_type_val = _resolve_enum(TemplateType, cfg.get('template_type'))
@@ -245,7 +261,7 @@ async def upload_template_unzip(
             except Exception:
                 continue
 
-        # ---------- 处理 HTML 文件（经典模式 / 向导模式） ----------
+        # ---------- 处理 HTML 文件（经典模式 / 向导模式，均使用 HTML） ----------
         for rel in html_files:
             stem = Path(rel).stem
             cfg = json_cfg.get(stem, {})
@@ -253,13 +269,10 @@ async def upload_template_unzip(
             template_type_val = _resolve_enum(TemplateType, cfg.get('template_type'))
             experiment_type_val = _resolve_enum(ExperimentType, cfg.get('experiment_type'))
 
-            # config.json 可指定 measure_mode=1 走向导模式（HTML 模板存 default 库）
-            file_measure_mode = cfg.get('measure_mode', None)
-            if file_measure_mode is not None:
-                try:
-                    file_measure_mode = int(file_measure_mode)
-                except (ValueError, TypeError):
-                    file_measure_mode = None
+            # 模式：config.json 单文件配置优先，其次用表单 measure_mode
+            file_measure_mode = _resolve_measure_mode(cfg.get('measure_mode'))
+            if file_measure_mode is None:
+                file_measure_mode = measure_mode
 
             # 尝试读取同名的缩略图 .png 文件
             thumbnail_base64 = None
@@ -394,7 +407,7 @@ async def download_template_zip(payload: dict = Body(...)):
 
     payload 可包含:
         template_ids / template_id: 模板 ID 列表
-        measure_mode: 0=经典模式(导出 .html), 1=向导模式(导出 .docx)，默认 1
+        measure_mode: 0=经典模式(导出 .html), 1=向导模式(导出 .html)，默认 1
 
     返回的 config.json 内容格式为 {"template_name": {"template_type": "desc", "experiment_type": "desc", "industry_type": "...", "measure_mode": "..."}}
     """
@@ -429,13 +442,17 @@ async def download_template_zip(payload: dict = Body(...)):
         if not template_ids:
             raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
 
-        is_classic = int(measure_mode) == MeasureMode.classic.value
+        # 模式：兼容 0/1、'classic'/'guide' 等写法，默认向导模式
+        resolved_mode = _resolve_measure_mode(measure_mode)
+        if resolved_mode is None:
+            resolved_mode = MeasureMode.guide.value
+        is_classic = resolved_mode == MeasureMode.classic.value
 
         files_to_add = []  # list of tuples (arcname, bytes)
         json_cfg = {}
         missing = []
 
-        # 根据模式选择数据库和结构路径
+        # 根据模式选择数据库和结构路径（向导与经典均使用 HTML）
         if is_classic:
             db_conn = connections.get('classic_db')
             structure_path = Path(config.classic_structure_path)
@@ -443,7 +460,7 @@ async def download_template_zip(payload: dict = Body(...)):
         else:
             db_conn = None  # 默认数据库
             structure_path = Path(config.structure_path)
-            file_ext = '.docx'
+            file_ext = '.html'
 
         for tid in template_ids:
             if is_classic:

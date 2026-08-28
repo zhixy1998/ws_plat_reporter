@@ -190,7 +190,7 @@ class FillDataUtils():
         return doc_stream
 
     
-    async def build_html_contexts(self, task_id=None, analysis_id=None, remark=None, image_base64=None, all_display=False):
+    async def build_html_contexts(self, task_id=None, analysis_id=None, remark=None, image_base64=None, all_display=False, show_type=''):
         """
         向导模式 HTML 渲染：构建 contexts 字典（替代 docxtpl 渲染）。
         - _t 变量 → title_mapping 的 name（标签名）
@@ -207,7 +207,7 @@ class FillDataUtils():
         # 0. 非 fake：请求通用数据和表格数据
         if not self.fake and task_id:
             self.common_val = self.get_common_data_by_endpoint(task_id, analysis_id=analysis_id)
-            self.end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id, all_display)
+            self.end_point_header_and_data = self.get_table_head_data_from_endpoint(task_id, analysis_id, all_display, show_type=show_type)
 
         # 1. 标题映射：_t 标签 + _fs 字号
         title_mapping = self.private_mod.title_mapping if hasattr(self.private_mod, 'title_mapping') else {}
@@ -1645,16 +1645,18 @@ class FillDataUtils():
                 return origin_header_real_header_mapping, tpl_context
 
     
-    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None):
+    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None, show_type=''):
         if all_display:
             all_display=True
         else:
             all_display=False
             
+        show_type_suffix = '&showType=' + urllib.parse.quote(str(show_type), safe='') if show_type else ''
         if digit is not None:
-            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='')
+            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='') + show_type_suffix
         else:
-            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='')
+            template_common_url = config.guide_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + show_type_suffix
+
         try:
             response = requests.get(template_common_url)
             res_json = response.json()

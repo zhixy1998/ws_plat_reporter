@@ -27,6 +27,7 @@ class InputSchema(BaseModel):
     is_repeat_mode: int = Field(0, description='是否重复模式')
     digit: int = Field(None, description='保留小数位数')
     image_base64: str = Field(None, description='图片base64')
+    show_type: str = Field(None, description='波峰，波谷，标记点的展示')
 
 class OutSchema(BaseModel):
     pass
@@ -39,6 +40,7 @@ async def export_docx(data: InputSchema):
     template_id = data.template_id
     task_id = data.task_id
     measure_type = await get_measure_type(task_id)
+    show_type = data.show_type
 
     if template_id is None:
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND)
@@ -59,7 +61,7 @@ async def export_docx(data: InputSchema):
         fill_data_instance.single_sample = True
     fill_data_instance.end_point_header_and_data = (
         fill_data_instance.get_table_head_data_from_endpoint(
-            task_id, data.analysis_id, data.all_display, data.digit
+            task_id, data.analysis_id, data.all_display, data.digit, show_type=show_type
         )
     )
 

@@ -875,16 +875,18 @@ class ClassicFillDataUtils():
                     tpl_context[rows_name] = rows
         return origin_header_real_header_mapping, tpl_context
     
-    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None):
+    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None, show_type=None):
         if all_display:
             all_display=True
         else:
             all_display=False
             
+        show_type_suffix = '&showType=' + urllib.parse.quote(str(show_type), safe='') if show_type else ''
         if digit is not None:
-            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='')
+            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='') + show_type_suffix
         else:
-            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='')
+            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + show_type_suffix
+
         # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
         try:
