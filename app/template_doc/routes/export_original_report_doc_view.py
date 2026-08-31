@@ -51,8 +51,7 @@ async def _render_template_html(template_id: int, task_id: str, sample_id: str, 
         raise APIException(ErrorCode.TEMPLATE_NOT_FOUND, f"模板 {template.name} 内容为空或非 HTML")
 
     fill_data_utils = FillDataUtils(template.name, template=template)
-    if analysis_id and len(analysis_id.split(',')) == 1:
-        fill_data_utils.single_sample = True
+    fill_data_utils.single_sample = is_one_sample
     contexts = await fill_data_utils.build_html_contexts(
         task_id=task_id, analysis_id=analysis_id, image_base64=image_base64, all_display=all_display,
         show_type=show_type, is_one_sample=is_one_sample
