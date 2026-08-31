@@ -1036,14 +1036,13 @@ class ClassicFillDataUtils():
                 for head_mapping in head_list:
                     header.append(head_mapping.get('name'))
                     identity_list.append(head_mapping.get('identity'))
-                for wave_length_data_mapping in data_list:
+                for data in data_list:
                     row = []
-                    for wave_length, data in wave_length_data_mapping.items():
-                        row.append(data.get('id'))
-                        row.append(wave_length)
-                        for index, sample_num in enumerate(data.get('sampleNumber')):
-                            row.append(sample_num)
-                            row.append(data.get('peakValley')[index])
+                    for wave, identity in enumerate(identity_list):
+                        if data.get(identity):
+                            row.append(data.get(identity))
+                        else:
+                            row.append('')
                     row_data.append(row)
         else:
             sample_num = 0 # 样品数量
@@ -1094,17 +1093,13 @@ class ClassicFillDataUtils():
                 header.append(head_mapping.get('name'))
                 identity_list.append(head_mapping.get('identity'))
             row_data = []
-            for wave_length_data_mapping in data_list:
+            for data in data_list:
                 row = []
-                for time, data in wave_length_data_mapping.items():
-                    row.append(data.get('id'))
-                    row.append(time)
-                    for index, sample_num in enumerate(data.get('sampleNumber')):
-                        row.append(sample_num)
-                        if data.get('peakValley')[index]:
-                            row.append(data.get('peakValley')[index])
-                        else:
-                            row.append('')
+                for index, identity in enumerate(identity_list):
+                    if data.get(identity):
+                        row.append(data.get(identity))
+                    else:
+                        row.append('')
                 row_data.append(row)
         else:
             sample_num = 0 # 样品数量

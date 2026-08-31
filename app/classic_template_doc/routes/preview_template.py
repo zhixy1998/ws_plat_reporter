@@ -54,15 +54,15 @@ async def preview_template(data: InputSchema):
     html_template_str = _get_html_from_template(template)
     builder = ClassicHtmlBuilder(template_html=html_template_str)
 
+
+
     fill_data_instance = ClassicFillDataUtils(
-        template_name, template_id=template_id, measure_type=measure_type
+        template_name, template_id=template_id, measure_type=measure_type, single_sample=data.is_one_sample
     )
 
     try:
         # 获取通用数据和表头数据
         fill_data_instance.get_common_data_by_endpoint(task_id, data.analysis_id)
-        if data.analysis_id and len(data.analysis_id.split(',')) == 1:
-            fill_data_instance.single_sample = True
         fill_data_instance.end_point_header_and_data = (
             fill_data_instance.get_table_head_data_from_endpoint(
                 task_id, data.analysis_id, data.all_display, data.digit, show_type=show_type, is_one_sample=data.is_one_sample
