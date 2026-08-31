@@ -1,4 +1,5 @@
 # 标准库导入
+import ast
 import base64
 import io
 from io import BytesIO
@@ -105,8 +106,8 @@ def _collect_header_footer_configs(data: InputSchema, side: str) -> dict:
             continue
         configs[key] = {
             'type': item.type if item.type is not None else 1,
-            'value': item.value,
-            'font': item.font,
+            'value': item.value or '',
+            'font': item.font or '宋体',
             'font_size': item.font_size,
             'position': normalize_position(item.position),
         }
@@ -694,6 +695,13 @@ def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict,
 
     # 2. 更新 extra_info 中左中右页眉页脚（先删旧行再插入新块）
     _HF_KEYS = ['left_header', 'mid_header', 'right_header', 'left_footer', 'mid_footer', 'right_footer']
+    # 记录原文件中已有的左中右配置，前端未传时兜底沿用
+    _old_hf = {}
+    for _m in re.finditer(r"'((?:left|mid|right)_(?:header|footer))'\s*:\s*\{[^}]*\}", content):
+        try:
+            _old_hf[_m.group(1)] = ast.literal_eval(_m.group(2))
+        except Exception:
+            pass
     _kept_lines = []
     for _line in content.split('\n'):
         _stripped = _line.strip()
@@ -705,12 +713,15 @@ def _save_classic_config_file(old_name: str, new_name: str, title_mapping: dict,
     hf_lines = []
     for key in _HF_KEYS:
         cfg = (header_configs if 'header' in key else footer_configs).get(key)
-        if not cfg or not cfg.get('value'):
+        if not cfg:
+            cfg = _old_hf.get(key)  # 前端未传，沿用原模板配置
+        if not cfg:
             continue
+        _default_size = 10 if 'header' in key else 9
         hf_lines.append(
-            f"    '{key}': {{'type': {cfg.get('type', 1)}, 'value': '{cfg.get('value', '')}', "
-            f"'font': '{cfg.get('font', '宋体')}', 'font_size': {cfg.get('font_size', 10)}, "
-            f"'position': '{cfg.get('position', '')}'}},"
+            f"    '{key}': {{'type': {cfg.get('type', 1)}, 'value': '{cfg.get('value') or ''}', "
+            f"'font': '{cfg.get('font') or '宋体'}', 'font_size': {cfg.get('font_size') or _default_size}, "
+            f"'position': '{cfg.get('position') or ''}'}},"
         )
     if hf_lines:
         hf_block = '\n'.join(hf_lines) + '\n'
