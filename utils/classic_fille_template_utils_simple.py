@@ -875,18 +875,19 @@ class ClassicFillDataUtils():
                     tpl_context[rows_name] = rows
         return origin_header_real_header_mapping, tpl_context
     
-    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None, show_type=None):
+    def get_table_head_data_from_endpoint(self, task_id, analysis_id, all_display=0, digit=None, show_type=None, is_one_sample=None):
         if all_display:
             all_display=True
         else:
             all_display=False
-            
-        show_type_suffix = '&showType=' + urllib.parse.quote(str(show_type), safe='') if show_type else ''
-        if digit is not None:
-            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='') + show_type_suffix
-        else:
-            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + show_type_suffix
 
+        show_type_suffix = '&showType=' + urllib.parse.quote(str(show_type), safe='') if show_type else ''
+        is_one_sample_suffix = '&isOneSample=' + ('true' if is_one_sample else 'false') if is_one_sample is not None else ''
+        if digit is not None:
+            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + '&digit=' + urllib.parse.quote(str(digit), safe='') + show_type_suffix + is_one_sample_suffix
+        else:
+            template_common_url = config.classic_template_table_head_data_url + '?taskId=' + urllib.parse.quote(str(task_id), safe='') + '&analysisId=' + urllib.parse.quote(str(analysis_id), safe='') + '&allDisplay=' + urllib.parse.quote(str(all_display), safe='') + show_type_suffix + is_one_sample_suffix
+        print('调用表格数据的url:', template_common_url)
         # print(f"DEBUG: 请求表头数据URL: {template_common_url}")
         # print(f"DEBUG: 原始task_id: {repr(task_id)}, sample_id: {repr(sample_id)}")
         try:
@@ -1026,6 +1027,7 @@ class ClassicFillDataUtils():
             return {'header': [], 'row_data': []}
         head_list = end_point_header_and_data.get('headList')
         data_list = end_point_header_and_data.get('dataList')
+        print('data_list:', data_list)
         if self.single_sample:
             identity_list = []
             header = []
@@ -1034,13 +1036,14 @@ class ClassicFillDataUtils():
                 for head_mapping in head_list:
                     header.append(head_mapping.get('name'))
                     identity_list.append(head_mapping.get('identity'))
-                for data in data_list:
+                for wave_length_data_mapping in data_list:
                     row = []
-                    for index, identity in enumerate(identity_list):
-                        if data.get(identity):
-                            row.append(data.get(identity))
-                        else:
-                            row.append('')
+                    for wave_length, data in wave_length_data_mapping.items():
+                        row.append(data.get('id'))
+                        row.append(wave_length)
+                        for index, sample_num in enumerate(data.get('sampleNumber')):
+                            row.append(sample_num)
+                            row.append(data.get('peakValley')[index])
                     row_data.append(row)
         else:
             sample_num = 0 # 样品数量
@@ -1091,13 +1094,17 @@ class ClassicFillDataUtils():
                 header.append(head_mapping.get('name'))
                 identity_list.append(head_mapping.get('identity'))
             row_data = []
-            for data in data_list:
+            for wave_length_data_mapping in data_list:
                 row = []
-                for index, identity in enumerate(identity_list):
-                    if data.get(identity):
-                        row.append(data.get(identity))
-                    else:
-                        row.append('')
+                for time, data in wave_length_data_mapping.items():
+                    row.append(data.get('id'))
+                    row.append(time)
+                    for index, sample_num in enumerate(data.get('sampleNumber')):
+                        row.append(sample_num)
+                        if data.get('peakValley')[index]:
+                            row.append(data.get('peakValley')[index])
+                        else:
+                            row.append('')
                 row_data.append(row)
         else:
             sample_num = 0 # 样品数量

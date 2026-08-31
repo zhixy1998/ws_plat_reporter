@@ -34,13 +34,14 @@ class InputSchema(BaseModel):
     image_base64: str = Field(None, description='图片base64')
     export_report: bool = Field(False, description='是否导出报告，默认False')
     show_type: str = Field('', description='波峰, 波谷, 标记点')
+    is_one_sample: bool = Field(False, description='是否单样品')
 
 class OutSchema(BaseModel):
     pass
 
 
 async def _render_template_html(template_id: int, task_id: str, sample_id: str, analysis_id: str,
-                                image_base64: str, all_display: int, show_type: str):
+                                image_base64: str, all_display: int, show_type: str, is_one_sample: bool = False):
     """取模板 HTML，构建 contexts 并渲染为 HTML 字符串。返回 (name, rendered_html, contexts)。"""
     template = await TemplateDoc.get_or_none(id=template_id)
     if not template:
@@ -54,7 +55,7 @@ async def _render_template_html(template_id: int, task_id: str, sample_id: str, 
         fill_data_utils.single_sample = True
     contexts = await fill_data_utils.build_html_contexts(
         task_id=task_id, analysis_id=analysis_id, image_base64=image_base64, all_display=all_display,
-        show_type=show_type
+        show_type=show_type, is_one_sample=is_one_sample
     )
     rendered = ClassicHtmlBuilder(template_html=html_template_str).render_html(contexts)
     return template.name, rendered, contexts
@@ -69,6 +70,7 @@ async def export_docx(data: InputSchema):
     image_base64 = data.image_base64
     all_display = data.all_display
     show_type = data.show_type
+    is_one_sample = data.is_one_sample
     if not raw_data_report_id and not test_data_report_id:
         raise APIException(ErrorCode.AT_LEAST_ONE_TEMPLATE_ID)
     task_id = data.task_id
@@ -80,13 +82,13 @@ async def export_docx(data: InputSchema):
 
     if raw_data_report_id:
         report_template_name, rendered, first_contexts = await _render_template_html(
-            raw_data_report_id, task_id, sample_id, analysis_id, image_base64, all_display, show_type=show_type
+            raw_data_report_id, task_id, sample_id, analysis_id, image_base64, all_display, show_type=show_type, is_one_sample=is_one_sample
         )
         html_parts.append(rendered)
 
     if test_data_report_id:
         original_template_name, rendered, contexts = await _render_template_html(
-            test_data_report_id, task_id, sample_id, analysis_id, image_base64, all_display, show_type=show_type
+            test_data_report_id, task_id, sample_id, analysis_id, image_base64, all_display, show_type=show_type, is_one_sample=is_one_sample
         )
         if not first_contexts:
             first_contexts = contexts
