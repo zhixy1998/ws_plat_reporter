@@ -623,25 +623,10 @@ class ClassicFillDataUtils():
         yaxis_unit_val = _get_curve_field(curve_info, 'yaxisUnit', 'yAxisUnit', 'yaxis_unit', default='')
 
         # -------------------------------------------------------------
-        # 2. 判断横纵坐标轴属性：吸光度 还是 浓度
-        #    'C' / 'Conc' / '浓度' -> 浓度
-        #    'Abs' / 'A' / '吸光度' -> 吸光度
+        # 2. 直接使用返回的坐标轴标识（如 'C'、'Abs' 等），不转为中文
         # -------------------------------------------------------------
-        x_is_abs = str(xaxis_val).strip().lower() in ['abs', 'a', 'absorbance', '吸光度']
-        x_is_conc = str(xaxis_val).strip().lower() in ['c', 'conc', 'concentration', '浓度']
-        y_is_abs = str(yaxis_val).strip().lower() in ['abs', 'a', 'absorbance', '吸光度']
-        y_is_conc = str(yaxis_val).strip().lower() in ['c', 'conc', 'concentration', '浓度']
-
-        if x_is_conc or y_is_abs:
-            x_name = '浓度'
-            y_name = '吸光度'
-        elif x_is_abs or y_is_conc:
-            x_name = '吸光度'
-            y_name = '浓度'
-        else:
-            # 默认兜底：常规标准曲线横坐标为浓度，纵坐标为吸光度
-            x_name = '浓度'
-            y_name = '吸光度'
+        x_name = str(xaxis_val).strip()
+        y_name = str(yaxis_val).strip()
 
         # --------------------------------------------------------------------------
         # 【预留写死单位的位置】若需手动强制写死单位，可直接在下方变量赋值字符串：
