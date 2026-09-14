@@ -434,7 +434,8 @@ class ClassicFillDataUtils():
                         image_data_list, 
                         image_stand_point_list, 
                         image_unknown_point_list,
-                        tpl
+                        tpl,
+                        curve_info=curve_info
                     )
                     contexts['定量分析图片'] = quantitative_image if quantitative_image else ''
                 else:
@@ -531,7 +532,7 @@ class ClassicFillDataUtils():
         return contexts
         
 
-    async def generate_quantitative_chart(self, data_points, stand_points, unknown_points, tpl):
+    async def generate_quantitative_chart(self, data_points, stand_points, unknown_points, tpl, curve_info=None):
         """
         生成定量分析图表
         
@@ -540,6 +541,7 @@ class ClassicFillDataUtils():
             stand_points: 标准点列表 [{'x': 123, 'y': 456}, ...]
             unknown_points: 未知点列表 [{'x': 123, 'y': 456}, ...]
             tpl: DocxTemplate 对象
+            curve_info: 包含坐标轴标识及单位的字典 (xaxis, yaxis, xaxisUnit, yaxisUnit 等)
             
         Returns:
             InlineImage 对象或 None
@@ -600,9 +602,65 @@ class ClassicFillDataUtils():
             plt.scatter(unknown_x, unknown_y, c='red', s=120, marker='s', 
                         label=f'未知点 ({len(unknown_points)}个)', zorder=10, edgecolors='darkred', linewidth=2)
             
+        # -------------------------------------------------------------
+        # 1. 获取坐标轴标识与单位（不区分大小写）
+        # -------------------------------------------------------------
+        def _get_curve_field(d, *keys, default=''):
+            if not isinstance(d, dict):
+                return default
+            for k in keys:
+                if k in d and d[k] is not None:
+                    return d[k]
+            lower_d = {str(k).lower(): v for k, v in d.items()}
+            for k in keys:
+                if k.lower() in lower_d and lower_d[k.lower()] is not None:
+                    return lower_d[k.lower()]
+            return default
+
+        xaxis_val = _get_curve_field(curve_info, 'xaxis', 'xAxis', default='')
+        yaxis_val = _get_curve_field(curve_info, 'yaxis', 'yAxis', default='')
+        xaxis_unit_val = _get_curve_field(curve_info, 'xaxisUnit', 'xAxisUnit', 'xaxis_unit', default='')
+        yaxis_unit_val = _get_curve_field(curve_info, 'yaxisUnit', 'yAxisUnit', 'yaxis_unit', default='')
+
+        # -------------------------------------------------------------
+        # 2. 判断横纵坐标轴属性：吸光度 还是 浓度
+        #    'C' / 'Conc' / '浓度' -> 浓度
+        #    'Abs' / 'A' / '吸光度' -> 吸光度
+        # -------------------------------------------------------------
+        x_is_abs = str(xaxis_val).strip().lower() in ['abs', 'a', 'absorbance', '吸光度']
+        x_is_conc = str(xaxis_val).strip().lower() in ['c', 'conc', 'concentration', '浓度']
+        y_is_abs = str(yaxis_val).strip().lower() in ['abs', 'a', 'absorbance', '吸光度']
+        y_is_conc = str(yaxis_val).strip().lower() in ['c', 'conc', 'concentration', '浓度']
+
+        if x_is_conc or y_is_abs:
+            x_name = '浓度'
+            y_name = '吸光度'
+        elif x_is_abs or y_is_conc:
+            x_name = '吸光度'
+            y_name = '浓度'
+        else:
+            # 默认兜底：常规标准曲线横坐标为浓度，纵坐标为吸光度
+            x_name = '浓度'
+            y_name = '吸光度'
+
+        # --------------------------------------------------------------------------
+        # 【预留写死单位的位置】若需手动强制写死单位，可直接在下方变量赋值字符串：
+        # 例如: manual_xaxis_unit = "μg" 或 "mg/L", manual_yaxis_unit = "Abs"
+        # 当变量为 None 时，默认自动从 curve_info 中的 'xaxisUnit' 与 'yaxisUnit' 读取
+        # --------------------------------------------------------------------------
+        manual_xaxis_unit = None
+        manual_yaxis_unit = None
+
+        x_unit = manual_xaxis_unit if manual_xaxis_unit is not None else str(xaxis_unit_val or '').strip()
+        y_unit = manual_yaxis_unit if manual_yaxis_unit is not None else str(yaxis_unit_val or '').strip()
+
+        # 拼接标签（若单位不为空则带单位括号，单位为空时不带括号）
+        x_label = f"{x_name}({x_unit})" if x_unit else x_name
+        y_label = f"{y_name}({y_unit})" if y_unit else y_name
+
         # 设置图表样式
-        plt.xlabel('', fontsize=12)
-        plt.ylabel('', fontsize=12)
+        plt.xlabel(x_label, fontsize=12)
+        plt.ylabel(y_label, fontsize=12)
         plt.title('定量分析标准曲线', fontsize=14, fontweight='bold')
         plt.grid(True, alpha=0.3)
         plt.legend(loc='best', fontsize=10)
