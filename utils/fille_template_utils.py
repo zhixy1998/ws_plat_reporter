@@ -239,14 +239,13 @@ class FillDataUtils():
 
         # 3.5 动态表格列元数据（供 HTML 模板循环渲染未知样表格）
         _handler = getattr(self.table_data_processor, 'handler_instance', None)
-        if _handler and hasattr(_handler, 'TABLE_HEADER_MAP'):
-            _thm = _handler.TABLE_HEADER_MAP
-            _cols = []
-            _headers = {}
-            for _key, _name in _thm.items():
-                _col = _key.replace('_h', '')
-                _cols.append(_col)
-                _headers[_col] = _name
+        if _handler and (hasattr(_handler, 'TABLE_HEADER_MAP') or hasattr(_handler, 'HEADER_M_MAPPING_LIST')):
+            _thm = getattr(_handler, 'TABLE_HEADER_MAP', {}) or {}
+            if hasattr(_handler, 'HEADER_M_MAPPING_LIST') and _handler.HEADER_M_MAPPING_LIST:
+                _cols = list(_handler.HEADER_M_MAPPING_LIST[0].keys())
+            else:
+                _cols = [_key.replace('_h', '') for _key in _thm.keys()]
+            _headers = {c: _thm.get(f"{c}_h", self.contexts.get(f"{c}_h", _thm.get(c, ''))) for c in _cols}
             self.contexts['__table_columns__'] = _cols
             self.contexts['__table_headers__'] = _headers
             # TABLE_COL_SPANS 是比例，按比例分配总宽度 12，保证对齐
@@ -362,9 +361,8 @@ class FillDataUtils():
                     table_origin_header_data_mapping = {}
                     for jinja_header_value, m in origin_header_map.items():
                         table_title_k = jinja_header_value + '_h'
-                        if table_title_k not in self.TABLE_HEADER_MAP:
-                            print(f'数据字段{jinja_header_value}没有在TABLE_HEADER_MAP中定义，跳过该字段。 应该定义{table_title_k}')
-                            continue
+                        if self.TABLE_HEADER_MAP is not None and table_title_k not in self.TABLE_HEADER_MAP:
+                            self.TABLE_HEADER_MAP[table_title_k] = ''
                         if not self.fake:
                             real_header, identity = self.get_unknown_sample_header(m)
                             temp_context[table_title_k] = real_header if real_header else ''
@@ -1558,9 +1556,8 @@ class FillDataUtils():
                     for jinja_header_value, m in origin_header_map.items():
                         # 表头映射
                         table_title_k = jinja_header_value + '_h'
-                        if table_title_k not in self.TABLE_HEADER_MAP:
-                            print(f'数据字段{jinja_header_value}没有在TABLE_HEADER_MAP中定义，跳过该字段。 应该定义{table_title_k}')
-                            continue
+                        if self.TABLE_HEADER_MAP is not None and table_title_k not in self.TABLE_HEADER_MAP:
+                            self.TABLE_HEADER_MAP[table_title_k] = ''
                         if not self.fake:
                             real_header, identity = self.get_unknown_sample_header(m)
                             temp_context[table_title_k] = real_header if real_header else ''

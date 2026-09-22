@@ -6,6 +6,12 @@
 from .common_data import BaseTableDataHandler, checkbox
 
 python_template_var = {
+    "t1_h": {"fill_type": 0},
+    "t2_h": {"fill_type": 0},
+    "t3_h": {"fill_type": 0},
+    "t5_h": {"fill_type": 0},
+    "t6_h": {"fill_type": 0},
+    "t7_h": {"fill_type": 0},
     "t4_h": {"fill_type": 0},
     "remark": {"fill_type": 0},
     "t": {"fill_type": 0},
@@ -96,16 +102,18 @@ class TableDataHandler(BaseTableDataHandler):
         "t3": "Abs",
         "t4": "574-1",
         "t5": "sumAbs",
-        "t6": "2191OJP"
+        "t6": "2191OJP",
+        "t7": "sampleName"
     }]
 
     TABLE_HEADER_MAP = {
-        't1_h': '样品编号',
-        't2_h': '水样体积V（   ）',
-        't3_h': '空白试验吸光度A0',
-        't4_h': '试份溶液吸光度A',
-        't5_h': '亚硝酸盐',
-        't6_h': '平均值（   ）',
+        "t1_h": "样品编号",
+        "t2_h": "水样体积V（   ）",
+        "t3_h": "空白试验吸光度A0",
+        "t4_h": "试份溶液吸光度A",
+        "t5_h": "亚硝酸盐",
+        "t6_h": "平均值（   ）",
+        "t7_h": "样品名称"
     }
 
 
