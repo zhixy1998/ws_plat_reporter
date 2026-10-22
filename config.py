@@ -5,12 +5,14 @@ import tempfile
 from pathlib import Path
 from cryptography.fernet import Fernet
 
+BASE_DIR = Path(__file__).resolve().parent
+
 class Config:
     def __init__(self, config_path: str = None):
         self.config = configparser.ConfigParser()
         # 默认从 exe 运行目录（或当前工作目录）查找 config.ini
         if config_path is None:
-            config_path = Path(__file__).parent.parent / "ws_plat_reporter.ini"  # 假设 config.py 在 src 子目录，调整路径
+            config_path = Path(__file__).parent / "ws_plat_reporter.ini"  # 假设 config.py 在 src 子目录，调整路径
             # 或者使用 os.getcwd() 获取当前目录：config_path = Path(os.getcwd()) / "config.ini"
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -31,7 +33,7 @@ class Config:
         try:
             for key in ('structure_path', 'classic_structure_path'):
                 try:
-                    p = Path(self.config.get('guide', key))
+                    p = getattr(self, key)
                     parent = str(p.parent)
                     if parent not in sys.path:
                         sys.path.insert(0, parent)
@@ -39,6 +41,20 @@ class Config:
                     pass
         except Exception:
             pass
+
+    def _path(self, section: str, option: str, default: str = None) -> Path:
+        """读取路径类配置。
+
+        - 配置项缺失时使用 default（相对于项目根目录），避免导入期直接崩溃
+        - 配置了相对路径时按项目根目录解析，而不是按启动时的工作目录
+        """
+        raw = (self.config.get(section, option, fallback='') or '').strip()
+        if not raw:
+            if default is None:
+                raise KeyError(f"配置缺失: [{section}] {option}")
+            raw = default
+        p = Path(raw)
+        return p if p.is_absolute() else (BASE_DIR / p)
 
     # 步骤1：生成和当前电脑相同的密钥
     def get_cipher(self):
@@ -77,15 +93,21 @@ class Config:
     
     @property
     def port(self):
-        return int(self.config.get('env', 'reporter_port'))
+        # 兼容旧配置名 report_port
+        value = self.config.get('env', 'reporter_port', fallback='') or \
+            self.config.get('env', 'report_port', fallback='8001')
+        return int(value)
     
     @property
     def log_level(self):
-        return self.config.get('env', 'reporter_log_level')
+        # 兼容旧配置名 report_log_level
+        return self.config.get('env', 'reporter_log_level', fallback='') or \
+            self.config.get('env', 'report_log_level', fallback='info')
     
     @property
     def libre_office_path(self):
-        return self.config.get('env', 'libre_office_path')
+        return self.config.get('env', 'libre_office_path',
+                               fallback='C:/Program Files/LibreOffice/program/soffice.exe')
 
     @property
     def browser_executable_path(self):
@@ -94,7 +116,7 @@ class Config:
     
     @property
     def report_worker(self):
-        return int(self.config.get('env', 'report_worker'))
+        return int(self.config.get('env', 'report_worker', fallback='4'))
     
     @property
     def deploy_python_path(self):
@@ -123,7 +145,7 @@ class Config:
     
     @property
     def structure_path(self):
-        return Path(self.config.get('guide', 'structure_path'))
+        return self._path('guide', 'structure_path', 'template_structure')
 
     @property
     def structure_module(self):
@@ -132,7 +154,7 @@ class Config:
 
     @property
     def classic_structure_path(self):
-        return Path(self.config.get('guide', 'classic_structure_path'))
+        return self._path('guide', 'classic_structure_path', 'template_structure_classic')
 
     @property
     def classic_structure_module(self):
@@ -141,7 +163,7 @@ class Config:
     
     @property
     def image_path(self):
-        return Path(self.config.get('guide', 'image_path'))
+        return self._path('guide', 'image_path', 'utils/verification_calibration_utils/img')
     
     @property
     def java_domain(self):

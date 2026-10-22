@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "cmd /c cd /d D:\work\ws_plat_reporter && venv\Scripts\activate && uvicorn app.main:app --reload --port 8001 --host 0.0.0.0", 0, False
